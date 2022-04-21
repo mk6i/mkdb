@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestBasic(t *testing.T) {
+func TestEncodeDecode(t *testing.T) {
 
 	page := &page{
 		cellType:  KeyCell,
@@ -45,5 +45,30 @@ func TestBasic(t *testing.T) {
 
 	if !reflect.DeepEqual(page, actual) {
 		t.Errorf("Structs are not the same: %v\n%v", page, actual)
+	}
+}
+
+func TestMemoryStore(t *testing.T) {
+
+	pages := []*page{
+		&page{},
+		&page{},
+		&page{},
+	}
+
+	m := &memoryStore{}
+
+	for _, p := range pages {
+		m.append(p)
+	}
+
+	for idx, p := range pages {
+		fp, err := m.fetch(uint16(idx))
+		if err != nil {
+			t.Errorf("unable to fetch page at offset %d", idx)
+		}
+		if fp != p {
+			t.Errorf("page at offset %d is not the same as the one inserted", idx)
+		}
 	}
 }

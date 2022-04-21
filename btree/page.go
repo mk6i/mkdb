@@ -3,6 +3,7 @@ package btree
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 )
 
 type cellType uint8
@@ -84,4 +85,25 @@ func (r *pageBuffer) decode() *page {
 	}
 
 	return p
+}
+
+type store interface {
+	append(p *page) (uint32, error)
+	fetch(offset uint16) (*page, error)
+}
+
+type memoryStore struct {
+	pages []*page
+}
+
+func (m *memoryStore) append(p *page) (uint32, error) {
+	m.pages = append(m.pages, p)
+	return uint32(len(m.pages) - 1), nil
+}
+
+func (m *memoryStore) fetch(offset uint16) (*page, error) {
+	if int(offset) >= len(m.pages) {
+		return nil, errors.New("page does not exist in store")
+	}
+	return m.pages[offset], nil
 }
