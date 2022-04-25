@@ -19,9 +19,8 @@ type keyCell struct {
 }
 
 type keyValueCell struct {
-	keySize    uint16
+	key        uint32
 	valueSize  uint32
-	keyBytes   []byte
 	valueBytes []byte
 }
 
@@ -31,6 +30,40 @@ type page struct {
 	offsets   []uint16
 	freeSize  uint16
 	cells     []interface{}
+}
+
+func (p *page) cellKey(offset int) uint32 {
+	switch {
+	case p.cellType == KeyCell:
+		return p.cells[offset].(keyCell).key
+	case p.cellType == KeyValueCell:
+		return p.cells[offset].(keyValueCell).key
+	default:
+		panic("unsupported keyValueCell binary search")
+	}
+}
+
+// findCellByKey searches for a cell by key. if found is true, offset is the
+// position of key in the cell slice. if found is false, offset is key's
+// insertion point (the index of the first element greater than key).
+func (p *page) findCellByKey(key uint32) (offset int, found bool) {
+	low := 0
+	high := len(p.cells) - 1
+
+	for low <= high {
+		mid := low + (high-low)/2
+		midVal := p.cellKey(mid)
+		switch {
+		case midVal == key:
+			return mid, true
+		case midVal < key:
+			low = mid + 1
+		default:
+			high = mid - 1
+		}
+	}
+
+	return low, false
 }
 
 type pageBuffer struct {
