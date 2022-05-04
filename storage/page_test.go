@@ -78,21 +78,21 @@ func TestFindCellByKey(t *testing.T) {
 		{
 			cellType: KeyCell,
 			cells: []interface{}{
-				keyCell{key: 1},
-				keyCell{key: 3},
-				keyCell{key: 5},
-				keyCell{key: 7},
-				keyCell{key: 9},
+				&keyCell{key: 1},
+				&keyCell{key: 3},
+				&keyCell{key: 5},
+				&keyCell{key: 7},
+				&keyCell{key: 9},
 			},
 		},
 		{
 			cellType: KeyValueCell,
 			cells: []interface{}{
-				keyValueCell{key: 1},
-				keyValueCell{key: 3},
-				keyValueCell{key: 5},
-				keyValueCell{key: 7},
-				keyValueCell{key: 9},
+				&keyValueCell{key: 1},
+				&keyValueCell{key: 3},
+				&keyValueCell{key: 5},
+				&keyValueCell{key: 7},
+				&keyValueCell{key: 9},
 			},
 		},
 	}
@@ -167,7 +167,7 @@ func findCellByKeyTestCase(t *testing.T, pg *page) {
 	}
 
 	for _, v := range tbl {
-		expectedOffset, expectedFound := pg.findCellByKey(v.key)
+		expectedOffset, expectedFound := pg.findCellOffsetByKey(v.key)
 		if expectedOffset != v.expectedOffset || expectedFound != v.expectedFound {
 			t.Errorf("[key]: %d [page]: %v [expectedOffset]: %d [actualOffset]: %d [expectedFound]: %t [actualFound]: %t",
 				v.key, pg, v.expectedOffset, expectedOffset, v.expectedFound, expectedFound)
