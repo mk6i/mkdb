@@ -7,10 +7,18 @@ import (
 
 func TestBTree(t *testing.T) {
 
-	bt := &BTree{&memoryStore{}}
-	bt.append(&page{
+	rootPg := &page{
 		cellType: KeyValueCell,
-	})
+	}
+
+	bt := &BTree{
+		store: &memoryStore{
+			branchFactor: 4,
+		},
+	}
+
+	bt.store.append(rootPg)
+	bt.setRoot(rootPg)
 
 	tbl := []struct {
 		key uint32
@@ -19,6 +27,8 @@ func TestBTree(t *testing.T) {
 		{key: 1, val: []byte("hello")},
 		{key: 2, val: []byte("bounjour")},
 		{key: 3, val: []byte("hallo")},
+		{key: 4, val: []byte("chat")},
+		{key: 5, val: []byte("chien")},
 	}
 
 	for _, expect := range tbl {
