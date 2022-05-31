@@ -9,10 +9,9 @@ import (
 func TestEncodeDecode(t *testing.T) {
 
 	page := &page{
-		cellType:  KeyCell,
-		cellCount: 4,
-		offsets:   []uint16{2, 1, 0, 4},
-		freeSize:  4049,
+		cellType: KeyCell,
+		offsets:  []uint16{2, 1, 0, 3},
+		freeSize: 4049,
 		cells: []interface{}{
 			keyCell{
 				key:    123,
@@ -63,7 +62,7 @@ func TestMemoryStore(t *testing.T) {
 	}
 
 	for idx, p := range pages {
-		fp, err := m.fetch(uint16(idx))
+		fp, err := m.fetch(uint32(idx))
 		if err != nil {
 			t.Errorf("unable to fetch page at expectedOffset %d", idx)
 		}
@@ -77,6 +76,9 @@ func TestFindCellByKey(t *testing.T) {
 	pages := []*page{
 		{
 			cellType: KeyCell,
+			offsets: []uint16{
+				0, 1, 2, 3, 4,
+			},
 			cells: []interface{}{
 				&keyCell{key: 1},
 				&keyCell{key: 3},
@@ -87,6 +89,9 @@ func TestFindCellByKey(t *testing.T) {
 		},
 		{
 			cellType: KeyValueCell,
+			offsets: []uint16{
+				0, 1, 2, 3, 4,
+			},
 			cells: []interface{}{
 				&keyValueCell{key: 1},
 				&keyValueCell{key: 3},
@@ -171,6 +176,77 @@ func findCellByKeyTestCase(t *testing.T, pg *page) {
 		if expectedOffset != v.expectedOffset || expectedFound != v.expectedFound {
 			t.Errorf("[key]: %d [page]: %v [expectedOffset]: %d [actualOffset]: %d [expectedFound]: %t [actualFound]: %t",
 				v.key, pg, v.expectedOffset, expectedOffset, v.expectedFound, expectedFound)
+		}
+	}
+}
+
+func TestSplitLeafNode(t *testing.T) {
+
+	branchingFactor := uint32(4)
+
+	pg := &page{
+		cellType: KeyValueCell,
+	}
+
+	pg.appendCell(0, []byte("hello 0"))
+	pg.appendCell(1, []byte("hello 1"))
+	pg.appendCell(2, []byte("hello 2"))
+	pg.appendCell(3, []byte("hello 3"))
+
+	if !pg.isFull(branchingFactor) {
+		t.Errorf("page is supposed to be full but is not. branching factor: %d", branchingFactor)
+	}
+
+	newPg := &page{}
+	parentKey := pg.split(newPg)
+
+	if parentKey != 2 {
+		t.Errorf("parent key is unexpected. actual: %d", parentKey)
+	}
+	if len(pg.cells) != 2 {
+		t.Errorf("old page is supposed to be half size but is not. size: %d", len(pg.cells))
+	}
+	if len(newPg.cells) != 2 {
+		t.Errorf("new page is supposed to be half size but is not. size: %d", len(newPg.cells))
+	}
+
+	expected := []interface{}{
+		&keyValueCell{
+			key:        0,
+			valueSize:  uint32(len([]byte("hello 0"))),
+			valueBytes: []byte("hello 0"),
+		},
+		&keyValueCell{
+			key:        1,
+			valueSize:  uint32(len([]byte("hello 1"))),
+			valueBytes: []byte("hello 1"),
+		},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		actual := pg.cells[pg.offsets[i]]
+		if !reflect.DeepEqual(actual.(*keyValueCell), expected[i].(*keyValueCell)) {
+			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
+		}
+	}
+
+	expected = []interface{}{
+		&keyValueCell{
+			key:        2,
+			valueSize:  uint32(len([]byte("hello 2"))),
+			valueBytes: []byte("hello 2"),
+		},
+		&keyValueCell{
+			key:        3,
+			valueSize:  uint32(len([]byte("hello 3"))),
+			valueBytes: []byte("hello 3"),
+		},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		actual := newPg.cells[pg.offsets[i]]
+		if !reflect.DeepEqual(actual.(*keyValueCell), expected[i].(*keyValueCell)) {
+			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
 	}
 }
