@@ -33,8 +33,8 @@ func TestBTree(t *testing.T) {
 		{key: 7, val: []byte("nail")},
 		{key: 8, val: []byte("screwdriver")},
 		{key: 9, val: []byte("screw")},
-		// {key: 10, val: []byte("saw")},
-		// {key: 11, val: []byte("lumber")},
+		{key: 10, val: []byte("saw")},
+		{key: 11, val: []byte("lumber")},
 	}
 
 	for _, expect := range tbl {

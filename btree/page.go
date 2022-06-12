@@ -103,30 +103,36 @@ func (p *page) isFull(branchFactor uint32) bool {
 
 func (p *page) split(newPg *page) uint32 {
 
-	mid := len(p.offsets) / 2
+	if p.cellType == KeyValueCell {
+		mid := len(p.offsets) / 2
 
-	for i := mid; i < len(p.offsets); i++ {
-		if p.cellType == KeyCell {
-			cell := p.cells[p.offsets[i]].(*keyCell)
-			newPg.appendKeyCell(cell.key, cell.pageID)
-		} else {
+		for i := mid; i < len(p.offsets); i++ {
 			cell := p.cells[p.offsets[i]].(*keyValueCell)
 			newPg.appendCell(cell.key, cell.valueBytes)
 		}
+
+		p.offsets = p.offsets[0:mid]
+		p.cells = p.cells[0:mid]
+		cell := newPg.cells[newPg.offsets[0]].(*keyValueCell)
+		return cell.key
 	}
+
+	// else keycell...
+	mid := len(p.offsets) / 2
+
+	for i := mid + 1; i < len(p.offsets); i++ {
+		cell := p.cells[p.offsets[i]].(*keyCell)
+		newPg.appendKeyCell(cell.key, cell.pageID)
+	}
+
+	newPg.setRightMostKey(p.rightOffset)
+	key := p.cells[mid].(*keyCell).key
+	p.setRightMostKey(p.cells[mid].(*keyCell).pageID)
 
 	p.offsets = p.offsets[0:mid]
+	// might be the wrong way to truncate since offsets may not align with
+	// cells?
 	p.cells = p.cells[0:mid]
-
-	var key uint32
-
-	if p.cellType == KeyCell {
-		cell := newPg.cells[p.offsets[0]].(*keyCell)
-		key = cell.key
-	} else {
-		cell := newPg.cells[p.offsets[0]].(*keyValueCell)
-		key = cell.key
-	}
 
 	return key
 }
