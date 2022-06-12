@@ -38,14 +38,18 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 				if pg.isFull(b.store.getBranchFactor()) {
 					newPg := &page{}
 					newKey := pg.split(newPg)
-					offset, err := b.store.append(newPg)
-					if err != nil {
-						panic(fmt.Sprintf("error appending page to store: %s", err.Error()))
-					}
-					if childPg.cellType == KeyCell {
-						parent.appendKeyCell(newKey, offset)
+					b.store.append(newPg)
+					if parent == nil {
+						parent = &page{
+							cellType: KeyCell,
+						}
+						b.store.setRoot(parent)
+						b.store.append(parent)
+						parent.setRightMostKey(newPg.pageID)
+						parent.appendKeyCell(newKey, pg.pageID)
 					} else {
-						parent.appendKeyCell(newKey, offset)
+						parent.appendKeyCell(newKey, parent.rightOffset)
+						parent.setRightMostKey(newPg.pageID)
 					}
 				}
 				break
@@ -69,8 +73,11 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 				b.store.setRoot(parent)
 				b.store.append(parent)
 				parent.setRightMostKey(newPg.pageID)
+				parent.appendKeyCell(newKey, pg.pageID)
+			} else {
+				parent.appendKeyCell(newKey, parent.rightOffset)
+				parent.setRightMostKey(newPg.pageID)
 			}
-			parent.appendKeyCell(newKey, pg.pageID)
 		}
 	}
 }
