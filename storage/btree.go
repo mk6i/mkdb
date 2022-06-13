@@ -37,8 +37,8 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 
 				if pg.isFull(b.store.getBranchFactor()) {
 					newPg := &page{}
-					newKey := pg.split(newPg)
 					b.store.append(newPg)
+					newKey := pg.split(newPg)
 					if parent == nil {
 						parent = &page{
 							cellType: KeyCell,
@@ -64,8 +64,8 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 			newPg := &page{
 				cellType: KeyValueCell,
 			}
-			newKey := pg.split(newPg)
 			b.store.append(newPg)
+			newKey := pg.split(newPg)
 			if parent == nil {
 				parent = &page{
 					cellType: KeyCell,
@@ -81,6 +81,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 		}
 	}
 }
+
 func (b *BTree) find(key uint32) ([]byte, error) {
 
 	pg := b.store.getRoot()
@@ -108,4 +109,75 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+func (b *BTree) scanRight() chan *keyValueCell {
+
+	// find left-most leaf node
+	node := b.getRoot()
+	for node.cellType == KeyCell {
+		pgID := node.cells[0].(*keyCell).pageID
+		var err error
+		node, err = b.store.fetch(pgID)
+		if err != nil {
+			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+		}
+	}
+
+	ch := make(chan *keyValueCell)
+
+	go func(pg *page) {
+		for {
+			for _, offset := range pg.offsets {
+				ch <- pg.cells[offset].(*keyValueCell)
+			}
+			if pg.hasRSib {
+				var err error
+				pg, err = b.store.fetch(pg.rSibPageID)
+				if err != nil {
+					panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+				}
+			} else {
+				break
+			}
+		}
+		close(ch)
+	}(node)
+
+	return ch
+}
+
+func (b *BTree) scanLeft() chan *keyValueCell {
+
+	// find right-most leaf node
+	node := b.getRoot()
+	for node.cellType == KeyCell {
+		var err error
+		node, err = b.store.fetch(node.rightOffset)
+		if err != nil {
+			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+		}
+	}
+
+	ch := make(chan *keyValueCell)
+
+	go func(pg *page) {
+		for {
+			for i := len(pg.offsets) - 1; i >= 0; i-- {
+				ch <- pg.cells[pg.offsets[i]].(*keyValueCell)
+			}
+			if pg.hasLSib {
+				var err error
+				pg, err = b.store.fetch(pg.lSibPageID)
+				if err != nil {
+					panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+				}
+			} else {
+				break
+			}
+		}
+		close(ch)
+	}(node)
+
+	return ch
 }

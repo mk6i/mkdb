@@ -32,6 +32,10 @@ type page struct {
 	freeSize    uint16
 	cells       []interface{}
 	rightOffset uint32
+	hasLSib     bool
+	hasRSib     bool
+	lSibPageID  uint32
+	rSibPageID  uint32
 }
 
 func (p *page) setRightMostKey(pageID uint32) {
@@ -110,6 +114,11 @@ func (p *page) split(newPg *page) uint32 {
 			cell := p.cells[p.offsets[i]].(*keyValueCell)
 			newPg.appendCell(cell.key, cell.valueBytes)
 		}
+
+		p.rSibPageID = newPg.pageID
+		newPg.lSibPageID = p.pageID
+		p.hasRSib = true
+		newPg.hasLSib = true
 
 		p.offsets = p.offsets[0:mid]
 		p.cells = p.cells[0:mid]
