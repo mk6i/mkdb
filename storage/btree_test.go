@@ -56,4 +56,22 @@ func TestBTree(t *testing.T) {
 			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val, expect.val)
 		}
 	}
+
+	ch := bt.scanRight()
+
+	for _, expect := range tbl {
+		val := <-ch
+		if !bytes.Equal(val.valueBytes, expect.val) {
+			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)
+		}
+	}
+
+	ch = bt.scanLeft()
+
+	for i := len(tbl) - 1; i >= 0; i-- {
+		val := <-ch
+		if !bytes.Equal(val.valueBytes, tbl[i].val) {
+			t.Errorf("value mismatch")
+		}
+	}
 }
