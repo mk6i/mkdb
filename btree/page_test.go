@@ -2,6 +2,7 @@ package btree
 
 import (
 	"bytes"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -69,6 +70,54 @@ func TestMemoryStore(t *testing.T) {
 		if fp != p {
 			t.Errorf("page at expectedOffset %d is not the same as the one inserted", idx)
 		}
+	}
+}
+
+func TestFileStore(t *testing.T) {
+
+	fs1 := fileStore{
+		path:           "/tmp/page_file",
+		branchFactor:   4,
+		nextFreeOffset: 4096,
+	}
+
+	defer os.Remove(fs1.path)
+
+	err := fs1.save()
+	if err != nil {
+		t.Errorf("unable to save file store: %s", err.Error())
+	}
+
+	fs2 := fileStore{
+		path: "/tmp/page_file",
+	}
+
+	err = fs2.open()
+	if err != nil {
+		t.Errorf("unable to open file store: %s", err.Error())
+	}
+
+	if fs1.branchFactor != fs2.branchFactor {
+		t.Errorf("file store branch factors do not match")
+	}
+
+	if fs1.nextFreeOffset != fs2.nextFreeOffset {
+		t.Errorf("file store branch factors do not match")
+	}
+
+	root := &page{
+		cellType: KeyValueCell,
+	}
+	_, err = fs2.append(root)
+	if err != nil {
+		t.Errorf("error appending root: %s", err.Error())
+	}
+	fs2.setRoot(root)
+
+	root2 := fs2.getRoot()
+
+	if root.cellType != root2.cellType {
+		t.Errorf("root cell types do not match")
 	}
 }
 
