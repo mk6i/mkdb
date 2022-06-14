@@ -1,9 +1,13 @@
 package btree
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"io"
+	"os"
 )
 
 type cellType uint8
@@ -252,4 +256,158 @@ func (m *memoryStore) fetch(offset uint32) (*page, error) {
 		return nil, errors.New("page does not exist in store")
 	}
 	return m.pages[offset], nil
+}
+
+type fileStore struct {
+	path           string
+	lastKey        uint32
+	rootOffset     uint32
+	branchFactor   uint32
+	nextFreeOffset uint32
+}
+
+func (f *fileStore) getBranchFactor() uint32 {
+	return f.branchFactor
+}
+
+func (f *fileStore) getRoot() *page {
+	pg, err := f.fetch(f.rootOffset)
+	if err != nil {
+		panic(fmt.Sprintf("error fetching root: %s", err.Error()))
+	}
+	return pg
+}
+
+func (f *fileStore) setRoot(pg *page) {
+	f.rootOffset = pg.pageID
+	f.save()
+}
+
+func (f *fileStore) getLastKey() uint32 {
+	return f.lastKey
+}
+
+func (f *fileStore) incrementLastKey() {
+	f.lastKey++
+	f.save()
+}
+
+func (f *fileStore) append(p *page) (uint32, error) {
+
+	p.pageID = f.nextFreeOffset
+
+	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	_, err = file.Seek(int64(f.nextFreeOffset), 0)
+	if err != nil {
+		return 0, err
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0))
+	pb := &pageBuffer{
+		buf: buf,
+	}
+
+	err = pb.encode(p)
+	if err != nil {
+		return 0, err
+	}
+
+	_, err = file.Write(buf.Bytes())
+	if err != nil {
+		return 0, err
+	}
+
+	f.nextFreeOffset += 4096
+
+	return p.pageID, nil
+}
+
+func (f *fileStore) fetch(offset uint32) (*page, error) {
+	file, err := os.Open(f.path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	buf := make([]byte, 4096)
+	_, err = file.ReadAt(buf, int64(offset))
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	pb := &pageBuffer{
+		buf: bytes.NewBuffer(buf),
+	}
+
+	pg := pb.decode()
+
+	return pg, nil
+}
+
+func (f *fileStore) save() error {
+
+	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriter(file)
+
+	err = binary.Write(writer, binary.LittleEndian, f.lastKey)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(writer, binary.LittleEndian, f.rootOffset)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(writer, binary.LittleEndian, f.branchFactor)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(writer, binary.LittleEndian, f.nextFreeOffset)
+	if err != nil {
+		return err
+	}
+
+	return writer.Flush()
+}
+
+func (f *fileStore) open() error {
+
+	file, err := os.Open(f.path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = binary.Read(file, binary.LittleEndian, &f.lastKey)
+	if err != nil {
+		return err
+	}
+	err = binary.Read(file, binary.LittleEndian, &f.rootOffset)
+	if err != nil {
+		return err
+	}
+	err = binary.Read(file, binary.LittleEndian, &f.branchFactor)
+	if err != nil {
+		return err
+	}
+	err = binary.Read(file, binary.LittleEndian, &f.nextFreeOffset)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
