@@ -43,8 +43,8 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 						parent = &page{
 							cellType: KeyCell,
 						}
-						b.store.setRoot(parent)
 						b.store.append(parent)
+						b.store.setRoot(parent)
 						parent.setRightMostKey(newPg.pageID)
 						parent.appendKeyCell(newKey, pg.pageID)
 					} else {
@@ -70,8 +70,8 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 				parent = &page{
 					cellType: KeyCell,
 				}
-				b.store.setRoot(parent)
 				b.store.append(parent)
+				b.store.setRoot(parent)
 				parent.setRightMostKey(newPg.pageID)
 				parent.appendKeyCell(newKey, pg.pageID)
 			} else {
