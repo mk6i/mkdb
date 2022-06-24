@@ -252,9 +252,6 @@ func TestSplitLeafNode(t *testing.T) {
 	if parentKey != 2 {
 		t.Errorf("parent key is unexpected. actual: %d", parentKey)
 	}
-	if len(pg.cells) != 2 {
-		t.Errorf("old page is supposed to be half size but is not. size: %d", len(pg.cells))
-	}
 	if len(newPg.cells) != 2 {
 		t.Errorf("new page is supposed to be half size but is not. size: %d", len(newPg.cells))
 	}
