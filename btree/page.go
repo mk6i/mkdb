@@ -78,6 +78,34 @@ func (p *page) appendCell(key uint32, value []byte) error {
 	return nil
 }
 
+func (p *page) insertKeyCell(offset uint32, key uint32, pageID uint32) error {
+	p.offsets = append(p.offsets[:offset+1], p.offsets[offset:]...)
+	p.offsets[offset] = uint16(len(p.cells))
+	p.cells = append(p.cells, &keyCell{
+		key:    key,
+		pageID: pageID,
+	})
+	// todo: there has to be a better way to express this
+	p.cells[p.offsets[offset]].(*keyCell).pageID, p.cells[p.offsets[offset+1]].(*keyCell).pageID = p.cells[p.offsets[offset+1]].(*keyCell).pageID, p.cells[p.offsets[offset]].(*keyCell).pageID
+
+	return nil
+}
+
+func (p *page) insertCell(offset uint32, key uint32, value []byte) error {
+	if uint32(len(p.offsets)) == offset { // nil or empty slice or after last element
+		p.offsets = append(p.offsets, uint16(len(p.cells)))
+	} else {
+		p.offsets = append(p.offsets[:offset+1], p.offsets[offset:]...) // index < len(a)
+		p.offsets[offset] = uint16(len(p.cells))
+	}
+	p.cells = append(p.cells, &keyValueCell{
+		key:        key,
+		valueSize:  uint32(len(value)),
+		valueBytes: value,
+	})
+	return nil
+}
+
 func (p *page) getCellValue(offset int) []byte {
 	return p.cells[offset].(*keyValueCell).valueBytes
 }
@@ -119,13 +147,8 @@ func (p *page) split(newPg *page) uint32 {
 			newPg.appendCell(cell.key, cell.valueBytes)
 		}
 
-		p.rSibPageID = newPg.pageID
-		newPg.lSibPageID = p.pageID
-		p.hasRSib = true
-		newPg.hasLSib = true
-
 		p.offsets = p.offsets[0:mid]
-		p.cells = p.cells[0:mid]
+		// todo make old cells reusable
 		cell := newPg.cells[newPg.offsets[0]].(*keyValueCell)
 		return cell.key
 	}
@@ -143,11 +166,13 @@ func (p *page) split(newPg *page) uint32 {
 	p.setRightMostKey(p.cells[mid].(*keyCell).pageID)
 
 	p.offsets = p.offsets[0:mid]
-	// might be the wrong way to truncate since offsets may not align with
-	// cells?
-	p.cells = p.cells[0:mid]
+	// todo make old cells reusable
 
 	return key
+}
+
+func (p *page) getRightmostKey() uint32 {
+	return p.cells[p.offsets[len(p.offsets)-1]].(*keyCell).key
 }
 
 type pageBuffer struct {

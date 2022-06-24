@@ -9,14 +9,16 @@ type BTree struct {
 }
 
 func (b *BTree) insert(value []byte) (uint32, error) {
-
 	nextKey := b.store.getLastKey() + 1
-	pg := b.store.getRoot()
-
-	b.insertHelper(nil, pg, nextKey, value)
+	offset, err := b.insertKey(nextKey, value)
 	b.store.incrementLastKey()
+	return offset, err
+}
 
-	return nextKey, nil
+func (b *BTree) insertKey(key uint32, value []byte) (uint32, error) {
+	pg := b.store.getRoot()
+	b.insertHelper(nil, pg, key, value)
+	return key, nil
 }
 
 func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
@@ -56,7 +58,11 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 			}
 		}
 	} else {
-		err := pg.appendCell(key, value)
+		offset, found := pg.findCellOffsetByKey(key)
+		if found {
+			panic(fmt.Sprintf("key already exists at offset %d", offset))
+		}
+		err := pg.insertCell(uint32(offset), key, value)
 		if err != nil {
 			panic(fmt.Sprintf("error appending cell: %s", err.Error()))
 		}
@@ -66,6 +72,13 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 			}
 			b.store.append(newPg)
 			newKey := pg.split(newPg)
+
+			oldRSibPageID := pg.rSibPageID
+			pg.hasRSib = true
+			pg.rSibPageID = newPg.pageID
+			newPg.hasLSib = true
+			newPg.lSibPageID = pg.pageID
+
 			if parent == nil {
 				parent = &page{
 					cellType: KeyCell,
@@ -75,8 +88,23 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 				parent.setRightMostKey(newPg.pageID)
 				parent.appendKeyCell(newKey, pg.pageID)
 			} else {
-				parent.appendKeyCell(newKey, parent.rightOffset)
-				parent.setRightMostKey(newPg.pageID)
+				if newKey > parent.getRightmostKey() {
+					parent.appendKeyCell(newKey, parent.rightOffset)
+					parent.setRightMostKey(newPg.pageID)
+				} else {
+					newPg.hasRSib = true
+					newPg.rSibPageID = oldRSibPageID
+
+					offset, found := parent.findCellOffsetByKey(newKey)
+					if found {
+						panic(fmt.Sprintf("error appending cell: %d", key))
+					}
+					parent.insertKeyCell(uint32(offset), newKey, newPg.pageID)
+
+					// update old right sibling's left pointer
+					rightSib, _ := b.store.fetch(oldRSibPageID)
+					rightSib.lSibPageID = newPg.pageID
+				}
 			}
 		}
 	}
@@ -101,14 +129,12 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 		}
 	}
 
-	for i := 0; i < len(pg.offsets); i++ {
-		if pg.cellKey(pg.offsets[i]) == key {
-			cell := pg.cells[i].(*keyValueCell)
-			return cell.valueBytes, nil
-		}
+	offset, found := pg.findCellOffsetByKey(key)
+	if !found {
+		return nil, nil
 	}
-
-	return nil, nil
+	cell := pg.cells[pg.offsets[offset]].(*keyValueCell)
+	return cell.valueBytes, nil
 }
 
 func (b *BTree) scanRight() chan *keyValueCell {
@@ -116,7 +142,7 @@ func (b *BTree) scanRight() chan *keyValueCell {
 	// find left-most leaf node
 	node := b.getRoot()
 	for node.cellType == KeyCell {
-		pgID := node.cells[0].(*keyCell).pageID
+		pgID := node.cells[node.offsets[0]].(*keyCell).pageID
 		var err error
 		node, err = b.store.fetch(pgID)
 		if err != nil {
