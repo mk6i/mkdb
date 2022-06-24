@@ -22,37 +22,37 @@ func (b *BTree) insert(value []byte) (uint32, error) {
 func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 
 	if pg.cellType == KeyCell {
-		for i := 0; i <= len(pg.offsets); i++ {
-			if i == len(pg.offsets) || key < pg.cellKey(pg.offsets[i]) {
 
-				var pgID uint32
-				if i == len(pg.offsets) {
-					pgID = pg.rightOffset
-				} else {
-					pgID = pg.cells[pg.offsets[i]].(*keyCell).pageID
+		offset, found := pg.findCellOffsetByKey(key)
+		if found {
+			panic(fmt.Sprintf("error appending cell: %d", key))
+		}
+
+		var pgID uint32
+		if offset == len(pg.offsets) {
+			pgID = pg.rightOffset
+		} else {
+			pgID = pg.cells[pg.offsets[offset]].(*keyCell).pageID
+		}
+
+		childPg, _ := b.store.fetch(pgID)
+		b.insertHelper(pg, childPg, key, value)
+
+		if pg.isFull(b.store.getBranchFactor()) {
+			newPg := &page{}
+			b.store.append(newPg)
+			newKey := pg.split(newPg)
+			if parent == nil {
+				parent = &page{
+					cellType: KeyCell,
 				}
-
-				childPg, _ := b.store.fetch(pgID)
-				b.insertHelper(pg, childPg, key, value)
-
-				if pg.isFull(b.store.getBranchFactor()) {
-					newPg := &page{}
-					b.store.append(newPg)
-					newKey := pg.split(newPg)
-					if parent == nil {
-						parent = &page{
-							cellType: KeyCell,
-						}
-						b.store.append(parent)
-						b.store.setRoot(parent)
-						parent.setRightMostKey(newPg.pageID)
-						parent.appendKeyCell(newKey, pg.pageID)
-					} else {
-						parent.appendKeyCell(newKey, parent.rightOffset)
-						parent.setRightMostKey(newPg.pageID)
-					}
-				}
-				break
+				b.store.append(parent)
+				b.store.setRoot(parent)
+				parent.setRightMostKey(newPg.pageID)
+				parent.appendKeyCell(newKey, pg.pageID)
+			} else {
+				parent.appendKeyCell(newKey, parent.rightOffset)
+				parent.setRightMostKey(newPg.pageID)
 			}
 		}
 	} else {
