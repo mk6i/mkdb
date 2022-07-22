@@ -32,6 +32,7 @@ const (
 	BEGIN
 	BY
 	CASE
+	COMMA
 	COMMIT
 	COUNT
 	DISTINCT
@@ -102,6 +103,7 @@ var Tokens = map[TokenType]string{
 	BEGIN:    "BEGIN",
 	BY:       "BY",
 	CASE:     "CASE",
+	COMMA:    ",",
 	COMMIT:   "COMMIT",
 	COUNT:    "COUNT",
 	DISTINCT: "DISTINCT",
@@ -154,6 +156,50 @@ type Token struct {
 	Text   string
 }
 
+type TokenList struct {
+	tokens []Token
+	cur    int
+}
+
+var EOFToken = Token{Type: EOF}
+
+func (tl *TokenList) Add(t Token) {
+	tl.tokens = append(tl.tokens, t)
+}
+
+func (tl *TokenList) Prev() Token {
+	if tl.cur == 0 {
+		return EOFToken
+	}
+	return tl.tokens[tl.cur-1]
+}
+
+func (tl *TokenList) Cur() Token {
+	if tl.cur == len(tl.tokens) {
+		return EOFToken
+	}
+	return tl.tokens[tl.cur]
+}
+
+func (tl *TokenList) HasNext() bool {
+	return tl.cur < len(tl.tokens)-1
+}
+
+func (tl *TokenList) Peek() Token {
+	if tl.cur == len(tl.tokens)-1 {
+		return EOFToken
+	}
+	return tl.tokens[tl.cur+1]
+}
+
+func (tl *TokenList) Advance() bool {
+	if tl.cur == len(tl.tokens) {
+		return false
+	}
+	tl.cur++
+	return true
+}
+
 type tokenScanner struct {
 	s   scanner.Scanner
 	cur rune
@@ -169,20 +215,26 @@ func (ts *tokenScanner) Cur() Token {
 	tok := Token{
 		Column: ts.s.Column,
 		Line:   ts.s.Line,
-		Text:   ts.s.TokenText(),
 	}
 	switch ts.cur {
 	case scanner.EOF:
 		tok.Type = EOF
 	case scanner.Ident:
-		tok.Type = IDENT
+		if kw, isKw := keywords[ts.s.TokenText()]; isKw {
+			tok.Type = kw
+		} else {
+			tok.Type = IDENT
+			tok.Text = ts.s.TokenText()
+		}
 	case scanner.Int:
 		tok.Type = INT
+		tok.Text = ts.s.TokenText()
 	default:
-		if kw, isKw := keywords[tok.Text]; isKw {
+		if kw, isKw := keywords[ts.s.TokenText()]; isKw {
 			tok.Type = kw
 		} else {
 			tok.Type = STR
+			tok.Text = ts.s.TokenText()
 		}
 	}
 	return tok
