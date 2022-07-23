@@ -34,7 +34,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			Type: IDENT,
-			Text: "ident",
+			Text: "ident1",
 		},
 		{
 			Type: EQ,
@@ -42,6 +42,20 @@ func TestParse(t *testing.T) {
 		{
 			Type: STR,
 			Text: "\"some literal\"",
+		},
+		{
+			Type: AND,
+		},
+		{
+			Type: IDENT,
+			Text: "ident2",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "1234",
 		},
 	}
 
@@ -64,21 +78,7 @@ func TestParse(t *testing.T) {
 			FromClause: FromClause{
 				Relation("the_table"),
 			},
-			WhereClause: &WhereClause{
-				Left: Primary{
-					Token: Token{
-						Type: IDENT,
-						Text: "ident",
-					},
-				},
-				Right: Primary{
-					Token: Token{
-						Type: STR,
-						Text: "\"some literal\"",
-					},
-				},
-				Operator: EQ,
-			},
+			WhereClause: &WhereClause{},
 		},
 	}
 
