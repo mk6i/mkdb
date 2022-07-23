@@ -60,23 +60,25 @@ func TestParse(t *testing.T) {
 				},
 			},
 		},
-		FromList: FromList{
-			Relation("the_table"),
-		},
-		Condition: Condition{
-			Left: Primary{
-				Token: Token{
-					Type: IDENT,
-					Text: "ident",
-				},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				Relation("the_table"),
 			},
-			Right: Primary{
-				Token: Token{
-					Type: STR,
-					Text: "\"some literal\"",
+			WhereClause: &WhereClause{
+				Left: Primary{
+					Token: Token{
+						Type: IDENT,
+						Text: "ident",
+					},
 				},
+				Right: Primary{
+					Token: Token{
+						Type: STR,
+						Text: "\"some literal\"",
+					},
+				},
+				Operator: EQ,
 			},
-			Operator: EQ,
 		},
 	}
 

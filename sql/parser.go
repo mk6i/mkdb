@@ -6,9 +6,13 @@ import (
 )
 
 type Select struct {
-	SelectList SelectList
-	FromList   FromList
-	Condition  Condition
+	SelectList
+	TableExpression
+}
+
+type TableExpression struct {
+	FromClause
+	*WhereClause
 }
 type Primary struct {
 	Token Token
@@ -17,8 +21,8 @@ type Primary struct {
 type Relation string
 type Pattern string
 type SelectList []Primary
-type FromList []Relation
-type Condition struct {
+type FromClause []Relation
+type WhereClause struct {
 	Left     interface{}
 	Right    interface{}
 	Operator TokenType
@@ -45,25 +49,70 @@ func (p *Parser) Select() (Select, error) {
 		return sel, err
 	}
 
-	if !p.match(FROM) {
-		return sel, p.assertType(FROM)
-	}
-
-	sel.FromList, err = p.FromList()
-	if err != nil {
-		return sel, err
-	}
-
-	if !p.match(WHERE) {
-		return sel, p.assertType(WHERE)
-	}
-
-	sel.Condition, err = p.ParseCondition()
+	sel.TableExpression, err = p.TableExpression()
 	if err != nil {
 		return sel, err
 	}
 
 	return sel, nil
+}
+
+func (p *Parser) TableExpression() (TableExpression, error) {
+	te := TableExpression{}
+	var err error
+
+	te.FromClause, err = p.FromClause()
+	if err != nil {
+		return te, err
+	}
+
+	te.WhereClause, err = p.WhereClause()
+	if err != nil {
+		return te, err
+	}
+
+	return te, err
+}
+
+func (p *Parser) FromClause() (FromClause, error) {
+	fl := FromClause{}
+
+	if !p.match(FROM) {
+		return fl, nil
+	}
+
+	for p.match(IDENT) {
+		fl = append(fl, Relation(p.Prev().Text))
+	}
+
+	return fl, nil
+}
+
+func (p *Parser) WhereClause() (*WhereClause, error) {
+	if !p.match(WHERE) {
+		return nil, nil
+	}
+
+	wc := &WhereClause{}
+	var err error
+
+	wc.Left, err = p.Primary()
+	if err != nil {
+		return nil, err
+	}
+
+	wc.Operator = p.Cur().Type
+
+	switch {
+	case p.match(IN):
+		wc.Right, err = p.Select()
+	case p.match(EQ, LIKE):
+		wc.Right, err = p.Primary()
+	default:
+		err = p.assertType(IN, EQ, LIKE)
+	}
+
+	return wc, err
 }
 
 func (p *Parser) SelectList() (SelectList, error) {
@@ -77,39 +126,6 @@ func (p *Parser) SelectList() (SelectList, error) {
 	}
 
 	return sl, nil
-}
-
-func (p *Parser) FromList() (FromList, error) {
-	fl := FromList{}
-
-	for p.match(IDENT) {
-		fl = append(fl, Relation(p.Prev().Text))
-	}
-
-	return fl, nil
-}
-
-func (p *Parser) ParseCondition() (Condition, error) {
-	cnd := Condition{}
-	var err error
-
-	cnd.Left, err = p.Primary()
-	if err != nil {
-		return cnd, err
-	}
-
-	cnd.Operator = p.Cur().Type
-
-	switch {
-	case p.match(IN):
-		cnd.Right, err = p.Select()
-	case p.match(EQ, LIKE):
-		cnd.Right, err = p.Primary()
-	default:
-		err = p.assertType(IN, EQ, LIKE)
-	}
-
-	return cnd, err
 }
 
 func (p *Parser) Primary() (Primary, error) {
