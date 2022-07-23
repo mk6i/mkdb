@@ -23,9 +23,27 @@ type Pattern string
 type SelectList []Primary
 type FromClause []Relation
 type WhereClause struct {
-	Left     interface{}
-	Right    interface{}
-	Operator TokenType
+	OrCondition interface{}
+}
+
+type OrCondition struct {
+	lhs interface{}
+	rhs interface{}
+}
+
+type AndCondition struct {
+	lhs *Predicate
+	rhs interface{}
+}
+
+type Predicate struct {
+	*ComparisonPredicate
+}
+
+type ComparisonPredicate struct {
+	lhs    interface{}
+	CompOp TokenType
+	rhs    interface{}
 }
 
 type Parser struct {
@@ -95,6 +113,50 @@ func (p *Parser) WhereClause() (*WhereClause, error) {
 
 	wc := &WhereClause{}
 	var err error
+	wc.OrCondition, err = p.OrCondition()
+
+	return wc, err
+}
+
+func (p *Parser) OrCondition() (interface{}, error) {
+	var ret interface{}
+
+	ret, err := p.AndCondition()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(OR) {
+		ret = &OrCondition{lhs: ret.(*Predicate)}
+		ret.(*OrCondition).rhs, err = p.OrCondition()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
+func (p *Parser) AndCondition() (interface{}, error) {
+	var ret interface{}
+
+	ret, err := p.Predicate()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(AND) {
+		ret = &AndCondition{lhs: ret.(*Predicate)}
+		ret.(*AndCondition).rhs, err = p.AndCondition()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
+func (p *Parser) Predicate() (*Predicate, error) {
 
 	wc.Left, err = p.Primary()
 	if err != nil {
