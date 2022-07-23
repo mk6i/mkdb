@@ -29,40 +29,34 @@ type Parser struct {
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	switch p.Cur().Type {
-	case SELECT:
-		p.Advance()
-		return p.ParseSelect()
-	default:
-		return nil, fmt.Errorf("unexpected token type: %s", Tokens[p.Cur().Type])
+	switch {
+	case p.match(SELECT):
+		return p.Select()
 	}
+	return nil, fmt.Errorf("unexpected token type: %s", Tokens[p.Cur().Type])
 }
 
-func (p *Parser) ParseSelect() (Select, error) {
+func (p *Parser) Select() (Select, error) {
 	sel := Select{}
-
 	var err error
-	sel.SelectList, err = p.ParseSelectList()
+
+	sel.SelectList, err = p.SelectList()
 	if err != nil {
 		return sel, err
 	}
 
-	if err := p.assertType(FROM); err != nil {
-		return sel, err
+	if !p.match(FROM) {
+		return sel, p.assertType(FROM)
 	}
 
-	p.Advance()
-
-	sel.FromList, err = p.ParseFromList()
+	sel.FromList, err = p.FromList()
 	if err != nil {
 		return sel, err
 	}
 
-	if err := p.assertType(WHERE); err != nil {
-		return sel, err
+	if !p.match(WHERE) {
+		return sel, p.assertType(WHERE)
 	}
-
-	p.Advance()
 
 	sel.Condition, err = p.ParseCondition()
 	if err != nil {
@@ -70,6 +64,71 @@ func (p *Parser) ParseSelect() (Select, error) {
 	}
 
 	return sel, nil
+}
+
+func (p *Parser) SelectList() (SelectList, error) {
+	sl := SelectList{}
+
+	for p.match(ASTRSK, IDENT, STR) {
+		sl = append(sl, Primary{p.Prev()})
+		if !p.match(COMMA, WHERE) {
+			break
+		}
+	}
+
+	return sl, nil
+}
+
+func (p *Parser) FromList() (FromList, error) {
+	fl := FromList{}
+
+	for p.match(IDENT) {
+		fl = append(fl, Relation(p.Prev().Text))
+	}
+
+	return fl, nil
+}
+
+func (p *Parser) ParseCondition() (Condition, error) {
+	cnd := Condition{}
+	var err error
+
+	cnd.Left, err = p.Primary()
+	if err != nil {
+		return cnd, err
+	}
+
+	cnd.Operator = p.Cur().Type
+
+	switch {
+	case p.match(IN):
+		cnd.Right, err = p.Select()
+	case p.match(EQ, LIKE):
+		cnd.Right, err = p.Primary()
+	default:
+		err = p.assertType(IN, EQ, LIKE)
+	}
+
+	return cnd, err
+}
+
+func (p *Parser) Primary() (Primary, error) {
+	ret := Primary{}
+
+	if p.match(STR, IDENT, ASTRSK) {
+		ret.Token = p.Prev()
+		return ret, nil
+	}
+
+	return ret, p.assertType(IDENT, ASTRSK)
+}
+
+func (p *Parser) match(types ...TokenType) bool {
+	if p.hasType(types...) {
+		p.Advance()
+		return true
+	}
+	return false
 }
 
 func (p *Parser) hasType(types ...TokenType) bool {
@@ -94,81 +153,4 @@ func (p *Parser) assertType(types ...TokenType) error {
 		return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ","))
 	}
 	return nil
-}
-
-func (p *Parser) ParseSelectList() (SelectList, error) {
-	sl := SelectList{}
-
-	if err := p.assertType(ASTRSK, IDENT, STR); err != nil {
-		return sl, err
-	}
-
-	for p.hasType(ASTRSK, IDENT, STR) {
-		sl = append(sl, Primary{p.Cur()})
-		p.Advance()
-		if p.hasType(COMMA, WHERE) {
-			p.Advance()
-		} else {
-			break
-		}
-	}
-
-	return sl, nil
-}
-
-func (p *Parser) ParseFromList() (FromList, error) {
-	fl := FromList{}
-
-	if err := p.assertType(IDENT); err != nil {
-		return fl, err
-	}
-
-	for p.hasType(IDENT) {
-		fl = append(fl, Relation(p.Cur().Text))
-		p.Advance()
-	}
-
-	return fl, nil
-}
-
-func (p *Parser) ParseCondition() (Condition, error) {
-	cnd := Condition{}
-
-	var err error
-
-	cnd.Left, err = p.ParsePrimary()
-	if err != nil {
-		return cnd, err
-	}
-
-	cnd.Operator = p.Cur().Type
-	p.Advance()
-
-	switch p.Prev().Type {
-	case IN:
-		cnd.Right, err = p.ParseSelect()
-	case EQ:
-		fallthrough
-	case LIKE:
-		cnd.Right, err = p.ParsePrimary()
-	}
-
-	return cnd, err
-}
-
-func (p *Parser) ParsePrimary() (Primary, error) {
-	ret := Primary{}
-
-	switch p.Cur().Type {
-	case STR:
-		fallthrough
-	case IDENT:
-		fallthrough
-	case ASTRSK:
-		ret.Token = p.Cur()
-		p.Advance()
-		return ret, nil
-	}
-
-	return ret, p.assertType(IDENT, ASTRSK)
 }
