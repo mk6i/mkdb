@@ -12,32 +12,32 @@ type Select struct {
 
 type TableExpression struct {
 	FromClause
-	*WhereClause
+	WhereClause interface{}
 }
-type Primary struct {
+type ValueExpression struct {
 	Token Token
 }
 
 type Relation string
 type Pattern string
-type SelectList []Primary
+type SelectList []ValueExpression
 type FromClause []Relation
 type WhereClause struct {
-	OrCondition interface{}
+	SearchCondition interface{}
 }
 
-type OrCondition struct {
+type SearchCondition struct {
 	lhs interface{}
 	rhs interface{}
 }
 
-type AndCondition struct {
-	lhs *Predicate
+type BooleanTerm struct {
+	lhs Predicate
 	rhs interface{}
 }
 
 type Predicate struct {
-	*ComparisonPredicate
+	ComparisonPredicate
 }
 
 type ComparisonPredicate struct {
@@ -47,7 +47,7 @@ type ComparisonPredicate struct {
 }
 
 type Parser struct {
-	*TokenList
+	TokenList
 }
 
 func (p *Parser) Parse() (interface{}, error) {
@@ -106,14 +106,15 @@ func (p *Parser) FromClause() (FromClause, error) {
 	return fl, nil
 }
 
-func (p *Parser) WhereClause() (*WhereClause, error) {
+func (p *Parser) WhereClause() (WhereClause, error) {
+	wc := WhereClause{}
+
 	if !p.match(WHERE) {
-		return nil, nil
+		return wc, nil
 	}
 
-	wc := &WhereClause{}
 	var err error
-	wc.OrCondition, err = p.OrCondition()
+	wc.SearchCondition, err = p.OrCondition()
 
 	return wc, err
 }
@@ -127,11 +128,12 @@ func (p *Parser) OrCondition() (interface{}, error) {
 	}
 
 	for p.match(OR) {
-		ret = &OrCondition{lhs: ret.(*Predicate)}
-		ret.(*OrCondition).rhs, err = p.OrCondition()
+		ac := SearchCondition{lhs: ret.(Predicate)}
+		ac.rhs, err = p.OrCondition()
 		if err != nil {
 			return nil, err
 		}
+		ret = ac
 	}
 
 	return ret, nil
@@ -146,59 +148,73 @@ func (p *Parser) AndCondition() (interface{}, error) {
 	}
 
 	for p.match(AND) {
-		ret = &AndCondition{lhs: ret.(*Predicate)}
-		ret.(*AndCondition).rhs, err = p.AndCondition()
+		ac := BooleanTerm{lhs: ret.(Predicate)}
+		ac.rhs, err = p.AndCondition()
 		if err != nil {
 			return nil, err
 		}
+		ret = ac
 	}
 
 	return ret, nil
 }
 
-func (p *Parser) Predicate() (*Predicate, error) {
-
-	wc.Left, err = p.Primary()
+func (p *Parser) Predicate() (interface{}, error) {
+	pred, err := p.ComparisonPredicate()
 	if err != nil {
 		return nil, err
 	}
+	return Predicate{
+		pred,
+	}, nil
+}
 
-	wc.Operator = p.Cur().Type
+func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
+	cp := ComparisonPredicate{}
+	var err error
 
-	switch {
-	case p.match(IN):
-		wc.Right, err = p.Select()
-	case p.match(EQ, LIKE):
-		wc.Right, err = p.Primary()
-	default:
-		err = p.assertType(IN, EQ, LIKE)
+	cp.lhs, err = p.ValueExpression()
+	if err != nil {
+		return cp, err
 	}
 
-	return wc, err
+	if p.match(EQ, NEQ, LT, GT, LTE, GTE) {
+		cp.CompOp = p.Prev().Type
+	} else {
+		return cp, p.assertType(EQ, NEQ, LT, GT, LTE, GTE)
+	}
+
+	cp.rhs, err = p.ValueExpression()
+	if err != nil {
+		return cp, err
+	}
+
+	return cp, nil
+
+}
+
+func (p *Parser) ValueExpression() (ValueExpression, error) {
+	ret := ValueExpression{}
+
+	if p.match(STR, IDENT, INT) {
+		ret.Token = p.Prev()
+		return ret, nil
+	}
+
+	return ret, p.assertType(IDENT, ASTRSK)
 }
 
 func (p *Parser) SelectList() (SelectList, error) {
 	sl := SelectList{}
 
 	for p.match(ASTRSK, IDENT, STR) {
-		sl = append(sl, Primary{p.Prev()})
+		sl = append(sl, ValueExpression{p.Prev()})
 		if !p.match(COMMA, WHERE) {
 			break
 		}
 	}
 
 	return sl, nil
-}
-
-func (p *Parser) Primary() (Primary, error) {
-	ret := Primary{}
-
-	if p.match(STR, IDENT, ASTRSK) {
-		ret.Token = p.Prev()
-		return ret, nil
-	}
-
-	return ret, p.assertType(IDENT, ASTRSK)
 }
 
 func (p *Parser) match(types ...TokenType) bool {

@@ -19,6 +19,7 @@ const (
 	OR
 	ASTRSK
 	EQ
+	NEQ
 	GT
 	LT
 	LTE
@@ -92,6 +93,7 @@ var Tokens = map[TokenType]string{
 	OR:     "OR",
 	ASTRSK: "*",
 	EQ:     "=",
+	NEQ:    "!=",
 	GT:     ">",
 	LT:     "<",
 	LTE:    "<=",

@@ -51,7 +51,7 @@ func TestParse(t *testing.T) {
 			Text: "ident2",
 		},
 		{
-			Type: EQ,
+			Type: NEQ,
 		},
 		{
 			Type: INT,
@@ -61,13 +61,13 @@ func TestParse(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Primary{
+			ValueExpression{
 				Token: Token{
 					Type: IDENT,
 					Text: "field_1",
 				},
 			},
-			Primary{
+			ValueExpression{
 				Token: Token{
 					Type: IDENT,
 					Text: "field_2",
@@ -78,7 +78,52 @@ func TestParse(t *testing.T) {
 			FromClause: FromClause{
 				Relation("the_table"),
 			},
-			WhereClause: &WhereClause{},
+			WhereClause: WhereClause{
+				SearchCondition: BooleanTerm{
+					lhs: Predicate{
+						ComparisonPredicate{
+							lhs: ValueExpression{
+								Token{
+									Type:   IDENT,
+									Line:   0,
+									Column: 0,
+									Text:   "ident1",
+								},
+							},
+							CompOp: EQ,
+							rhs: ValueExpression{
+								Token{
+									Type:   STR,
+									Line:   0,
+									Column: 0,
+									Text:   "\"some literal\"",
+								},
+							},
+						},
+					},
+					rhs: Predicate{
+						ComparisonPredicate{
+							lhs: ValueExpression{
+								Token{
+									Type:   IDENT,
+									Line:   0,
+									Column: 0,
+									Text:   "ident2",
+								},
+							},
+							CompOp: NEQ,
+							rhs: ValueExpression{
+								Token{
+									Type:   INT,
+									Line:   0,
+									Column: 0,
+									Text:   "1234",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -86,7 +131,7 @@ func TestParse(t *testing.T) {
 		tokens: input,
 		cur:    0,
 	}
-	p := &Parser{&tl}
+	p := &Parser{tl}
 
 	actual, err := p.Parse()
 
@@ -95,6 +140,6 @@ func TestParse(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("ASTs are not the same. expected: %v actual :%v", expected, actual)
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
 	}
 }
