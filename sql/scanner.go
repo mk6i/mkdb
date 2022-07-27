@@ -2,6 +2,7 @@ package sql
 
 import (
 	"io"
+	"strings"
 	"text/scanner"
 )
 
@@ -36,6 +37,7 @@ const (
 	COMMA
 	COMMIT
 	COUNT
+	CREATE
 	DISTINCT
 	ELSE
 	END
@@ -57,7 +59,11 @@ const (
 	ORDER
 	OUTER
 	SELECT
+	SEMICOLON
 	SUM
+	T_INT
+	T_VARCHAR
+	TABLE
 	THEN
 	TRUE
 	UNION
@@ -101,42 +107,47 @@ var Tokens = map[TokenType]string{
 	LPAREN: "(",
 	RPAREN: ")",
 
-	AS:       "AS",
-	BEGIN:    "BEGIN",
-	BY:       "BY",
-	CASE:     "CASE",
-	COMMA:    ",",
-	COMMIT:   "COMMIT",
-	COUNT:    "COUNT",
-	DISTINCT: "DISTINCT",
-	ELSE:     "ELSE",
-	END:      "END",
-	EXISTS:   "EXISTS",
-	FALSE:    "FALSE",
-	FROM:     "FROM",
-	FULL:     "FULL",
-	GROUP:    "GROUP",
-	HAVING:   "HAVING",
-	IN:       "IN",
-	JOIN:     "JOIN",
-	LEFT:     "LEFT",
-	LIKE:     "LIKE",
-	MAX:      "MAX",
-	MIN:      "MIN",
-	NOT:      "NOT",
-	NULL:     "NULL",
-	ON:       "ON",
-	ORDER:    "ORDER",
-	OUTER:    "OUTER",
-	SELECT:   "SELECT",
-	SUM:      "SUM",
-	THEN:     "THEN",
-	TRUE:     "TRUE",
-	UNION:    "UNION",
-	UNIQUE:   "UNIQUE",
-	WHEN:     "WHEN",
-	WHERE:    "WHERE",
-	WITH:     "WITH",
+	AS:        "AS",
+	BEGIN:     "BEGIN",
+	BY:        "BY",
+	CASE:      "CASE",
+	COMMA:     ",",
+	COMMIT:    "COMMIT",
+	COUNT:     "COUNT",
+	CREATE:    "CREATE",
+	DISTINCT:  "DISTINCT",
+	ELSE:      "ELSE",
+	END:       "END",
+	EXISTS:    "EXISTS",
+	FALSE:     "FALSE",
+	FROM:      "FROM",
+	FULL:      "FULL",
+	GROUP:     "GROUP",
+	HAVING:    "HAVING",
+	IN:        "IN",
+	JOIN:      "JOIN",
+	LEFT:      "LEFT",
+	LIKE:      "LIKE",
+	MAX:       "MAX",
+	MIN:       "MIN",
+	NOT:       "NOT",
+	NULL:      "NULL",
+	ON:        "ON",
+	ORDER:     "ORDER",
+	OUTER:     "OUTER",
+	SELECT:    "SELECT",
+	SEMICOLON: ";",
+	SUM:       "SUM",
+	T_INT:     "int",
+	T_VARCHAR: "VARCHAR",
+	TABLE:     "TABLE",
+	THEN:      "THEN",
+	TRUE:      "TRUE",
+	UNION:     "UNION",
+	UNIQUE:    "UNIQUE",
+	WHEN:      "WHEN",
+	WHERE:     "WHERE",
+	WITH:      "WITH",
 }
 
 var keywords map[string]TokenType
@@ -222,7 +233,7 @@ func (ts *tokenScanner) Cur() Token {
 	case scanner.EOF:
 		tok.Type = EOF
 	case scanner.Ident:
-		if kw, isKw := keywords[ts.s.TokenText()]; isKw {
+		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			tok.Type = kw
 		} else {
 			tok.Type = IDENT
@@ -232,7 +243,7 @@ func (ts *tokenScanner) Cur() Token {
 		tok.Type = INT
 		tok.Text = ts.s.TokenText()
 	default:
-		if kw, isKw := keywords[ts.s.TokenText()]; isKw {
+		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			tok.Type = kw
 		} else {
 			tok.Type = STR
