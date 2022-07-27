@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -46,16 +47,119 @@ type ComparisonPredicate struct {
 	rhs    interface{}
 }
 
+type CreateTable struct {
+	Name     string
+	Elements []TableElement
+}
+
+type TableElement struct {
+	ColumnDefinition
+}
+
+type ColumnDefinition struct {
+	DataType interface{}
+	Name     string
+}
+
+type CharacterStringType struct {
+	Len  int
+	Type TokenType
+}
+
+type NumericType struct {
+}
+
 type Parser struct {
 	TokenList
 }
 
 func (p *Parser) Parse() (interface{}, error) {
 	switch {
+	case p.match(CREATE):
+		return p.Create()
 	case p.match(SELECT):
 		return p.Select()
 	}
 	return nil, fmt.Errorf("unexpected token type: %s", Tokens[p.Cur().Type])
+}
+
+func (p *Parser) Create() (interface{}, error) {
+	switch {
+	case p.match(TABLE):
+		return p.CreateTable()
+	}
+	return nil, p.assertType(TABLE)
+}
+
+func (p *Parser) CreateTable() (CreateTable, error) {
+	ct := CreateTable{}
+	var err error
+
+	if p.match(IDENT) {
+		ct.Name = p.Prev().Text
+	}
+
+	ct.Elements, err = p.TableElements()
+	if err != nil {
+		return ct, err
+	}
+
+	return ct, nil
+}
+
+func (p *Parser) TableElements() ([]TableElement, error) {
+
+	var ret []TableElement
+
+	if !p.match(LPAREN) {
+		return ret, p.assertType(LPAREN)
+	}
+
+	for p.match(IDENT) {
+		te := TableElement{
+			ColumnDefinition: ColumnDefinition{
+				Name: p.Prev().Text,
+			},
+		}
+		switch {
+		case p.match(T_INT):
+			te.ColumnDefinition.DataType = NumericType{}
+		case p.match(T_VARCHAR):
+			cst := CharacterStringType{
+				Type: p.Prev().Type,
+			}
+			if !p.match(LPAREN) {
+				return ret, p.assertType(LPAREN)
+			}
+			if p.match(INT) {
+				intVal, err := strconv.Atoi(p.Prev().Text)
+				if err != nil {
+					return ret, err
+				}
+				cst.Len = intVal
+			} else {
+				return ret, p.assertType(INT)
+			}
+			if !p.match(RPAREN) {
+				return ret, p.assertType(RPAREN)
+			}
+			te.ColumnDefinition.DataType = cst
+		default:
+			return ret, p.assertType(T_INT, T_VARCHAR)
+		}
+
+		ret = append(ret, te)
+
+		if !p.match(COMMA) {
+			break
+		}
+	}
+
+	if !p.match(RPAREN) {
+		return ret, p.assertType(RPAREN)
+	}
+
+	return ret, nil
 }
 
 func (p *Parser) Select() (Select, error) {
