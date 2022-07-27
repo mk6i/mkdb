@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestScan(t *testing.T) {
+func TestScanSelect(t *testing.T) {
 
 	const src = `SELECT field_1, field_2 FROM the_table WHERE ident = "some literal" OR ident2 = 12`
 
@@ -61,6 +61,84 @@ func TestScan(t *testing.T) {
 		{
 			Type: INT,
 			Text: "12",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
+
+func TestScanCreateTable(t *testing.T) {
+
+	const src = `
+		CREATE TABLE Persons (
+			PersonID int,
+			LastName varchar(255)
+		);
+	`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: CREATE,
+		},
+		{
+			Type: TABLE,
+		},
+		{
+			Type: IDENT,
+			Text: "Persons",
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: IDENT,
+			Text: "PersonID",
+		},
+		{
+			Type: IDENT,
+			Text: "int",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "LastName",
+		},
+		{
+			Type: T_VARCHAR,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "255",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: SEMICOLON,
 		},
 	}
 

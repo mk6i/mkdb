@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestParseSelect(t *testing.T) {
 
 	input := []Token{
 		{
@@ -122,6 +122,92 @@ func TestParse(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseCreateTable(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: CREATE,
+		},
+		{
+			Type: TABLE,
+		},
+		{
+			Type: IDENT,
+			Text: "Persons",
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: IDENT,
+			Text: "PersonID",
+		},
+		{
+			Type: T_INT,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "LastName",
+		},
+		{
+			Type: T_VARCHAR,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "255",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: RPAREN,
+		},
+	}
+
+	expected := CreateTable{
+		Name: "Persons",
+		Elements: []TableElement{
+			{
+				ColumnDefinition{
+					DataType: NumericType{},
+					Name:     "PersonID",
+				},
+			},
+			{
+				ColumnDefinition{
+					DataType: CharacterStringType{
+						Len:  255,
+						Type: T_VARCHAR,
+					},
+					Name: "LastName",
 				},
 			},
 		},
