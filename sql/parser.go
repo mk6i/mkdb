@@ -73,6 +73,10 @@ type Parser struct {
 	TokenList
 }
 
+type CreateDatabase struct {
+	Name string
+}
+
 func (p *Parser) Parse() (interface{}, error) {
 	switch {
 	case p.match(CREATE):
@@ -85,10 +89,24 @@ func (p *Parser) Parse() (interface{}, error) {
 
 func (p *Parser) Create() (interface{}, error) {
 	switch {
+	case p.match(DATABASE):
+		return p.CreateDatabase()
 	case p.match(TABLE):
 		return p.CreateTable()
 	}
 	return nil, p.assertType(TABLE)
+}
+
+func (p *Parser) CreateDatabase() (CreateDatabase, error) {
+	cd := CreateDatabase{}
+
+	if p.match(IDENT) {
+		cd.Name = p.Prev().Text
+	} else {
+		return cd, p.assertType(IDENT)
+	}
+
+	return cd, nil
 }
 
 func (p *Parser) CreateTable() (CreateTable, error) {
