@@ -78,34 +78,39 @@ type CreateDatabase struct {
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	switch {
-	case p.match(CREATE):
-		return p.Create()
-	case p.match(SELECT):
-		return p.Select()
+	if ok, err := p.requireMatch(CREATE, SELECT); !ok {
+		return nil, err
 	}
-	return nil, fmt.Errorf("unexpected token type: %s", Tokens[p.Cur().Type])
+	switch p.Prev().Type {
+	case CREATE:
+		return p.Create()
+	case SELECT:
+		return p.Select()
+	default:
+		panic("unhandled type")
+	}
 }
 
 func (p *Parser) Create() (interface{}, error) {
-	switch {
-	case p.match(DATABASE):
-		return p.CreateDatabase()
-	case p.match(TABLE):
-		return p.CreateTable()
+	if ok, err := p.requireMatch(DATABASE, TABLE); !ok {
+		return nil, err
 	}
-	return nil, p.assertType(TABLE)
+	switch p.Prev().Type {
+	case DATABASE:
+		return p.CreateDatabase()
+	case TABLE:
+		return p.CreateTable()
+	default:
+		panic("unhandled type")
+	}
 }
 
 func (p *Parser) CreateDatabase() (CreateDatabase, error) {
 	cd := CreateDatabase{}
-
-	if p.match(IDENT) {
-		cd.Name = p.Prev().Text
-	} else {
-		return cd, p.assertType(IDENT)
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return cd, err
 	}
-
+	cd.Name = p.Prev().Text
 	return cd, nil
 }
 
@@ -129,41 +134,46 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 
 	var ret []TableElement
 
-	if !p.match(LPAREN) {
-		return ret, p.assertType(LPAREN)
+	if ok, err := p.requireMatch(LPAREN); !ok {
+		return ret, err
 	}
 
 	for p.match(IDENT) {
+
 		te := TableElement{
 			ColumnDefinition: ColumnDefinition{
 				Name: p.Prev().Text,
 			},
 		}
-		switch {
-		case p.match(T_INT):
+
+		if ok, err := p.requireMatch(T_INT, T_VARCHAR); !ok {
+			return ret, err
+		}
+
+		switch p.Prev().Type {
+		case T_INT:
 			te.ColumnDefinition.DataType = NumericType{}
-		case p.match(T_VARCHAR):
+		case T_VARCHAR:
 			cst := CharacterStringType{
 				Type: p.Prev().Type,
 			}
-			if !p.match(LPAREN) {
-				return ret, p.assertType(LPAREN)
+			if ok, err := p.requireMatch(LPAREN); !ok {
+				return ret, err
 			}
-			if p.match(INT) {
-				intVal, err := strconv.Atoi(p.Prev().Text)
-				if err != nil {
-					return ret, err
-				}
-				cst.Len = intVal
-			} else {
-				return ret, p.assertType(INT)
+			if ok, err := p.requireMatch(INT); !ok {
+				return ret, err
 			}
-			if !p.match(RPAREN) {
-				return ret, p.assertType(RPAREN)
+			intVal, err := strconv.Atoi(p.Prev().Text)
+			if err != nil {
+				return ret, err
+			}
+			cst.Len = intVal
+			if ok, err := p.requireMatch(RPAREN); !ok {
+				return ret, err
 			}
 			te.ColumnDefinition.DataType = cst
 		default:
-			return ret, p.assertType(T_INT, T_VARCHAR)
+			panic("unhandled type")
 		}
 
 		ret = append(ret, te)
@@ -173,8 +183,8 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 		}
 	}
 
-	if !p.match(RPAREN) {
-		return ret, p.assertType(RPAREN)
+	if ok, err := p.requireMatch(RPAREN); !ok {
+		return ret, err
 	}
 
 	return ret, nil
@@ -300,11 +310,11 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 		return cp, err
 	}
 
-	if p.match(EQ, NEQ, LT, GT, LTE, GTE) {
-		cp.CompOp = p.Prev().Type
-	} else {
-		return cp, p.assertType(EQ, NEQ, LT, GT, LTE, GTE)
+	if ok, err := p.requireMatch(EQ, NEQ, LT, GT, LTE, GTE); !ok {
+		return cp, err
 	}
+
+	cp.CompOp = p.Prev().Type
 
 	cp.rhs, err = p.ValueExpression()
 	if err != nil {
@@ -312,18 +322,15 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	}
 
 	return cp, nil
-
 }
 
 func (p *Parser) ValueExpression() (ValueExpression, error) {
 	ret := ValueExpression{}
-
-	if p.match(STR, IDENT, INT) {
-		ret.Token = p.Prev()
-		return ret, nil
+	if ok, err := p.requireMatch(STR, IDENT, INT); !ok {
+		return ret, err
 	}
-
-	return ret, p.assertType(IDENT, ASTRSK)
+	ret.Token = p.Prev()
+	return ret, nil
 }
 
 func (p *Parser) SelectList() (SelectList, error) {
@@ -347,6 +354,14 @@ func (p *Parser) match(types ...TokenType) bool {
 	return false
 }
 
+func (p *Parser) requireMatch(types ...TokenType) (bool, error) {
+	if p.hasType(types...) {
+		p.Advance()
+		return true, nil
+	}
+	return false, p.unexpectedTypeErr(types...)
+}
+
 func (p *Parser) hasType(types ...TokenType) bool {
 	for _, tipe := range types {
 		if p.Cur().Type == tipe {
@@ -356,17 +371,14 @@ func (p *Parser) hasType(types ...TokenType) bool {
 	return false
 }
 
-func (p *Parser) assertType(types ...TokenType) error {
-	if !p.hasType(types...) {
-		unex := Tokens[p.Cur().Type]
-		if p.Cur().Text != "" {
-			unex = fmt.Sprintf("%s (%s)", unex, p.Cur().Text)
-		}
-		var typeNames []string
-		for _, tipe := range types {
-			typeNames = append(typeNames, Tokens[tipe])
-		}
-		return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ","))
+func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
+	unex := Tokens[p.Cur().Type]
+	if p.Cur().Text != "" {
+		unex = fmt.Sprintf("%s (%s)", unex, p.Cur().Text)
 	}
-	return nil
+	var typeNames []string
+	for _, tipe := range types {
+		typeNames = append(typeNames, Tokens[tipe])
+	}
+	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ","))
 }
