@@ -38,6 +38,7 @@ const (
 	COMMIT
 	COUNT
 	CREATE
+	DATABASE
 	DISTINCT
 	ELSE
 	END
@@ -115,6 +116,7 @@ var Tokens = map[TokenType]string{
 	COMMIT:    "COMMIT",
 	COUNT:     "COUNT",
 	CREATE:    "CREATE",
+	DATABASE:  "DATABASE",
 	DISTINCT:  "DISTINCT",
 	ELSE:      "ELSE",
 	END:       "END",
