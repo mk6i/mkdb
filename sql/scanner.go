@@ -140,7 +140,7 @@ var Tokens = map[TokenType]string{
 	SELECT:    "SELECT",
 	SEMICOLON: ";",
 	SUM:       "SUM",
-	T_INT:     "int",
+	T_INT:     "INT",
 	T_VARCHAR: "VARCHAR",
 	TABLE:     "TABLE",
 	THEN:      "THEN",

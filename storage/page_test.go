@@ -10,9 +10,10 @@ import (
 func TestEncodeDecode(t *testing.T) {
 
 	page := &page{
+		pageID:   10,
 		cellType: KeyCell,
 		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 4049,
+		freeSize: 4045,
 		cells: []interface{}{
 			keyCell{
 				key:    123,

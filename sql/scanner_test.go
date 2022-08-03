@@ -111,8 +111,7 @@ func TestScanCreateTable(t *testing.T) {
 			Text: "PersonID",
 		},
 		{
-			Type: IDENT,
-			Text: "int",
+			Type: T_INT,
 		},
 		{
 			Type: COMMA,

@@ -181,6 +181,7 @@ type pageBuffer struct {
 
 func (r *pageBuffer) encode(p *page) error {
 
+	binary.Write(r.buf, binary.LittleEndian, p.pageID)
 	binary.Write(r.buf, binary.LittleEndian, p.cellType)
 	cellCount := uint32(len(p.offsets))
 	binary.Write(r.buf, binary.LittleEndian, cellCount)
@@ -208,6 +209,7 @@ func (r *pageBuffer) decode() *page {
 
 	p := &page{}
 
+	binary.Read(r.buf, binary.LittleEndian, &p.pageID)
 	binary.Read(r.buf, binary.LittleEndian, &p.cellType)
 	var cellCount uint32
 	binary.Read(r.buf, binary.LittleEndian, &cellCount)
