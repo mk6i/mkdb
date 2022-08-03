@@ -26,6 +26,7 @@ type keyValueCell struct {
 	key        uint32
 	valueSize  uint32
 	valueBytes []byte
+	pg         *page
 }
 
 type page struct {
@@ -75,6 +76,16 @@ func (p *page) appendCell(key uint32, value []byte) error {
 		valueSize:  uint32(len(value)),
 		valueBytes: value,
 	})
+	return nil
+}
+
+func (p *page) updateCell(key uint32, value []byte) error {
+	offset, found := p.findCellOffsetByKey(key)
+	if !found {
+		return fmt.Errorf("unable to find record to update for key %d", key)
+	}
+	p.cells[offset].(*keyValueCell).valueBytes = value
+	p.cells[offset].(*keyValueCell).valueSize = uint32(len(value))
 	return nil
 }
 
@@ -183,24 +194,43 @@ func (r *pageBuffer) encode(p *page) error {
 
 	binary.Write(r.buf, binary.LittleEndian, p.pageID)
 	binary.Write(r.buf, binary.LittleEndian, p.cellType)
+	binary.Write(r.buf, binary.LittleEndian, p.rightOffset)
+	binary.Write(r.buf, binary.LittleEndian, p.hasLSib)
+	binary.Write(r.buf, binary.LittleEndian, p.hasRSib)
+	binary.Write(r.buf, binary.LittleEndian, p.lSibPageID)
+	binary.Write(r.buf, binary.LittleEndian, p.rSibPageID)
+
 	cellCount := uint32(len(p.offsets))
 	binary.Write(r.buf, binary.LittleEndian, cellCount)
 	for i := 0; i < len(p.offsets); i++ {
 		binary.Write(r.buf, binary.LittleEndian, p.offsets[i])
 	}
 
-	freeSize := int16(4096 - r.buf.Len() - 2)
-	freeSize -= int16(cellCount * 8)
+	bufFooter := &bytes.Buffer{}
+
+	for i := uint32(0); i < cellCount; i++ {
+		switch p.cellType {
+		case KeyCell:
+			keyCell := p.cells[p.offsets[i]].(*keyCell)
+			binary.Write(bufFooter, binary.LittleEndian, keyCell.key)
+			binary.Write(bufFooter, binary.LittleEndian, keyCell.pageID)
+		case KeyValueCell:
+			keyCell := p.cells[p.offsets[i]].(*keyValueCell)
+			binary.Write(bufFooter, binary.LittleEndian, keyCell.key)
+			binary.Write(bufFooter, binary.LittleEndian, keyCell.valueSize)
+			binary.Write(bufFooter, binary.LittleEndian, keyCell.valueBytes)
+		default:
+			panic("unexpected cell type")
+		}
+	}
+
+	freeSize := uint16(4096 - r.buf.Len() - bufFooter.Len() - 2)
 
 	// write out the free buffer, which separates the header
 	binary.Write(r.buf, binary.LittleEndian, freeSize)
 	binary.Write(r.buf, binary.LittleEndian, make([]byte, freeSize))
 
-	for i := uint32(0); i < cellCount; i++ {
-		keyCell := p.cells[p.offsets[i]].(keyCell)
-		binary.Write(r.buf, binary.LittleEndian, keyCell.key)
-		binary.Write(r.buf, binary.LittleEndian, keyCell.pageID)
-	}
+	r.buf.Write(bufFooter.Bytes())
 
 	return nil
 }
@@ -211,6 +241,12 @@ func (r *pageBuffer) decode() *page {
 
 	binary.Read(r.buf, binary.LittleEndian, &p.pageID)
 	binary.Read(r.buf, binary.LittleEndian, &p.cellType)
+	binary.Read(r.buf, binary.LittleEndian, &p.rightOffset)
+	binary.Read(r.buf, binary.LittleEndian, &p.hasLSib)
+	binary.Read(r.buf, binary.LittleEndian, &p.hasRSib)
+	binary.Read(r.buf, binary.LittleEndian, &p.lSibPageID)
+	binary.Read(r.buf, binary.LittleEndian, &p.rSibPageID)
+
 	var cellCount uint32
 	binary.Read(r.buf, binary.LittleEndian, &cellCount)
 	for i := uint32(0); i < cellCount; i++ {
@@ -225,10 +261,27 @@ func (r *pageBuffer) decode() *page {
 
 	p.cells = make([]interface{}, cellCount)
 	for i := uint32(0); i < cellCount; i++ {
-		keyCell := keyCell{}
-		binary.Read(r.buf, binary.LittleEndian, &keyCell.key)
-		binary.Read(r.buf, binary.LittleEndian, &keyCell.pageID)
-		p.cells[p.offsets[i]] = keyCell
+
+		switch p.cellType {
+		case KeyCell:
+			cell := &keyCell{}
+			binary.Read(r.buf, binary.LittleEndian, &cell.key)
+			binary.Read(r.buf, binary.LittleEndian, &cell.pageID)
+			p.cells[p.offsets[i]] = cell
+		case KeyValueCell:
+			cell := &keyValueCell{}
+			binary.Read(r.buf, binary.LittleEndian, &cell.key)
+			binary.Read(r.buf, binary.LittleEndian, &cell.valueSize)
+			strBuf := make([]byte, cell.valueSize)
+			_, err := r.buf.Read(strBuf)
+			if err != nil {
+				panic("unexpected cell type")
+			}
+			cell.valueBytes = strBuf
+			p.cells[p.offsets[i]] = cell
+		default:
+			panic("unexpected cell type")
+		}
 	}
 
 	return p
@@ -236,12 +289,14 @@ func (r *pageBuffer) decode() *page {
 
 type store interface {
 	append(p *page) (uint32, error)
+	update(p *page) error
 	fetch(offset uint32) (*page, error)
 	getLastKey() uint32
 	incrementLastKey()
 	getRoot() *page
 	getBranchFactor() uint32
 	setRoot(pg *page)
+	setPageTableRoot(pg *page)
 }
 
 type memoryStore struct {
@@ -271,11 +326,18 @@ func (m *memoryStore) incrementLastKey() {
 	m.lastKey++
 }
 
+func (m *memoryStore) setPageTableRoot(pg *page) {
+}
+
 func (m *memoryStore) append(p *page) (uint32, error) {
 	pageID := uint32(len(m.pages))
 	p.pageID = pageID
 	m.pages = append(m.pages, p)
 	return pageID, nil
+}
+
+func (m *memoryStore) update(p *page) error {
+	return nil
 }
 
 func (m *memoryStore) fetch(offset uint32) (*page, error) {
@@ -291,6 +353,7 @@ type fileStore struct {
 	rootOffset     uint32
 	branchFactor   uint32
 	nextFreeOffset uint32
+	pageTableRoot  uint32
 }
 
 func (f *fileStore) getBranchFactor() uint32 {
@@ -307,6 +370,10 @@ func (f *fileStore) getRoot() *page {
 
 func (f *fileStore) setRoot(pg *page) {
 	f.rootOffset = pg.pageID
+}
+
+func (f *fileStore) setPageTableRoot(pg *page) {
+	f.pageTableRoot = pg.pageID
 	f.save()
 }
 
@@ -317,6 +384,33 @@ func (f *fileStore) getLastKey() uint32 {
 func (f *fileStore) incrementLastKey() {
 	f.lastKey++
 	f.save()
+}
+
+func (f *fileStore) update(p *page) error {
+	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Seek(int64(p.pageID), 0)
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0))
+	pb := &pageBuffer{
+		buf: buf,
+	}
+
+	err = pb.encode(p)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(buf.Bytes())
+
+	return err
 }
 
 func (f *fileStore) append(p *page) (uint32, error) {
@@ -399,6 +493,10 @@ func (f *fileStore) save() error {
 	if err != nil {
 		return err
 	}
+	err = binary.Write(writer, binary.LittleEndian, f.pageTableRoot)
+	if err != nil {
+		return err
+	}
 	err = binary.Write(writer, binary.LittleEndian, f.branchFactor)
 	if err != nil {
 		return err
@@ -424,6 +522,10 @@ func (f *fileStore) open() error {
 		return err
 	}
 	err = binary.Read(file, binary.LittleEndian, &f.rootOffset)
+	if err != nil {
+		return err
+	}
+	err = binary.Read(file, binary.LittleEndian, &f.pageTableRoot)
 	if err != nil {
 		return err
 	}

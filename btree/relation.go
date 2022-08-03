@@ -16,10 +16,10 @@ const (
 )
 
 const (
-	pageTableOffset   = 4096
-	schemaTableOffset = pageTableOffset * 2
-	pageTableName     = "sys_pages"
-	schemaTableName   = "sys_schema"
+	initalPageTableOffset    = 4096
+	initialSchemaTableOffset = initalPageTableOffset * 2
+	pageTableName            = "sys_pages"
+	schemaTableName          = "sys_schema"
 )
 
 var (
@@ -228,8 +228,12 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if pgTblPg.pageID != pageTableOffset {
-		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", pageTableOffset, pgTblPg.pageID)
+	if pgTblPg.pageID != initalPageTableOffset {
+		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initalPageTableOffset, pgTblPg.pageID)
+	}
+	fs.setPageTableRoot(pgTblPg)
+	if err := insertPageTable(fs, pgTblPg.pageID, pageTableName); err != nil {
+		return err
 	}
 
 	// create schema table page
@@ -237,16 +241,17 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if schemaTblPg.pageID != schemaTableOffset {
-		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", schemaTableOffset, schemaTblPg.pageID)
+	if schemaTblPg.pageID != initialSchemaTableOffset {
+		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.pageID)
 	}
-
-	// update page table and schema records
-	if err := insertTableMetadata(fs, &pageTableSchema, pgTblPg.pageID, pageTableName); err != nil {
+	if err := insertPageTable(fs, schemaTblPg.pageID, schemaTableName); err != nil {
 		return err
 	}
 
-	if err := insertTableMetadata(fs, &schemaTableSchema, schemaTblPg.pageID, schemaTableName); err != nil {
+	if err := insertSchemaTable(fs, &pageTableSchema, pgTblPg.pageID, pageTableName); err != nil {
+		return err
+	}
+	if err := insertSchemaTable(fs, &schemaTableSchema, schemaTblPg.pageID, schemaTableName); err != nil {
 		return err
 	}
 
@@ -263,7 +268,10 @@ func CreateTable(path string, r *Relation, tableName string) error {
 	if err != nil {
 		return err
 	}
-	if err := insertTableMetadata(fs, r, pg.pageID, tableName); err != nil {
+	if err := insertPageTable(fs, pg.pageID, tableName); err != nil {
+		return err
+	}
+	if err := insertSchemaTable(fs, r, pg.pageID, tableName); err != nil {
 		return err
 	}
 	return nil
@@ -279,16 +287,7 @@ func createPage(fs *fileStore) (*page, error) {
 	return rootPg, err
 }
 
-func insertTableMetadata(fs *fileStore, r *Relation, pageId uint32, tableName string) error {
-
-	// insert page table record
-	pgTablePg, err := fs.fetch(pageTableOffset)
-	if err != nil {
-		return err
-	}
-
-	fs.setRoot(pgTablePg)
-
+func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
@@ -302,22 +301,81 @@ func insertTableMetadata(fs *fileStore, r *Relation, pageId uint32, tableName st
 		return err
 	}
 
+	// insert page table record
+	pgTablePg, err := fs.fetch(fs.pageTableRoot)
+	if err != nil {
+		return err
+	}
+
 	bt := &BTree{store: fs}
 	bt.setRoot(pgTablePg)
+
 	id, err := bt.insert(buf.Bytes())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("inserted new record into %s, id: %d\n", tableName, id)
+	curRoot := bt.getRoot()
+	if curRoot.pageID != pgTablePg.pageID {
+		fs.setPageTableRoot(curRoot)
+		if err := updatePageTable(fs, curRoot.pageID, tableName); err != nil {
+			return err
+		}
+	}
 
-	// insert schema table record
-	schemaTablePg, err := fs.fetch(schemaTableOffset)
+	fmt.Printf("inserted new page table record for %s, page id: %d\n", tableName, id)
+
+	return nil
+}
+
+func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
+	pgTablePg, err := fs.fetch(fs.pageTableRoot)
 	if err != nil {
 		return err
 	}
 
-	bt.setRoot(schemaTablePg)
+	bt := &BTree{store: fs}
+	bt.setRoot(pgTablePg)
+
+	ch := bt.scanRight()
+	for cell := range ch {
+		tuple := Tuple{
+			Relation: &pageTableSchema,
+			Vals:     make(map[string]interface{}),
+		}
+		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
+			return err
+		}
+		if tuple.Vals["table_name"] == tableName {
+			oldVal := tuple.Vals["page_id"]
+			tuple.Vals["page_id"] = int32(pageId)
+			buf, err := tuple.Encode()
+			if err != nil {
+				return err
+			}
+			cell.pg.updateCell(cell.key, buf.Bytes())
+			fs.update(cell.pg)
+			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageId, tableName)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unable to update page table entry for %d", pageId)
+}
+
+func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName string) error {
+
+	pgID, err := getRelationPageID(fs, schemaTableName)
+	if err != nil {
+		return err
+	}
+
+	schemaTablePg, err := fs.fetch(uint32(pgID))
+	if err != nil {
+		return err
+	}
+
+	bt := &BTree{store: fs}
 
 	for _, fd := range r.Fields {
 		tuple := Tuple{
@@ -335,11 +393,169 @@ func insertTableMetadata(fs *fileStore, r *Relation, pageId uint32, tableName st
 			return err
 		}
 
-		id, err := bt.insert(buf.Bytes())
+		bt.setRoot(schemaTablePg)
+		_, err = bt.insert(buf.Bytes())
 		if err != nil {
 			return err
 		}
-		fmt.Printf("inserted new record into %s, id: %d\n", tableName, id)
+
+		newRootPg := bt.getRoot()
+		if newRootPg.pageID != schemaTablePg.pageID {
+			if err := updatePageTable(fs, newRootPg.pageID, schemaTableName); err != nil {
+				return err
+			}
+			schemaTablePg = newRootPg
+		}
+	}
+	return nil
+}
+
+func Select(path string, tableName string, fields []string) ([][]interface{}, error) {
+
+	fmt.Printf("Select query. Table: %s Fields: %s\n", tableName, fields)
+
+	fs := &fileStore{path: path}
+	if err := fs.open(); err != nil {
+		return nil, err
+	}
+	fmt.Printf("page table root offset: %d\n", fs.pageTableRoot)
+
+	pageID, err := getRelationPageID(fs, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("relation %s page id: %d\n", tableName, pageID)
+
+	rs, err := getRelationSchema(fs, tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateFields(rs, fields); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("relation %s schema: %v\n", tableName, rs)
+
+	return scanRelation(fs, uint32(pageID), rs, fields)
+}
+
+func getRelationPageID(fs *fileStore, relName string) (int32, error) {
+	bt := BTree{store: fs}
+
+	// retrieve page table
+	pg, err := fs.fetch(fs.pageTableRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	// todo why doesn't setRoot return an err?
+	bt.setRoot(pg)
+
+	ch := bt.scanRight()
+	for cell := range ch {
+		tuple := Tuple{
+			Relation: &pageTableSchema,
+			Vals:     make(map[string]interface{}),
+		}
+		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
+			return 0, err
+		}
+		if tuple.Vals["table_name"] == relName {
+			return tuple.Vals["page_id"].(int32), nil
+		}
+	}
+
+	return 0, nil
+}
+
+func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
+	bt := BTree{store: fs}
+
+	schemaTblOffset, err := getRelationPageID(fs, schemaTableName)
+	if err != nil {
+		return nil, err
+	}
+
+	// retrieve page table
+	pg, err := fs.fetch(uint32(schemaTblOffset))
+	if err != nil {
+		return nil, err
+	}
+
+	// todo why doesn't setRoot return an err?
+	bt.setRoot(pg)
+
+	r := &Relation{}
+
+	ch := bt.scanRight()
+	for cell := range ch {
+		tuple := Tuple{
+			Relation: &schemaTableSchema,
+			Vals:     make(map[string]interface{}),
+		}
+		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
+			return nil, err
+		}
+		if tuple.Vals["table_name"] != relName {
+			continue
+		}
+		r.Fields = append(r.Fields, FieldDef{
+			Name:     tuple.Vals["field_name"].(string),
+			Len:      tuple.Vals["field_length"].(int32),
+			DataType: DataType(tuple.Vals["field_type"].(int32)),
+		})
+	}
+
+	return r, nil
+}
+
+func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([][]interface{}, error) {
+
+	var rows [][]interface{}
+
+	bt := BTree{store: fs}
+
+	// retrieve page table
+	pg, err := fs.fetch(pageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// todo why doesn't setRoot return an err?
+	bt.setRoot(pg)
+
+	ch := bt.scanRight()
+	for cell := range ch {
+		tuple := Tuple{
+			Relation: r,
+			Vals:     make(map[string]interface{}),
+		}
+		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
+			return nil, err
+		}
+		var row []interface{}
+		for _, field := range fields {
+			row = append(row, tuple.Vals[field])
+		}
+		rows = append(rows, row)
+	}
+
+	return rows, nil
+}
+
+func validateFields(r *Relation, fields []string) error {
+	allowed := make(map[string]bool, len(r.Fields))
+
+	for _, fd := range r.Fields {
+		allowed[fd.Name] = true
+	}
+
+	for _, field := range fields {
+		if _, ok := allowed[field]; !ok {
+			return fmt.Errorf("field %s does not exist", field)
+		}
 	}
 
 	return nil

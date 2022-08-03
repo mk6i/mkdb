@@ -56,6 +56,17 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 				parent.appendKeyCell(newKey, parent.rightOffset)
 				parent.setRightMostKey(newPg.pageID)
 			}
+			if err := b.store.update(newPg); err != nil {
+				panic(fmt.Sprintf("error saving page: %s", err.Error()))
+			}
+			if err := b.store.update(parent); err != nil {
+				panic(fmt.Sprintf("error saving page: %s", err.Error()))
+			}
+		}
+		if parent != nil {
+			if err := b.store.update(parent); err != nil {
+				panic(fmt.Sprintf("error saving page: %s", err.Error()))
+			}
 		}
 	} else {
 		offset, found := pg.findCellOffsetByKey(key)
@@ -66,6 +77,10 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 		if err != nil {
 			panic(fmt.Sprintf("error appending cell: %s", err.Error()))
 		}
+		if err := b.store.update(pg); err != nil {
+			panic(fmt.Sprintf("error saving page: %s", err.Error()))
+		}
+
 		if pg.isFull(b.store.getBranchFactor()) {
 			newPg := &page{
 				cellType: KeyValueCell,
@@ -104,7 +119,21 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) {
 					// update old right sibling's left pointer
 					rightSib, _ := b.store.fetch(oldRSibPageID)
 					rightSib.lSibPageID = newPg.pageID
+					if err := b.store.update(rightSib); err != nil {
+						panic(fmt.Sprintf("error saving page: %s", err.Error()))
+					}
 				}
+			}
+			if err := b.store.update(newPg); err != nil {
+				panic(fmt.Sprintf("error saving page: %s", err.Error()))
+			}
+		}
+		if err := b.store.update(pg); err != nil {
+			panic(fmt.Sprintf("error saving page: %s", err.Error()))
+		}
+		if parent != nil {
+			if err := b.store.update(parent); err != nil {
+				panic(fmt.Sprintf("error saving page: %s", err.Error()))
 			}
 		}
 	}
@@ -155,7 +184,9 @@ func (b *BTree) scanRight() chan *keyValueCell {
 	go func(pg *page) {
 		for {
 			for _, offset := range pg.offsets {
-				ch <- pg.cells[offset].(*keyValueCell)
+				kvCell := pg.cells[offset].(*keyValueCell)
+				kvCell.pg = pg
+				ch <- kvCell
 			}
 			if pg.hasRSib {
 				var err error
@@ -190,7 +221,9 @@ func (b *BTree) scanLeft() chan *keyValueCell {
 	go func(pg *page) {
 		for {
 			for i := len(pg.offsets) - 1; i >= 0; i-- {
-				ch <- pg.cells[pg.offsets[i]].(*keyValueCell)
+				kvCell := pg.cells[pg.offsets[i]].(*keyValueCell)
+				kvCell.pg = pg
+				ch <- kvCell
 			}
 			if pg.hasLSib {
 				var err error
