@@ -7,29 +7,80 @@ import (
 	"testing"
 )
 
-func TestEncodeDecode(t *testing.T) {
+func TestEncodeDecodeKeyCell(t *testing.T) {
 
 	page := &page{
 		pageID:   10,
 		cellType: KeyCell,
 		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 4045,
+		freeSize: 4031,
 		cells: []interface{}{
-			keyCell{
+			&keyCell{
 				key:    123,
 				pageID: 3,
 			},
-			keyCell{
+			&keyCell{
 				key:    12,
 				pageID: 8,
 			},
-			keyCell{
+			&keyCell{
 				key:    1,
 				pageID: 6,
 			},
-			keyCell{
+			&keyCell{
 				key:    1234,
 				pageID: 2,
+			},
+		},
+		rightOffset: 1,
+		hasLSib:     true,
+		hasRSib:     true,
+		lSibPageID:  2,
+		rSibPageID:  3,
+	}
+
+	var rp pageBuffer
+	rp.buf = bytes.NewBuffer(make([]byte, 0))
+	rp.encode(page)
+
+	if rp.buf.Len() != 4096 {
+		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
+	}
+
+	actual := rp.decode()
+
+	if !reflect.DeepEqual(page, actual) {
+		t.Errorf("Structs are not the same: %v\n%v", page, actual)
+	}
+}
+
+func TestEncodeDecodeKeyValueCell(t *testing.T) {
+
+	page := &page{
+		pageID:   10,
+		cellType: KeyValueCell,
+		offsets:  []uint16{2, 1, 0, 3},
+		freeSize: 3965,
+		cells: []interface{}{
+			&keyValueCell{
+				key:        1,
+				valueSize:  uint32(len("lorem ipsum")),
+				valueBytes: []byte("lorem ipsum"),
+			},
+			&keyValueCell{
+				key:        2,
+				valueSize:  uint32(len("dolor sit amet")),
+				valueBytes: []byte("dolor sit amet"),
+			},
+			&keyValueCell{
+				key:        3,
+				valueSize:  uint32(len("consectetur adipiscing elit")),
+				valueBytes: []byte("consectetur adipiscing elit"),
+			},
+			&keyValueCell{
+				key:        4,
+				valueSize:  uint32(len("sed do eiusmod")),
+				valueBytes: []byte("sed do eiusmod"),
 			},
 		},
 	}
@@ -38,7 +89,7 @@ func TestEncodeDecode(t *testing.T) {
 	rp.buf = bytes.NewBuffer(make([]byte, 0))
 	rp.encode(page)
 
-	if rp.buf.Len() != 4096 {
+	if len(rp.buf.Bytes()) != 4096 {
 		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
 	}
 

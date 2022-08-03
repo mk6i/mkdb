@@ -44,7 +44,7 @@ func EvaluateCreateTable(q sql.CreateTable, db string) error {
 			fd.DataType = btree.TYPE_VARCHAR
 			fd.Len = int32(t.Len)
 		default:
-			panic("unsupported column defintion type")
+			panic("unsupported column definition type")
 		}
 		r.Fields = append(r.Fields, fd)
 	}
