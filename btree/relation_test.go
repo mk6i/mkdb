@@ -10,18 +10,18 @@ func TestRelationEncodeDecode(t *testing.T) {
 	rel1 := &Relation{
 		Fields: []FieldDef{
 			{
-				dtype: TYPE_INT,
-				name:  "id",
+				DataType: TYPE_INT,
+				Name:     "id",
 			},
 			{
-				dtype: TYPE_VARCHAR,
-				len:   255,
-				name:  "first_name",
+				DataType: TYPE_VARCHAR,
+				Len:      255,
+				Name:     "first_name",
 			},
 			{
-				dtype: TYPE_VARCHAR,
-				len:   255,
-				name:  "last_name",
+				DataType: TYPE_VARCHAR,
+				Len:      255,
+				Name:     "last_name",
 			},
 		},
 	}
@@ -47,18 +47,18 @@ func TestTupleEncodeDecode(t *testing.T) {
 	rel := &Relation{
 		Fields: []FieldDef{
 			{
-				dtype: TYPE_INT,
-				name:  "id",
+				DataType: TYPE_INT,
+				Name:     "id",
 			},
 			{
-				dtype: TYPE_VARCHAR,
-				len:   255,
-				name:  "first_name",
+				DataType: TYPE_VARCHAR,
+				Len:      255,
+				Name:     "first_name",
 			},
 			{
-				dtype: TYPE_VARCHAR,
-				len:   255,
-				name:  "last_name",
+				DataType: TYPE_VARCHAR,
+				Len:      255,
+				Name:     "last_name",
 			},
 		},
 	}
