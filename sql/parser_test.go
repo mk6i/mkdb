@@ -368,3 +368,36 @@ func TestParseInsert(t *testing.T) {
 		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
 	}
 }
+
+func TestParseUse(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: USE,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+	}
+
+	expected := UseStatement{
+		DBName: "thedatabase",
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}

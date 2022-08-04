@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 	"os"
-	"strings"
 
 	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
@@ -14,9 +13,8 @@ var (
 )
 
 func EvaluateCreateDatabase(q sql.CreateDatabase) error {
-	path := "data/" + strings.ToLower(q.Name)
-
-	if _, err := os.Stat(path); err == nil {
+	path, err := DBPath(q.Name)
+	if err == errDBExists {
 		return errDBExists
 	}
 
@@ -49,7 +47,10 @@ func EvaluateCreateTable(q sql.CreateTable, db string) error {
 		r.Fields = append(r.Fields, fd)
 	}
 
-	path := "data/" + strings.ToLower(db)
+	path, err := DBPath(db)
+	if err != nil {
+		return err
+	}
 
 	return btree.CreateTable(path, r, q.Name)
 }

@@ -1,14 +1,16 @@
 package engine
 
 import (
-	"strings"
-
 	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
 )
 
 func EvaluateInsert(q sql.InsertStatement, db string) error {
-	path := "data/" + strings.ToLower(db)
+	path, err := DBPath(db)
+	if err != nil {
+		return err
+	}
+
 	tbl := q.TableName
 	cols := q.InsertColumnsAndSource.InsertColumnList.ColumnNames
 	vals := q.InsertColumnsAndSource.TableValueConstructor.Columns

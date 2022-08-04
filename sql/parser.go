@@ -95,8 +95,12 @@ type TableValueConstructor struct {
 	Columns []interface{}
 }
 
+type UseStatement struct {
+	DBName string
+}
+
 func (p *Parser) Parse() (interface{}, error) {
-	if ok, err := p.requireMatch(CREATE, SELECT, INSERT); !ok {
+	if ok, err := p.requireMatch(CREATE, SELECT, INSERT, USE); !ok {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -106,6 +110,8 @@ func (p *Parser) Parse() (interface{}, error) {
 		return p.Select()
 	case INSERT:
 		return p.Insert()
+	case USE:
+		return p.Use()
 	default:
 		panic("unhandled type")
 	}
@@ -424,6 +430,18 @@ func (p *Parser) Insert() (InsertStatement, error) {
 	}
 
 	return is, nil
+}
+
+func (p *Parser) Use() (UseStatement, error) {
+	us := UseStatement{}
+
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return us, err
+	}
+
+	us.DBName = p.Prev().Text
+
+	return us, nil
 }
 
 func (p *Parser) match(types ...TokenType) bool {

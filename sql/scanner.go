@@ -71,6 +71,7 @@ const (
 	TRUE
 	UNION
 	UNIQUE
+	USE
 	VALUES
 	WHEN
 	WHERE
@@ -152,6 +153,7 @@ var Tokens = map[TokenType]string{
 	TRUE:      "TRUE",
 	UNION:     "UNION",
 	UNIQUE:    "UNIQUE",
+	USE:       "USE",
 	VALUES:    "VALUES",
 	WHEN:      "WHEN",
 	WHERE:     "WHERE",
