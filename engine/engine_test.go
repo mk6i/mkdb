@@ -83,9 +83,21 @@ func TestMain(t *testing.T) {
 			name varchar(255)
 		)
 	`, t)
-	exec(`SELECT person_id, first_name, last_name FROM people`, t)
 	exec(`SELECT table_name, page_id FROM sys_pages`, t)
-	exec(`SELECT table_name, field_name, field_type, field_length FROM sys_schema`, t)
+	exec(`SELECT table_name, field_name, field_length, field_type FROM sys_schema`, t)
+
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (1, "John", "Doe")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (2, "Ikra", "Freeman")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (3, "Gerrard", "Torres")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (4, "Malia", "Brewer")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (5, "Willow", "Reeves")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (6, "Mylee", "Mclean")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (7, "Leland", "Booth")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (8, "Chance", "Snyder")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (9, "Cairo", "Lim")`, t)
+	exec(`INSERT INTO people (person_id, first_name, last_name) VALUES (10, "Khadija", "Crane")`, t)
+
+	exec(`SELECT person_id, first_name, last_name FROM people`, t)
 }
 
 func exec(q string, t *testing.T) {
@@ -108,6 +120,10 @@ func exec(q string, t *testing.T) {
 	case sql.Select:
 		if err := EvaluateSelect(stmt, "testdb"); err != nil {
 			t.Errorf("error selecting table: %s\n", err.Error())
+		}
+	case sql.InsertStatement:
+		if err := EvaluateInsert(stmt, "testdb"); err != nil {
+			t.Errorf("error inserting into table: %s\n", err.Error())
 		}
 	default:
 		t.Errorf("unsupported statement type")

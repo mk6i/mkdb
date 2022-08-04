@@ -560,3 +560,56 @@ func validateFields(r *Relation, fields []string) error {
 
 	return nil
 }
+
+func Insert(path string, tableName string, cols []string, vals []interface{}) error {
+	fs := &fileStore{path: path}
+	if err := fs.open(); err != nil {
+		return err
+	}
+
+	pgID, err := getRelationPageID(fs, tableName)
+	if err != nil {
+		return err
+	}
+
+	tablePg, err := fs.fetch(uint32(pgID))
+	if err != nil {
+		return err
+	}
+
+	schema, err := getRelationSchema(fs, tableName)
+	if err != nil {
+		return err
+	}
+
+	tuple := Tuple{
+		Relation: schema,
+		Vals:     make(map[string]interface{}, len(cols)),
+	}
+
+	for i, col := range cols {
+		tuple.Vals[col] = vals[i]
+	}
+
+	buf, err := tuple.Encode()
+	if err != nil {
+		return err
+	}
+
+	bt := &BTree{store: fs}
+	bt.setRoot(tablePg)
+	_, err = bt.insert(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	// update page table with new root if the old root split
+	curPage := bt.getRoot()
+	if curPage.pageID != tablePg.pageID {
+		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

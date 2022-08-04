@@ -46,7 +46,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: STR,
-			Text: "\"some literal\"",
+			Text: "some literal",
 		},
 		{
 			Type: OR,
@@ -174,6 +174,93 @@ func TestScanCreateDatabase(t *testing.T) {
 		{
 			Type: IDENT,
 			Text: "thedatabase",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
+
+func TestScanInsert(t *testing.T) {
+
+	const src = `INSERT INTO thedatabase (column1, column2, column3) VALUES (1, "value2", "value3")`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: INSERT,
+		},
+		{
+			Type: INTO,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: IDENT,
+			Text: "column1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column3",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: VALUES,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "value2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "value3",
+		},
+		{
+			Type: RPAREN,
 		},
 	}
 
