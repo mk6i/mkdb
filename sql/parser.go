@@ -77,8 +77,26 @@ type CreateDatabase struct {
 	Name string
 }
 
+type InsertStatement struct {
+	TableName string
+	InsertColumnsAndSource
+}
+
+type InsertColumnsAndSource struct {
+	InsertColumnList
+	TableValueConstructor
+}
+
+type InsertColumnList struct {
+	ColumnNames []string
+}
+
+type TableValueConstructor struct {
+	Columns []interface{}
+}
+
 func (p *Parser) Parse() (interface{}, error) {
-	if ok, err := p.requireMatch(CREATE, SELECT); !ok {
+	if ok, err := p.requireMatch(CREATE, SELECT, INSERT); !ok {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -86,6 +104,8 @@ func (p *Parser) Parse() (interface{}, error) {
 		return p.Create()
 	case SELECT:
 		return p.Select()
+	case INSERT:
+		return p.Insert()
 	default:
 		panic("unhandled type")
 	}
@@ -346,8 +366,68 @@ func (p *Parser) SelectList() (SelectList, error) {
 	return sl, nil
 }
 
+func (p *Parser) Insert() (InsertStatement, error) {
+	is := InsertStatement{}
+
+	if ok, err := p.requireMatch(INTO); !ok {
+		return is, err
+	}
+
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return is, err
+	}
+
+	is.TableName = p.Prev().Text
+
+	if p.match(LPAREN) {
+		var colNames []string
+		for p.match(IDENT) {
+			colNames = append(colNames, p.Prev().Text)
+			if !p.match(COMMA) {
+				break
+			}
+		}
+		is.InsertColumnsAndSource.InsertColumnList.ColumnNames = colNames
+		if ok, err := p.requireMatch(RPAREN); !ok {
+			return is, err
+		}
+	}
+
+	if ok, err := p.requireMatch(VALUES); !ok {
+		return is, err
+	}
+
+	if ok, err := p.requireMatch(LPAREN); !ok {
+		return is, err
+	}
+	var cols []interface{}
+	for p.match(STR, INT) {
+		var val interface{}
+		switch p.Prev().Type {
+		case STR:
+			val = p.Prev().Text
+		case INT:
+			intVal, err := strconv.Atoi(p.Prev().Text)
+			if err != nil {
+				return is, err
+			}
+			val = int32(intVal)
+		}
+		cols = append(cols, val)
+		if !p.match(COMMA) {
+			break
+		}
+	}
+	is.InsertColumnsAndSource.TableValueConstructor.Columns = cols
+	if ok, err := p.requireMatch(RPAREN); !ok {
+		return is, err
+	}
+
+	return is, nil
+}
+
 func (p *Parser) match(types ...TokenType) bool {
-	if p.hasType(types...) {
+	if hasType(p.Cur().Type, types...) {
 		p.Advance()
 		return true
 	}
@@ -355,16 +435,15 @@ func (p *Parser) match(types ...TokenType) bool {
 }
 
 func (p *Parser) requireMatch(types ...TokenType) (bool, error) {
-	if p.hasType(types...) {
-		p.Advance()
+	if p.match(types...) {
 		return true, nil
 	}
 	return false, p.unexpectedTypeErr(types...)
 }
 
-func (p *Parser) hasType(types ...TokenType) bool {
+func hasType(targetType TokenType, types ...TokenType) bool {
 	for _, tipe := range types {
-		if p.Cur().Type == tipe {
+		if targetType == tipe {
 			return true
 		}
 	}
@@ -380,5 +459,5 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	for _, tipe := range types {
 		typeNames = append(typeNames, Tokens[tipe])
 	}
-	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ","))
+	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ", "))
 }

@@ -49,6 +49,8 @@ const (
 	GROUP
 	HAVING
 	IN
+	INSERT
+	INTO
 	JOIN
 	LEFT
 	LIKE
@@ -69,6 +71,7 @@ const (
 	TRUE
 	UNION
 	UNIQUE
+	VALUES
 	WHEN
 	WHERE
 	WITH
@@ -127,6 +130,8 @@ var Tokens = map[TokenType]string{
 	GROUP:     "GROUP",
 	HAVING:    "HAVING",
 	IN:        "IN",
+	INSERT:    "INSERT",
+	INTO:      "INTO",
 	JOIN:      "JOIN",
 	LEFT:      "LEFT",
 	LIKE:      "LIKE",
@@ -147,6 +152,7 @@ var Tokens = map[TokenType]string{
 	TRUE:      "TRUE",
 	UNION:     "UNION",
 	UNIQUE:    "UNIQUE",
+	VALUES:    "VALUES",
 	WHEN:      "WHEN",
 	WHERE:     "WHERE",
 	WITH:      "WITH",
@@ -250,6 +256,8 @@ func (ts *tokenScanner) Cur() Token {
 		} else {
 			tok.Type = STR
 			tok.Text = ts.s.TokenText()
+			// strip quotes
+			tok.Text = tok.Text[1 : len(tok.Text)-1]
 		}
 	}
 	return tok
