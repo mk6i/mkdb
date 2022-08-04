@@ -1,21 +1,19 @@
 package engine
 
 import (
-	"errors"
 	"os"
 
 	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
 )
 
-var (
-	errDBExists = errors.New("database already exists")
-)
-
 func EvaluateCreateDatabase(q sql.CreateDatabase) error {
 	path, err := DBPath(q.Name)
-	if err == errDBExists {
+	if err == nil {
 		return errDBExists
+	}
+	if err != errDBNotExist {
+		return err
 	}
 
 	file, err := os.Create(path)
