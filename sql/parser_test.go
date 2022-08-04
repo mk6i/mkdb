@@ -265,3 +265,106 @@ func TestParseCreateDatabase(t *testing.T) {
 		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
 	}
 }
+
+func TestParseInsert(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: INSERT,
+		},
+		{
+			Type: INTO,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: IDENT,
+			Text: "column1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column3",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: VALUES,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "value2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "value3",
+		},
+		{
+			Type: RPAREN,
+		},
+	}
+
+	expected := InsertStatement{
+		TableName: "thedatabase",
+		InsertColumnsAndSource: InsertColumnsAndSource{
+			InsertColumnList: InsertColumnList{
+				ColumnNames: []string{
+					"column1",
+					"column2",
+					"column3",
+				},
+			},
+			TableValueConstructor: TableValueConstructor{
+				Columns: []interface{}{
+					int32(1),
+					"value2",
+					"value3",
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
