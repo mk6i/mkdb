@@ -3,7 +3,6 @@ package engine
 import (
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/mkaminski/bkdb/btree"
@@ -11,7 +10,10 @@ import (
 )
 
 func EvaluateSelect(q sql.Select, db string) error {
-	path := "data/" + strings.ToLower(db)
+	path, err := DBPath(db)
+	if err != nil {
+		return err
+	}
 
 	var fields []string
 
@@ -57,5 +59,5 @@ func printTable(fields []string, rows [][]interface{}) {
 
 	w.Flush()
 
-	fmt.Printf("\n%d result(s) returned\n\n\n", len(rows))
+	fmt.Printf("\n%d result(s) returned\n", len(rows))
 }

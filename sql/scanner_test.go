@@ -281,6 +281,39 @@ func TestScanInsert(t *testing.T) {
 	}
 }
 
+func TestScanUse(t *testing.T) {
+
+	const src = `USE thedatabase`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: USE,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
+
 func TestTokenList(t *testing.T) {
 	tokens := []Token{
 		{
