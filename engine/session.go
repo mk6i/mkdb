@@ -16,7 +16,7 @@ type Session struct {
 var (
 	errDBNotSelected = errors.New("database not been selected")
 	errDBNotExist    = errors.New("database does not exist")
-	errAlreadyExists = errors.New("database already exists")
+	errDBExists      = errors.New("database already exists")
 )
 
 func (s *Session) ExecQuery(q string) error {
@@ -34,10 +34,7 @@ func (s *Session) ExecQuery(q string) error {
 		s.CurDB = stmt.DBName
 		fmt.Printf("selected database %s\n", stmt.DBName)
 	case sql.CreateDatabase:
-		if err := os.Mkdir("data", 0755); err != nil {
-			if os.IsExist(err) {
-				return errAlreadyExists
-			}
+		if err := os.Mkdir("data", 0755); err != nil && !os.IsExist(err) {
 			return fmt.Errorf("error making data dir: %s", err.Error())
 		}
 		if err := EvaluateCreateDatabase(stmt); err != nil {
