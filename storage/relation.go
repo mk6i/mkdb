@@ -23,7 +23,8 @@ const (
 )
 
 var (
-	errTypeMismatch = errors.New("types do not match")
+	ErrTypeMismatch  = errors.New("types do not match")
+	ErrTableNotExist = errors.New("table does not exist")
 )
 
 type FieldDef struct {
@@ -36,11 +37,11 @@ func (f *FieldDef) Validate(val interface{}) error {
 	switch f.DataType {
 	case TYPE_INT:
 		if reflect.TypeOf(val).Kind() != reflect.Int32 {
-			return errTypeMismatch
+			return ErrTypeMismatch
 		}
 	case TYPE_VARCHAR:
 		if reflect.TypeOf(val).Kind() != reflect.String {
-			return errTypeMismatch
+			return ErrTypeMismatch
 		}
 	default:
 		panic("unsupported validation type")
@@ -467,7 +468,7 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 		}
 	}
 
-	return 0, nil
+	return 0, ErrTableNotExist
 }
 
 func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
