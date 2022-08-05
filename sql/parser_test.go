@@ -144,6 +144,59 @@ func TestParseSelect(t *testing.T) {
 	}
 }
 
+func TestParseSelectStar(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: ASTRSK,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			ValueExpression{
+				Token: Token{
+					Type: ASTRSK,
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				Relation("the_table"),
+			},
+			WhereClause: WhereClause{
+				SearchCondition: nil,
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
 func TestParseCreateTable(t *testing.T) {
 
 	input := []Token{

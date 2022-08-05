@@ -411,35 +411,47 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 	return nil
 }
 
-func Select(path string, tableName string, fields []string) ([][]interface{}, error) {
+func Select(path string, tableName string, fields []string) ([][]interface{}, []string, error) {
 
 	fmt.Printf("Select query. Table: %s Fields: %s\n", tableName, fields)
 
 	fs := &fileStore{path: path}
 	if err := fs.open(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	fmt.Printf("page table root offset: %d\n", fs.pageTableRoot)
 
 	pageID, err := getRelationPageID(fs, tableName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	fmt.Printf("relation %s page id: %d\n", tableName, pageID)
 
 	rs, err := getRelationSchema(fs, tableName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	if fields[0] == "*" {
+		if len(fields) > 1 {
+			return nil, nil, fmt.Errorf("right now select * may only contain one element")
+		}
+		fields = nil
+		for _, fd := range rs.Fields {
+			fields = append(fields, fd.Name)
+		}
 	}
 
 	if err := validateFields(rs, fields); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	fmt.Printf("relation %s schema: %v\n", tableName, rs)
 
-	return scanRelation(fs, uint32(pageID), rs, fields)
+	rows, err := scanRelation(fs, uint32(pageID), rs, fields)
+
+	return rows, fields, err
 }
 
 func getRelationPageID(fs *fileStore, relName string) (int32, error) {
