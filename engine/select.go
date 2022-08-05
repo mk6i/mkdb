@@ -18,12 +18,16 @@ func EvaluateSelect(q sql.Select, db string) error {
 	var fields []string
 
 	for _, elem := range q.SelectList {
-		fields = append(fields, elem.Token.Text)
+		if elem.Token.Type == sql.ASTRSK {
+			fields = append(fields, "*")
+		} else {
+			fields = append(fields, elem.Token.Text)
+		}
 	}
 
 	table := q.TableExpression.FromClause[0]
 
-	rows, err := btree.Select(path, string(table), fields)
+	rows, fields, err := btree.Select(path, string(table), fields)
 	if err != nil {
 		return err
 	}
