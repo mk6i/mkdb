@@ -3,6 +3,8 @@ package engine
 import (
 	"os"
 	"testing"
+
+	"github.com/mkaminski/bkdb/btree"
 )
 
 func TestMain(t *testing.T) {
@@ -74,5 +76,61 @@ func TestMain(t *testing.T) {
 		if err := s.ExecQuery(q); err != nil {
 			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
 		}
+	}
+}
+
+func TestInsertNonExistentTable(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `INSERT INTO people (person_id, first_name, last_name) VALUES (1, "John", "Doe")`
+	err := s.ExecQuery(q)
+
+	if err != btree.ErrTableNotExist {
+		t.Errorf("expected ErrTableNotExist error")
+	}
+}
+
+func TestSelectNonExistentTable(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `SELECT person_id, first_name, last_name FROM people`
+	err := s.ExecQuery(q)
+
+	if err != btree.ErrTableNotExist {
+		t.Errorf("expected ErrTableNotExist error")
 	}
 }
