@@ -8,7 +8,7 @@ import (
 
 func TestScanSelect(t *testing.T) {
 
-	const src = `SELECT field_1, field_2 FROM the_table WHERE ident = "some literal" OR ident2 = 12`
+	const src = `SELECT field_1, field_2 FROM the_table WHERE ident = "some literal" OR ident2 = 12 OR ident != "a string"`
 
 	ts := NewTokenScanner(strings.NewReader(src))
 
@@ -61,6 +61,20 @@ func TestScanSelect(t *testing.T) {
 		{
 			Type: INT,
 			Text: "12",
+		},
+		{
+			Type: OR,
+		},
+		{
+			Type: IDENT,
+			Text: "ident",
+		},
+		{
+			Type: NEQ,
+		},
+		{
+			Type: STR,
+			Text: "a string",
 		},
 	}
 

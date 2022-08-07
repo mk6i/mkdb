@@ -37,6 +37,11 @@ INSERT INTO family (name, age, hair) VALUES ("Walter Jr.", 16, "brown");
 INSERT INTO family (name, age, hair) VALUES ("Holly", 1, "bald");
 
 SELECT name, age, hair FROM family;
+
+SELECT * FROM family WHERE hair = "bald";
+SELECT * FROM family WHERE age = 16 OR age = 1;
+SELECT * FROM family WHERE hair = "bald" AND age = 1;
+SELECT * FROM family WHERE hair != "bald";
 ```
 
 #### View All Tables

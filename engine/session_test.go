@@ -70,6 +70,7 @@ func TestMain(t *testing.T) {
 		`INSERT INTO people (person_id, first_name, last_name) VALUES (10, "Khadija", "Crane")`,
 		`SELECT person_id, first_name, last_name FROM people`,
 		`SELECT * FROM people`,
+		`SELECT * FROM people WHERE last_name = "Brewer"`,
 	}
 
 	s := Session{}

@@ -28,13 +28,13 @@ type WhereClause struct {
 }
 
 type SearchCondition struct {
-	lhs interface{}
-	rhs interface{}
+	LHS interface{}
+	RHS interface{}
 }
 
 type BooleanTerm struct {
-	lhs Predicate
-	rhs interface{}
+	LHS Predicate
+	RHS interface{}
 }
 
 type Predicate struct {
@@ -42,9 +42,9 @@ type Predicate struct {
 }
 
 type ComparisonPredicate struct {
-	lhs    interface{}
+	LHS    interface{}
 	CompOp TokenType
-	rhs    interface{}
+	RHS    interface{}
 }
 
 type CreateTable struct {
@@ -264,12 +264,12 @@ func (p *Parser) FromClause() (FromClause, error) {
 	return fl, nil
 }
 
-func (p *Parser) WhereClause() (WhereClause, error) {
-	wc := WhereClause{}
-
+func (p *Parser) WhereClause() (interface{}, error) {
 	if !p.match(WHERE) {
-		return wc, nil
+		return nil, nil
 	}
+
+	wc := WhereClause{}
 
 	var err error
 	wc.SearchCondition, err = p.OrCondition()
@@ -286,8 +286,8 @@ func (p *Parser) OrCondition() (interface{}, error) {
 	}
 
 	for p.match(OR) {
-		ac := SearchCondition{lhs: ret.(Predicate)}
-		ac.rhs, err = p.OrCondition()
+		ac := SearchCondition{LHS: ret.(Predicate)}
+		ac.RHS, err = p.OrCondition()
 		if err != nil {
 			return nil, err
 		}
@@ -306,8 +306,8 @@ func (p *Parser) AndCondition() (interface{}, error) {
 	}
 
 	for p.match(AND) {
-		ac := BooleanTerm{lhs: ret.(Predicate)}
-		ac.rhs, err = p.AndCondition()
+		ac := BooleanTerm{LHS: ret.(Predicate)}
+		ac.RHS, err = p.AndCondition()
 		if err != nil {
 			return nil, err
 		}
@@ -331,7 +331,7 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	cp := ComparisonPredicate{}
 	var err error
 
-	cp.lhs, err = p.ValueExpression()
+	cp.LHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
 	}
@@ -342,7 +342,7 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 
 	cp.CompOp = p.Prev().Type
 
-	cp.rhs, err = p.ValueExpression()
+	cp.RHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
 	}
