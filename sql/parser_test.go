@@ -80,9 +80,9 @@ func TestParseSelect(t *testing.T) {
 			},
 			WhereClause: WhereClause{
 				SearchCondition: BooleanTerm{
-					lhs: Predicate{
+					LHS: Predicate{
 						ComparisonPredicate{
-							lhs: ValueExpression{
+							LHS: ValueExpression{
 								Token{
 									Type:   IDENT,
 									Line:   0,
@@ -91,7 +91,7 @@ func TestParseSelect(t *testing.T) {
 								},
 							},
 							CompOp: EQ,
-							rhs: ValueExpression{
+							RHS: ValueExpression{
 								Token{
 									Type:   STR,
 									Line:   0,
@@ -101,9 +101,9 @@ func TestParseSelect(t *testing.T) {
 							},
 						},
 					},
-					rhs: Predicate{
+					RHS: Predicate{
 						ComparisonPredicate{
-							lhs: ValueExpression{
+							LHS: ValueExpression{
 								Token{
 									Type:   IDENT,
 									Line:   0,
@@ -112,7 +112,7 @@ func TestParseSelect(t *testing.T) {
 								},
 							},
 							CompOp: NEQ,
-							rhs: ValueExpression{
+							RHS: ValueExpression{
 								Token{
 									Type:   INT,
 									Line:   0,
@@ -174,9 +174,7 @@ func TestParseSelectStar(t *testing.T) {
 			FromClause: FromClause{
 				Relation("the_table"),
 			},
-			WhereClause: WhereClause{
-				SearchCondition: nil,
-			},
+			WhereClause: nil,
 		},
 	}
 
