@@ -16,6 +16,7 @@ const (
 	literal_end
 
 	operator_start
+	BANG
 	AND
 	OR
 	ASTRSK
@@ -100,6 +101,7 @@ var Tokens = map[TokenType]string{
 	INT:   "INT",
 	STR:   "STR",
 
+	BANG:   "!",
 	AND:    "AND",
 	OR:     "OR",
 	ASTRSK: "*",
@@ -254,7 +256,12 @@ func (ts *tokenScanner) Cur() Token {
 		tok.Text = ts.s.TokenText()
 	default:
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
-			tok.Type = kw
+			if kw == BANG && ts.s.Peek() == '=' {
+				tok.Type = NEQ
+				ts.Next()
+			} else {
+				tok.Type = kw
+			}
 		} else {
 			tok.Type = STR
 			tok.Text = ts.s.TokenText()
