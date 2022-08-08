@@ -334,6 +334,95 @@ func TestScanInsert(t *testing.T) {
 	}
 }
 
+func TestScanUpdate(t *testing.T) {
+
+	const src = `UPDATE thedatabase SET column1 = "val1", column2 = "val2", column3 = "val3" WHERE id = 4`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: UPDATE,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+		{
+			Type: SET,
+		},
+		{
+			Type: IDENT,
+			Text: "column1",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column2",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column3",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val3",
+		},
+		{
+			Type: WHERE,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "4",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
+
 func TestScanUse(t *testing.T) {
 
 	const src = `USE thedatabase`
