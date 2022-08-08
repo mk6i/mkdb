@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	ErrTypeMismatch  = errors.New("types do not match")
-	ErrTableNotExist = errors.New("table does not exist")
+	ErrTypeMismatch      = errors.New("types do not match")
+	ErrTableNotExist     = errors.New("table does not exist")
+	ErrTableAlreadyExist = errors.New("table already exists")
 )
 
 type FieldDef struct {
@@ -263,6 +264,11 @@ func CreateTable(path string, r *Relation, tableName string) error {
 	fs := &fileStore{path: path}
 	if err := fs.open(); err != nil {
 		return err
+	}
+
+	_, err := getRelationPageID(fs, tableName)
+	if err != ErrTableNotExist {
+		return ErrTableAlreadyExist
 	}
 
 	pg, err := createPage(fs)
