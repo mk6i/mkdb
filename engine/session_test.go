@@ -136,3 +136,32 @@ func TestSelectNonExistentTable(t *testing.T) {
 		t.Errorf("expected ErrTableNotExist error")
 	}
 }
+
+func TestCreateDuplicateTable(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE motorcycles (name varchar(255))`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `CREATE TABLE motorcycles (name varchar(255))`
+	err := s.ExecQuery(q)
+
+	if err != btree.ErrTableAlreadyExist {
+		t.Errorf("expected ErrTableAlreadyExist error")
+	}
+}
