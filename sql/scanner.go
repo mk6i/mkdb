@@ -64,6 +64,7 @@ const (
 	OUTER
 	SELECT
 	SEMICOLON
+	SET
 	SUM
 	T_INT
 	T_VARCHAR
@@ -72,6 +73,7 @@ const (
 	TRUE
 	UNION
 	UNIQUE
+	UPDATE
 	USE
 	VALUES
 	WHEN
@@ -147,6 +149,7 @@ var Tokens = map[TokenType]string{
 	OUTER:     "OUTER",
 	SELECT:    "SELECT",
 	SEMICOLON: ";",
+	SET:       "SET",
 	SUM:       "SUM",
 	T_INT:     "INT",
 	T_VARCHAR: "VARCHAR",
@@ -155,6 +158,7 @@ var Tokens = map[TokenType]string{
 	TRUE:      "TRUE",
 	UNION:     "UNION",
 	UNIQUE:    "UNIQUE",
+	UPDATE:    "UPDATE",
 	USE:       "USE",
 	VALUES:    "VALUES",
 	WHEN:      "WHEN",
