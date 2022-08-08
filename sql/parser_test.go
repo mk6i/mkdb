@@ -420,6 +420,147 @@ func TestParseInsert(t *testing.T) {
 	}
 }
 
+func TestParseUpdate(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: UPDATE,
+		},
+		{
+			Type: IDENT,
+			Text: "thedatabase",
+		},
+		{
+			Type: SET,
+		},
+		{
+			Type: IDENT,
+			Text: "column1",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column2",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val2",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "column3",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: STR,
+			Text: "val3",
+		},
+		{
+			Type: WHERE,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "4",
+		},
+	}
+
+	expected := UpdateStatementSearched{
+		TableName: "thedatabase",
+		Set: []SetClause{
+			{
+				ObjectColumn: "column1",
+				UpdateSource: ValueExpression{
+					Token: Token{
+						Type: STR,
+						Text: "val1",
+					},
+				},
+			},
+			{
+				ObjectColumn: "column2",
+				UpdateSource: ValueExpression{
+					Token: Token{
+						Type: STR,
+						Text: "val2",
+					},
+				},
+			},
+			{
+				ObjectColumn: "column3",
+				UpdateSource: ValueExpression{
+					Token: Token{
+						Type: STR,
+						Text: "val3",
+					},
+				},
+			},
+		},
+		Where: WhereClause{
+			SearchCondition: Predicate{
+				ComparisonPredicate{
+					LHS: ValueExpression{
+						Token{
+							Type:   IDENT,
+							Line:   0,
+							Column: 0,
+							Text:   "id",
+						},
+					},
+					CompOp: EQ,
+					RHS: ValueExpression{
+						Token{
+							Type:   INT,
+							Line:   0,
+							Column: 0,
+							Text:   "4",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
 func TestParseUse(t *testing.T) {
 
 	input := []Token{

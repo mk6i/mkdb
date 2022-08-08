@@ -95,12 +95,23 @@ type TableValueConstructor struct {
 	Columns []interface{}
 }
 
+type UpdateStatementSearched struct {
+	TableName string
+	Set       []SetClause
+	Where     interface{}
+}
+
+type SetClause struct {
+	ObjectColumn string
+	UpdateSource ValueExpression
+}
+
 type UseStatement struct {
 	DBName string
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	if ok, err := p.requireMatch(CREATE, SELECT, INSERT, USE); !ok {
+	if ok, err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE); !ok {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -110,6 +121,8 @@ func (p *Parser) Parse() (interface{}, error) {
 		return p.Select()
 	case INSERT:
 		return p.Insert()
+	case UPDATE:
+		return p.Update()
 	case USE:
 		return p.Use()
 	default:
@@ -430,6 +443,49 @@ func (p *Parser) Insert() (InsertStatement, error) {
 	}
 
 	return is, nil
+}
+
+func (p *Parser) Update() (UpdateStatementSearched, error) {
+	us := UpdateStatementSearched{}
+
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return us, err
+	}
+
+	us.TableName = p.Prev().Text
+
+	if ok, err := p.requireMatch(SET); !ok {
+		return us, err
+	}
+
+	for p.match(IDENT) {
+		sc := SetClause{}
+		sc.ObjectColumn = p.Prev().Text
+
+		if ok, err := p.requireMatch(EQ); !ok {
+			return us, err
+		}
+
+		var err error
+		sc.UpdateSource, err = p.ValueExpression()
+		if err != nil {
+			return us, err
+		}
+
+		us.Set = append(us.Set, sc)
+
+		if !p.match(COMMA) {
+			break
+		}
+	}
+
+	var err error
+	us.Where, err = p.WhereClause()
+	if err != nil {
+		return us, err
+	}
+
+	return us, nil
 }
 
 func (p *Parser) Use() (UseStatement, error) {
