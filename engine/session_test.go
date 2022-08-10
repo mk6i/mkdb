@@ -58,16 +58,16 @@ func TestMain(t *testing.T) {
 		)`,
 		`SELECT table_name, page_id FROM sys_pages`,
 		`SELECT table_name, field_name, field_length, field_type FROM sys_schema`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (1, "John", "Doe")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (2, "Ikra", "Freeman")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (3, "Gerrard", "Torres")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (4, "Malia", "Brewer")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (5, "Willow", "Reeves")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (6, "Mylee", "Mclean")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (7, "Leland", "Booth")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (8, "Chance", "Snyder")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (9, "Cairo", "Lim")`,
-		`INSERT INTO people (person_id, first_name, last_name) VALUES (10, "Khadija", "Crane")`,
+		`INSERT INTO people (person_id, first_name) VALUES (1, "John")`,
+		`INSERT INTO people VALUES (2, "Ikra", "Freeman")`,
+		`INSERT INTO people VALUES (3, "Gerrard", "Torres")`,
+		`INSERT INTO people VALUES (4, "Malia", "Brewer")`,
+		`INSERT INTO people VALUES (5, "Willow", "Reeves")`,
+		`INSERT INTO people VALUES (6, "Mylee", "Mclean")`,
+		`INSERT INTO people VALUES (7, "Leland", "Booth")`,
+		`INSERT INTO people VALUES (8, "Chance", "Snyder")`,
+		`INSERT INTO people VALUES (9, "Cairo", "Lim")`,
+		`INSERT INTO people VALUES (10, "Khadija", "Crane")`,
 		`SELECT person_id, first_name, last_name FROM people`,
 		`SELECT * FROM people`,
 		`SELECT * FROM people WHERE last_name = "Brewer"`,
@@ -108,6 +108,72 @@ func TestInsertNonExistentTable(t *testing.T) {
 
 	if err != btree.ErrTableNotExist {
 		t.Errorf("expected ErrTableNotExist error")
+	}
+}
+
+func TestInsertColCountMismatch(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE people (
+			person_id int,
+			first_name varchar(255),
+			last_name varchar(255)
+		)`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `INSERT INTO people (person_id, first_name, last_name) VALUES ("John", "Doe")`
+	err := s.ExecQuery(q)
+
+	if err != btree.ErrColCountMismatch {
+		t.Errorf("expected ErrColCountMismatch error")
+	}
+}
+
+func TestInsertSansColListColCountMismatch(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE people (
+			person_id int,
+			first_name varchar(255),
+			last_name varchar(255)
+		)`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `INSERT INTO people VALUES ("John", "Doe")`
+	err := s.ExecQuery(q)
+
+	if err != btree.ErrColCountMismatch {
+		t.Errorf("expected ErrColCountMismatch error")
 	}
 }
 

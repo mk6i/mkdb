@@ -32,9 +32,9 @@ CREATE TABLE family (
 );
 
 INSERT INTO family (name, age, hair) VALUES ("Walter", 50, "bald");
-INSERT INTO family (name, age, hair) VALUES ("Skyler", 40, "blonde");
-INSERT INTO family (name, age, hair) VALUES ("Walter Jr.", 16, "brown");
-INSERT INTO family (name, age, hair) VALUES ("Holly", 1, "bald");
+INSERT INTO family VALUES ("Skyler", 40, "blonde");
+INSERT INTO family VALUES ("Walter Jr.", 16, "brown");
+INSERT INTO family VALUES ("Holly", 1, "bald");
 
 SELECT name, age, hair FROM family;
 
