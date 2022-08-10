@@ -26,6 +26,7 @@ var (
 	ErrTypeMismatch      = errors.New("types do not match")
 	ErrTableNotExist     = errors.New("table does not exist")
 	ErrTableAlreadyExist = errors.New("table already exists")
+	ErrColCountMismatch  = errors.New("value list count does not match column list count")
 )
 
 type FieldDef struct {
@@ -161,6 +162,15 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 
 	for _, fd := range r.Relation.Fields {
 		val := r.Vals[fd.Name]
+		isNull := val == nil
+
+		if err := binary.Write(buf, binary.LittleEndian, isNull); err != nil {
+			return buf, err
+		}
+
+		if isNull {
+			continue
+		}
 
 		if err := fd.Validate(val); err != nil {
 			return buf, err
@@ -186,6 +196,14 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 
 func (r *Tuple) Decode(buf *bytes.Buffer) error {
 	for _, fd := range r.Relation.Fields {
+		var isNull bool
+		if err := binary.Read(buf, binary.LittleEndian, &isNull); err != nil {
+			return err
+		}
+		if isNull {
+			continue
+		}
+
 		var v interface{}
 
 		switch fd.DataType {
@@ -209,6 +227,7 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 		default:
 			panic("unsupported data type")
 		}
+
 		r.Vals[fd.Name] = v
 	}
 
@@ -610,6 +629,17 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 	tuple := Tuple{
 		Relation: schema,
 		Vals:     make(map[string]interface{}, len(cols)),
+	}
+
+	if len(cols) == 0 {
+		// fill in column list if omitted from INSERT query
+		for _, fd := range schema.Fields {
+			cols = append(cols, fd.Name)
+		}
+	}
+
+	if len(cols) != len(vals) {
+		return ErrColCountMismatch
 	}
 
 	for i, col := range cols {
