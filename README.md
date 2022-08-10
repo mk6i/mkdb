@@ -18,7 +18,7 @@ make run-cli
 
 ### Run Queries
 
-#### Basic CR~~UD~~ Operations
+#### Basic CRU~~D~~ Operations
 
 ```sql
 CREATE DATABASE testdb;
@@ -42,6 +42,9 @@ SELECT * FROM family WHERE hair = "bald";
 SELECT * FROM family WHERE age = 16 OR age = 1;
 SELECT * FROM family WHERE hair = "bald" AND age = 1;
 SELECT * FROM family WHERE hair != "bald";
+
+UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
+SELECT * FROM family WHERE name = "Holly";
 ```
 
 #### View All Tables

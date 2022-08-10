@@ -71,6 +71,8 @@ func TestMain(t *testing.T) {
 		`SELECT person_id, first_name, last_name FROM people`,
 		`SELECT * FROM people`,
 		`SELECT * FROM people WHERE last_name = "Brewer"`,
+		`UPDATE people SET person_id = 600 WHERE last_name = "Crane"`,
+		`SELECT * FROM people WHERE last_name = "Crane"`,
 	}
 
 	s := Session{}

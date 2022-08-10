@@ -55,6 +55,11 @@ func (s *Session) ExecQuery(q string) error {
 			return err
 		}
 		fmt.Printf("inserted %d record(s) into %s\n", 1, stmt.TableName)
+	case sql.UpdateStatementSearched:
+		if err := EvaluateUpdate(stmt, s.CurDB); err != nil {
+			return err
+		}
+		fmt.Print("update successful\n", 1, stmt.TableName)
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}
