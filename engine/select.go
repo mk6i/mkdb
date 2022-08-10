@@ -33,9 +33,11 @@ func EvaluateSelect(q sql.Select, db string) error {
 		return err
 	}
 
-	rows, err = filterRows(q, fields, rows)
-	if err != nil {
-		return err
+	if q.TableExpression.WhereClause != nil {
+		rows, err = filterRows(q.TableExpression.WhereClause.(sql.WhereClause), fields, rows)
+		if err != nil {
+			return err
+		}
 	}
 
 	printTable(fields, rows)
@@ -43,17 +45,11 @@ func EvaluateSelect(q sql.Select, db string) error {
 	return nil
 }
 
-func filterRows(q sql.Select, qfields []string, rows [][]interface{}) ([][]interface{}, error) {
-	if q.TableExpression.WhereClause == nil {
-		// don't do anything if there's no WHERE clause
-		return rows, nil
-	}
-
-	sc := q.TableExpression.WhereClause.(sql.WhereClause).SearchCondition
-	var ans [][]interface{}
+func filterRows(q sql.WhereClause, qfields []string, rows []*btree.Row) ([]*btree.Row, error) {
+	var ans []*btree.Row
 
 	for _, row := range rows {
-		ok, err := evaluate(sc, qfields, row)
+		ok, err := evaluate(q.SearchCondition, qfields, row)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +61,7 @@ func filterRows(q sql.Select, qfields []string, rows [][]interface{}) ([][]inter
 	return ans, nil
 }
 
-func evaluate(q interface{}, qfields []string, row []interface{}) (bool, error) {
+func evaluate(q interface{}, qfields []string, row *btree.Row) (bool, error) {
 	switch v := q.(type) {
 	case sql.SearchCondition: // or
 		return evalOr(v, qfields, row)
@@ -77,7 +73,7 @@ func evaluate(q interface{}, qfields []string, row []interface{}) (bool, error) 
 	return false, fmt.Errorf("nothing to evaluate here")
 }
 
-func evalOr(q sql.SearchCondition, qfields []string, row []interface{}) (bool, error) {
+func evalOr(q sql.SearchCondition, qfields []string, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -89,7 +85,7 @@ func evalOr(q sql.SearchCondition, qfields []string, row []interface{}) (bool, e
 	return lhs || rhs, nil
 }
 
-func evalAnd(q sql.BooleanTerm, qfields []string, row []interface{}) (bool, error) {
+func evalAnd(q sql.BooleanTerm, qfields []string, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -101,7 +97,7 @@ func evalAnd(q sql.BooleanTerm, qfields []string, row []interface{}) (bool, erro
 	return lhs && rhs, nil
 }
 
-func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row []interface{}) (bool, error) {
+func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row *btree.Row) (bool, error) {
 	lhs, err := evalPrimary(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -121,7 +117,7 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row []
 	return false, fmt.Errorf("nothing to compare here")
 }
 
-func evalPrimary(q interface{}, qfields []string, row []interface{}) (interface{}, error) {
+func evalPrimary(q interface{}, qfields []string, row *btree.Row) (interface{}, error) {
 	switch t := q.(type) {
 	case sql.ValueExpression:
 		switch t.Token.Type {
@@ -130,7 +126,7 @@ func evalPrimary(q interface{}, qfields []string, row []interface{}) (interface{
 		case sql.IDENT:
 			for i, field := range qfields {
 				if field == t.Token.Text {
-					return row[i], nil
+					return row.Vals[i], nil
 				}
 			}
 			return nil, fmt.Errorf("field not found: %s", t.Token.Text)
@@ -145,7 +141,7 @@ func evalPrimary(q interface{}, qfields []string, row []interface{}) (interface{
 	return nil, fmt.Errorf("nothing to compare here")
 }
 
-func printTable(fields []string, rows [][]interface{}) {
+func printTable(fields []string, rows []*btree.Row) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
 	fmt.Print("\n\n")
@@ -163,7 +159,7 @@ func printTable(fields []string, rows [][]interface{}) {
 	fmt.Fprint(w, "|\n")
 
 	for _, row := range rows {
-		for _, elem := range row {
+		for _, elem := range row.Vals {
 			fmt.Fprintf(w, "| %v\t", elem)
 		}
 		fmt.Fprint(w, "|\n")

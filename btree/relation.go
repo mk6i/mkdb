@@ -417,7 +417,7 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 	return nil
 }
 
-func Select(path string, tableName string, fields []string) ([][]interface{}, []string, error) {
+func Select(path string, tableName string, fields []string) ([]*Row, []string, error) {
 
 	fmt.Printf("Select query. Table: %s Fields: %s\n", tableName, fields)
 
@@ -530,10 +530,12 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 	return r, nil
 }
 
-func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([][]interface{}, error) {
+type Row struct {
+	RowID uint32
+	Vals  []interface{}
+}
 
-	var rows [][]interface{}
-
+func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([]*Row, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
@@ -545,6 +547,8 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([
 	// todo why doesn't setRoot return an err?
 	bt.setRoot(pg)
 
+	var results []*Row
+
 	ch := bt.scanRight()
 	for cell := range ch {
 		tuple := Tuple{
@@ -554,14 +558,16 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
 			return nil, err
 		}
-		var row []interface{}
-		for _, field := range fields {
-			row = append(row, tuple.Vals[field])
+		row := &Row{
+			RowID: cell.key,
 		}
-		rows = append(rows, row)
+		for _, field := range fields {
+			row.Vals = append(row.Vals, tuple.Vals[field])
+		}
+		results = append(results, row)
 	}
 
-	return rows, nil
+	return results, nil
 }
 
 func validateFields(r *Relation, fields []string) error {
@@ -628,6 +634,60 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// todo combine with update page table code?
+func Update(path string, tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
+	fs := &fileStore{path: path}
+	if err := fs.open(); err != nil {
+		return err
+	}
+
+	pgID, err := getRelationPageID(fs, tableName)
+	if err != nil {
+		return err
+	}
+
+	pg, err := fs.fetch(uint32(pgID))
+	if err != nil {
+		return err
+	}
+
+	r, err := getRelationSchema(fs, tableName)
+	if err != nil {
+		return err
+	}
+
+	bt := BTree{store: fs}
+	bt.setRoot(pg)
+
+	ch := bt.scanRight()
+	for cell := range ch {
+		if cell.key != rowID {
+			continue
+		}
+		tuple := Tuple{
+			Relation: r,
+			Vals:     make(map[string]interface{}),
+		}
+		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
+			return err
+		}
+
+		for i, col := range cols {
+			tuple.Vals[col] = updateSrc[i]
+		}
+
+		buf, err := tuple.Encode()
+		if err != nil {
+			return err
+		}
+
+		cell.pg.updateCell(cell.key, buf.Bytes())
+		fs.update(cell.pg)
 	}
 
 	return nil
