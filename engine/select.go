@@ -19,16 +19,16 @@ func EvaluateSelect(q sql.Select, db string) error {
 	var fields []string
 
 	for _, elem := range q.SelectList {
-		if elem.Token.Type == sql.ASTRSK {
+		if elem.ColumnName.Type == sql.ASTRSK {
 			fields = append(fields, "*")
 		} else {
-			fields = append(fields, elem.Token.Text)
+			fields = append(fields, elem.ColumnName.Text)
 		}
 	}
 
 	table := q.TableExpression.FromClause[0]
 
-	rows, fields, err := btree.Select(path, string(table), fields)
+	rows, fields, err := btree.Select(path, table.(string), fields)
 	if err != nil {
 		return err
 	}
@@ -120,18 +120,18 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row *b
 func evalPrimary(q interface{}, qfields []string, row *btree.Row) (interface{}, error) {
 	switch t := q.(type) {
 	case sql.ValueExpression:
-		switch t.Token.Type {
+		switch t.ColumnName.Type {
 		case sql.STR:
-			return t.Token.Text, nil
+			return t.ColumnName.Text, nil
 		case sql.IDENT:
 			for i, field := range qfields {
-				if field == t.Token.Text {
+				if field == t.ColumnName.Text {
 					return row.Vals[i], nil
 				}
 			}
-			return nil, fmt.Errorf("field not found: %s", t.Token.Text)
+			return nil, fmt.Errorf("field not found: %s", t.ColumnName.Text)
 		case sql.INT:
-			intVal, err := strconv.Atoi(t.Token.Text)
+			intVal, err := strconv.Atoi(t.ColumnName.Text)
 			if err != nil {
 				return nil, err
 			}

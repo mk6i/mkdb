@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+type JoinType uint8
+
+const (
+	FULL_JOIN = iota
+	LEFT_JOIN
+	RIGHT_JOIN
+	REGULAR_JOIN
+)
+
 type Select struct {
 	SelectList
 	TableExpression
@@ -16,13 +25,28 @@ type TableExpression struct {
 	WhereClause interface{}
 }
 type ValueExpression struct {
-	Token Token
+	Qualifier  interface{}
+	ColumnName Token
 }
 
-type Relation string
+type TableName string
 type Pattern string
 type SelectList []ValueExpression
-type FromClause []Relation
+type FromClause []TableReference
+
+// TableReference is one of TableName or JoinedTable
+type TableReference interface{}
+
+// TableReference is one of CrossJoin (tbd) or QualifiedJoin
+type JoinedTable interface{}
+
+type QualifiedJoin struct {
+	LHS TableReference
+	JoinType
+	RHS           TableReference
+	JoinCondition interface{}
+}
+
 type WhereClause struct {
 	SearchCondition interface{}
 }
@@ -264,17 +288,45 @@ func (p *Parser) TableExpression() (TableExpression, error) {
 }
 
 func (p *Parser) FromClause() (FromClause, error) {
-	fl := FromClause{}
+	fc := FromClause{}
 
 	if !p.match(FROM) {
-		return fl, nil
+		return fc, nil
 	}
 
-	for p.match(IDENT) {
-		fl = append(fl, Relation(p.Prev().Text))
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return fc, err
 	}
 
-	return fl, nil
+	tblRef := TableReference(p.Prev().Text)
+
+	for p.match(JOIN) {
+		if ok, err := p.requireMatch(IDENT); !ok {
+			return fc, err
+		}
+
+		qj := QualifiedJoin{
+			LHS:      tblRef,
+			RHS:      p.Prev().Text,
+			JoinType: REGULAR_JOIN,
+		}
+
+		if ok, err := p.requireMatch(ON); !ok {
+			return fc, err
+		}
+
+		var err error
+		qj.JoinCondition, err = p.OrCondition()
+		if err != nil {
+			return fc, err
+		}
+
+		tblRef = qj
+	}
+
+	fc = append(fc, tblRef)
+
+	return fc, nil
 }
 
 func (p *Parser) WhereClause() (interface{}, error) {
@@ -344,6 +396,10 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	cp := ComparisonPredicate{}
 	var err error
 
+	if ok, err := p.requireMatch(STR, ASTRSK, IDENT, INT); !ok {
+		return cp, err
+	}
+
 	cp.LHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
@@ -355,6 +411,10 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 
 	cp.CompOp = p.Prev().Type
 
+	if ok, err := p.requireMatch(STR, ASTRSK, IDENT, INT); !ok {
+		return cp, err
+	}
+
 	cp.RHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
@@ -364,19 +424,34 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 }
 
 func (p *Parser) ValueExpression() (ValueExpression, error) {
-	ret := ValueExpression{}
-	if ok, err := p.requireMatch(STR, IDENT, INT); !ok {
-		return ret, err
+	ve := ValueExpression{}
+
+	if p.Prev().Type == IDENT && p.Cur().Type == DOT {
+		ve.Qualifier = p.Prev()
+		if !p.match(DOT) {
+			panic("should have matched a DOT")
+		}
+		if ok, err := p.requireMatch(IDENT); !ok {
+			return ve, err
+		}
 	}
-	ret.Token = p.Prev()
-	return ret, nil
+
+	ve.ColumnName = p.Prev()
+
+	return ve, nil
 }
 
 func (p *Parser) SelectList() (SelectList, error) {
 	sl := SelectList{}
 
-	for p.match(ASTRSK, IDENT, STR) {
-		sl = append(sl, ValueExpression{p.Prev()})
+	for p.match(STR, ASTRSK, IDENT, INT) {
+		ve, err := p.ValueExpression()
+		if err != nil {
+			return sl, err
+		}
+
+		sl = append(sl, ve)
+
 		if !p.match(COMMA, WHERE) {
 			break
 		}
@@ -463,6 +538,10 @@ func (p *Parser) Update() (UpdateStatementSearched, error) {
 		sc.ObjectColumn = p.Prev().Text
 
 		if ok, err := p.requireMatch(EQ); !ok {
+			return us, err
+		}
+
+		if ok, err := p.requireMatch(STR, INT); !ok {
 			return us, err
 		}
 

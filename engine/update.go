@@ -34,7 +34,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string) error {
 
 	for _, set := range q.Set {
 		cols = append(cols, set.ObjectColumn)
-		t, err := castTokenVal(set.UpdateSource.Token)
+		t, err := castTokenVal(set.UpdateSource.ColumnName)
 		if err != nil {
 			return err
 		}
