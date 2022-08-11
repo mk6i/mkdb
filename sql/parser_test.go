@@ -62,13 +62,13 @@ func TestParseSelect(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			ValueExpression{
-				Token: Token{
+				ColumnName: Token{
 					Type: IDENT,
 					Text: "field_1",
 				},
 			},
 			ValueExpression{
-				Token: Token{
+				ColumnName: Token{
 					Type: IDENT,
 					Text: "field_2",
 				},
@@ -76,14 +76,14 @@ func TestParseSelect(t *testing.T) {
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
-				Relation("the_table"),
+				TableReference("the_table"),
 			},
 			WhereClause: WhereClause{
 				SearchCondition: BooleanTerm{
 					LHS: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
-								Token{
+								ColumnName: Token{
 									Type:   IDENT,
 									Line:   0,
 									Column: 0,
@@ -92,7 +92,7 @@ func TestParseSelect(t *testing.T) {
 							},
 							CompOp: EQ,
 							RHS: ValueExpression{
-								Token{
+								ColumnName: Token{
 									Type:   STR,
 									Line:   0,
 									Column: 0,
@@ -104,7 +104,7 @@ func TestParseSelect(t *testing.T) {
 					RHS: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
-								Token{
+								ColumnName: Token{
 									Type:   IDENT,
 									Line:   0,
 									Column: 0,
@@ -113,11 +113,226 @@ func TestParseSelect(t *testing.T) {
 							},
 							CompOp: NEQ,
 							RHS: ValueExpression{
-								Token{
+								ColumnName: Token{
 									Type:   INT,
 									Line:   0,
 									Column: 0,
 									Text:   "1234",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectJoin(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_2",
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: JOIN,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: ON,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: JOIN,
+		},
+		{
+			Type: IDENT,
+			Text: "table_3",
+		},
+		{
+			Type: ON,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: IDENT,
+			Text: "table_3",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				ColumnName: Token{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				ColumnName: Token{
+					Type: IDENT,
+					Text: "field_2",
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				QualifiedJoin{
+					LHS: QualifiedJoin{
+						LHS:      TableReference("table_1"),
+						RHS:      TableReference("table_2"),
+						JoinType: REGULAR_JOIN,
+						JoinCondition: Predicate{
+							ComparisonPredicate{
+								LHS: ValueExpression{
+									Qualifier: Token{
+										Type: IDENT,
+										Text: "table_1",
+									},
+									ColumnName: Token{
+										Type: IDENT,
+										Text: "id",
+									},
+								},
+								CompOp: EQ,
+								RHS: ValueExpression{
+									Qualifier: Token{
+										Type: IDENT,
+										Text: "table_2",
+									},
+									ColumnName: Token{
+										Type: IDENT,
+										Text: "id",
+									},
+								},
+							},
+						},
+					},
+					RHS:      TableReference("table_3"),
+					JoinType: REGULAR_JOIN,
+					JoinCondition: Predicate{
+						ComparisonPredicate{
+							LHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "table_2",
+								},
+								ColumnName: Token{
+									Type: IDENT,
+									Text: "id",
+								},
+							},
+							CompOp: EQ,
+							RHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "table_3",
+								},
+								ColumnName: Token{
+									Type: IDENT,
+									Text: "id",
 								},
 							},
 						},
@@ -165,14 +380,14 @@ func TestParseSelectStar(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			ValueExpression{
-				Token: Token{
+				ColumnName: Token{
 					Type: ASTRSK,
 				},
 			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
-				Relation("the_table"),
+				TableReference("the_table"),
 			},
 			WhereClause: nil,
 		},
@@ -566,7 +781,7 @@ func TestParseUpdate(t *testing.T) {
 			{
 				ObjectColumn: "column1",
 				UpdateSource: ValueExpression{
-					Token: Token{
+					ColumnName: Token{
 						Type: STR,
 						Text: "val1",
 					},
@@ -575,7 +790,7 @@ func TestParseUpdate(t *testing.T) {
 			{
 				ObjectColumn: "column2",
 				UpdateSource: ValueExpression{
-					Token: Token{
+					ColumnName: Token{
 						Type: STR,
 						Text: "val2",
 					},
@@ -584,7 +799,7 @@ func TestParseUpdate(t *testing.T) {
 			{
 				ObjectColumn: "column3",
 				UpdateSource: ValueExpression{
-					Token: Token{
+					ColumnName: Token{
 						Type: STR,
 						Text: "val3",
 					},
@@ -595,7 +810,7 @@ func TestParseUpdate(t *testing.T) {
 			SearchCondition: Predicate{
 				ComparisonPredicate{
 					LHS: ValueExpression{
-						Token{
+						ColumnName: Token{
 							Type:   IDENT,
 							Line:   0,
 							Column: 0,
@@ -604,7 +819,7 @@ func TestParseUpdate(t *testing.T) {
 					},
 					CompOp: EQ,
 					RHS: ValueExpression{
-						Token{
+						ColumnName: Token{
 							Type:   INT,
 							Line:   0,
 							Column: 0,
