@@ -41,6 +41,7 @@ const (
 	CREATE
 	DATABASE
 	DISTINCT
+	DOT
 	ELSE
 	END
 	EXISTS
@@ -126,6 +127,7 @@ var Tokens = map[TokenType]string{
 	CREATE:    "CREATE",
 	DATABASE:  "DATABASE",
 	DISTINCT:  "DISTINCT",
+	DOT:       ".",
 	ELSE:      "ELSE",
 	END:       "END",
 	EXISTS:    "EXISTS",
