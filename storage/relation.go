@@ -436,7 +436,7 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 	return nil
 }
 
-func Select(path string, tableName string, fields []string) ([]*Row, []string, error) {
+func Select(path string, tableName string, fields []*Field) ([]*Row, []*Field, error) {
 
 	fmt.Printf("Select query. Table: %s Fields: %s\n", tableName, fields)
 
@@ -458,13 +458,13 @@ func Select(path string, tableName string, fields []string) ([]*Row, []string, e
 		return nil, nil, err
 	}
 
-	if fields[0] == "*" {
+	if fields[0].Column == "*" {
 		if len(fields) > 1 {
 			return nil, nil, fmt.Errorf("right now select * may only contain one element")
 		}
 		fields = nil
 		for _, fd := range rs.Fields {
-			fields = append(fields, fd.Name)
+			fields = append(fields, &Field{Column: fd.Name})
 		}
 	}
 
@@ -549,12 +549,24 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 	return r, nil
 }
 
+type Field struct {
+	Qualifer string
+	Column   interface{}
+}
+
+func (f *Field) String() string {
+	if f.Qualifer != "" {
+		return fmt.Sprintf("%s.%s", f.Qualifer, f.Column)
+	}
+	return fmt.Sprintf("%s", f.Column)
+}
+
 type Row struct {
 	RowID uint32
 	Vals  []interface{}
 }
 
-func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([]*Row, error) {
+func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []*Field) ([]*Row, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
@@ -581,7 +593,7 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([
 			RowID: cell.key,
 		}
 		for _, field := range fields {
-			row.Vals = append(row.Vals, tuple.Vals[field])
+			row.Vals = append(row.Vals, tuple.Vals[field.Column.(string)])
 		}
 		results = append(results, row)
 	}
@@ -589,7 +601,7 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []string) ([
 	return results, nil
 }
 
-func validateFields(r *Relation, fields []string) error {
+func validateFields(r *Relation, fields []*Field) error {
 	allowed := make(map[string]bool, len(r.Fields))
 
 	for _, fd := range r.Fields {
@@ -597,7 +609,7 @@ func validateFields(r *Relation, fields []string) error {
 	}
 
 	for _, field := range fields {
-		if _, ok := allowed[field]; !ok {
+		if _, ok := allowed[field.Column.(string)]; !ok {
 			return fmt.Errorf("field %s does not exist", field)
 		}
 	}
