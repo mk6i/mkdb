@@ -16,7 +16,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string) error {
 	}
 
 	table := q.TableName
-	rows, fields, err := btree.Select(path, string(table), []*btree.Field{{Column: "*"}})
+	rows, fields, err := btree.Select(path, string(table))
 	if err != nil {
 		return err
 	}

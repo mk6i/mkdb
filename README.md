@@ -28,23 +28,44 @@ USE testdb;
 CREATE TABLE family (
     name varchar(255),
     age int,
-    hair varchar(255),
+    hair varchar(255)
+);
+
+CREATE TABLE famous_lines (
+    name varchar(255),
+    quote varchar(255),
+    season int
+);
+
+CREATE TABLE season (
+    number int,
+    year int
 );
 
 INSERT INTO family (name, age, hair) VALUES ("Walter", 50, "bald");
-INSERT INTO family VALUES ("Skyler", 40, "blonde");
-INSERT INTO family VALUES ("Walter Jr.", 16, "brown");
-INSERT INTO family VALUES ("Holly", 1, "bald");
+INSERT INTO family (name, age, hair) VALUES ("Skyler", 40, "blonde");
+INSERT INTO family (name, age, hair) VALUES ("Walter Jr.", 16, "brown");
+INSERT INTO family (name, age, hair) VALUES ("Holly", 1, "bald");
 
-SELECT name, age, hair FROM family;
+INSERT INTO season (number, year) VALUES (1, 2008);
+INSERT INTO season (number, year) VALUES (2, 2009);
+INSERT INTO season (number, year) VALUES (3, 2010);
+INSERT INTO season (number, year) VALUES (4, 2011);
+INSERT INTO season (number, year) VALUES (5, 2012);
 
-SELECT * FROM family WHERE hair = "bald";
-SELECT * FROM family WHERE age = 16 OR age = 1;
-SELECT * FROM family WHERE hair = "bald" AND age = 1;
-SELECT * FROM family WHERE hair != "bald";
+INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1);
+INSERT INTO famous_lines (name, quote, season) VALUES ("Skyler", "Walt, the Mastercard's the one we don't use.", 1);
+INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2);
+INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2);
+INSERT INTO famous_lines (name, quote, season) VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3);
+
+SELECT family.name, famous_lines.quote, season.year
+FROM family
+JOIN famous_lines ON famous_lines.name = family.name
+JOIN season ON season.number = famous_lines.season
+WHERE family.hair = "bald";
 
 UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
-SELECT * FROM family WHERE name = "Holly";
 ```
 
 #### View All Tables
