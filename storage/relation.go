@@ -237,7 +237,7 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 func CreateDB(path string) error {
 	fs := &fileStore{
 		path:           path,
-		branchFactor:   4,
+		branchFactor:   400,
 		nextFreeOffset: 4096,
 	}
 	if err := fs.save(); err != nil {
@@ -436,9 +436,9 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 	return nil
 }
 
-func Select(path string, tableName string, fields []*Field) ([]*Row, []*Field, error) {
+func Select(path string, tableName string) ([]*Row, []*Field, error) {
 
-	fmt.Printf("Select query. Table: %s Fields: %s\n", tableName, fields)
+	fmt.Printf("Select query. Table: %s\n", tableName)
 
 	fs := &fileStore{path: path}
 	if err := fs.open(); err != nil {
@@ -458,18 +458,9 @@ func Select(path string, tableName string, fields []*Field) ([]*Row, []*Field, e
 		return nil, nil, err
 	}
 
-	if fields[0].Column == "*" {
-		if len(fields) > 1 {
-			return nil, nil, fmt.Errorf("right now select * may only contain one element")
-		}
-		fields = nil
-		for _, fd := range rs.Fields {
-			fields = append(fields, &Field{Column: fd.Name})
-		}
-	}
-
-	if err := validateFields(rs, fields); err != nil {
-		return nil, nil, err
+	fields := []*Field{}
+	for _, fd := range rs.Fields {
+		fields = append(fields, &Field{Column: fd.Name, Table: tableName})
 	}
 
 	fmt.Printf("relation %s schema: %v\n", tableName, rs)
@@ -552,6 +543,7 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 type Field struct {
 	Qualifer string
 	Column   interface{}
+	Table    string
 }
 
 func (f *Field) String() string {
@@ -564,6 +556,13 @@ func (f *Field) String() string {
 type Row struct {
 	RowID uint32
 	Vals  []interface{}
+}
+
+func (r *Row) Merge(row *Row) *Row {
+	newRow := &Row{}
+	newRow.Vals = append(newRow.Vals, r.Vals...)
+	newRow.Vals = append(newRow.Vals, row.Vals...)
+	return newRow
 }
 
 func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []*Field) ([]*Row, error) {
