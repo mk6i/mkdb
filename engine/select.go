@@ -16,13 +16,20 @@ func EvaluateSelect(q sql.Select, db string) error {
 		return err
 	}
 
-	var fields []string
+	var fields []*btree.Field
 
 	for _, elem := range q.SelectList {
 		if elem.ColumnName.Type == sql.ASTRSK {
-			fields = append(fields, "*")
+			fields = append(fields, &btree.Field{Column: "*"})
 		} else {
-			fields = append(fields, elem.ColumnName.Text)
+			f := &btree.Field{
+				Column: elem.ColumnName.Text,
+				// todo support ints
+			}
+			if eq, ok := elem.Qualifier.(string); ok {
+				f.Qualifer = eq
+			}
+			fields = append(fields, f)
 		}
 	}
 
@@ -45,7 +52,7 @@ func EvaluateSelect(q sql.Select, db string) error {
 	return nil
 }
 
-func filterRows(q sql.WhereClause, qfields []string, rows []*btree.Row) ([]*btree.Row, error) {
+func filterRows(q sql.WhereClause, qfields []*btree.Field, rows []*btree.Row) ([]*btree.Row, error) {
 	var ans []*btree.Row
 
 	for _, row := range rows {
@@ -61,7 +68,7 @@ func filterRows(q sql.WhereClause, qfields []string, rows []*btree.Row) ([]*btre
 	return ans, nil
 }
 
-func evaluate(q interface{}, qfields []string, row *btree.Row) (bool, error) {
+func evaluate(q interface{}, qfields []*btree.Field, row *btree.Row) (bool, error) {
 	switch v := q.(type) {
 	case sql.SearchCondition: // or
 		return evalOr(v, qfields, row)
@@ -73,7 +80,7 @@ func evaluate(q interface{}, qfields []string, row *btree.Row) (bool, error) {
 	return false, fmt.Errorf("nothing to evaluate here")
 }
 
-func evalOr(q sql.SearchCondition, qfields []string, row *btree.Row) (bool, error) {
+func evalOr(q sql.SearchCondition, qfields []*btree.Field, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -85,7 +92,7 @@ func evalOr(q sql.SearchCondition, qfields []string, row *btree.Row) (bool, erro
 	return lhs || rhs, nil
 }
 
-func evalAnd(q sql.BooleanTerm, qfields []string, row *btree.Row) (bool, error) {
+func evalAnd(q sql.BooleanTerm, qfields []*btree.Field, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -97,7 +104,7 @@ func evalAnd(q sql.BooleanTerm, qfields []string, row *btree.Row) (bool, error) 
 	return lhs && rhs, nil
 }
 
-func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row *btree.Row) (bool, error) {
+func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []*btree.Field, row *btree.Row) (bool, error) {
 	lhs, err := evalPrimary(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -117,7 +124,7 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []string, row *b
 	return false, fmt.Errorf("nothing to compare here")
 }
 
-func evalPrimary(q interface{}, qfields []string, row *btree.Row) (interface{}, error) {
+func evalPrimary(q interface{}, qfields []*btree.Field, row *btree.Row) (interface{}, error) {
 	switch t := q.(type) {
 	case sql.ValueExpression:
 		switch t.ColumnName.Type {
@@ -125,7 +132,7 @@ func evalPrimary(q interface{}, qfields []string, row *btree.Row) (interface{}, 
 			return t.ColumnName.Text, nil
 		case sql.IDENT:
 			for i, field := range qfields {
-				if field == t.ColumnName.Text {
+				if field.Column == t.ColumnName.Text && (t.Qualifier == nil || t.Qualifier == field.Qualifer) {
 					return row.Vals[i], nil
 				}
 			}
@@ -141,13 +148,13 @@ func evalPrimary(q interface{}, qfields []string, row *btree.Row) (interface{}, 
 	return nil, fmt.Errorf("nothing to compare here")
 }
 
-func printTable(fields []string, rows []*btree.Row) {
+func printTable(fields []*btree.Field, rows []*btree.Row) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
 	fmt.Print("\n\n")
 
 	for _, field := range fields {
-		fmt.Fprintf(w, "| [%v]\t", field)
+		fmt.Fprintf(w, "| [%s]\t", field)
 	}
 
 	fmt.Fprint(w, "|\n")
