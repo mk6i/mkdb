@@ -237,7 +237,7 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 func CreateDB(path string) error {
 	fs := &fileStore{
 		path:           path,
-		branchFactor:   400,
+		branchFactor:   4,
 		nextFreeOffset: 4096,
 	}
 	if err := fs.save(); err != nil {
@@ -344,7 +344,7 @@ func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
 	curRoot := bt.getRoot()
 	if curRoot.pageID != pgTablePg.pageID {
 		fs.setPageTableRoot(curRoot)
-		if err := updatePageTable(fs, curRoot.pageID, tableName); err != nil {
+		if err := updatePageTable(fs, curRoot.pageID, pageTableName); err != nil {
 			return err
 		}
 	}
@@ -672,6 +672,7 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 	// update page table with new root if the old root split
 	curPage := bt.getRoot()
 	if curPage.pageID != tablePg.pageID {
+		// todo why don't we call fs.setPageTableRoot(curRoot) like in insertPageTable?
 		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
 			return err
 		}
