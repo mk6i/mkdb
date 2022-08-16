@@ -344,9 +344,6 @@ func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
 	curRoot := bt.getRoot()
 	if curRoot.pageID != pgTablePg.pageID {
 		fs.setPageTableRoot(curRoot)
-		if err := updatePageTable(fs, curRoot.pageID, pageTableName); err != nil {
-			return err
-		}
 	}
 
 	fmt.Printf("inserted new page table record for %s, page id: %d\n", tableName, id)
@@ -672,7 +669,6 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 	// update page table with new root if the old root split
 	curPage := bt.getRoot()
 	if curPage.pageID != tablePg.pageID {
-		// todo why don't we call fs.setPageTableRoot(curRoot) like in insertPageTable?
 		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
 			return err
 		}
