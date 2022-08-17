@@ -300,11 +300,13 @@ func (p *Parser) FromClause() (FromClause, error) {
 
 	tblRef := TableReference(p.Prev().Text)
 
-	for p.curType(LEFT, JOIN) {
+	for p.curType(JOIN, LEFT, RIGHT) {
 		jt := JoinType(REGULAR_JOIN)
 		switch {
 		case p.match(LEFT):
 			jt = LEFT_JOIN
+		case p.match(RIGHT):
+			jt = RIGHT_JOIN
 		}
 
 		if ok, err := p.requireMatch(JOIN); !ok {
