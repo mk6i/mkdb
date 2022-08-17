@@ -300,7 +300,17 @@ func (p *Parser) FromClause() (FromClause, error) {
 
 	tblRef := TableReference(p.Prev().Text)
 
-	for p.match(JOIN) {
+	for p.curType(LEFT, JOIN) {
+		jt := JoinType(REGULAR_JOIN)
+		switch {
+		case p.match(LEFT):
+			jt = LEFT_JOIN
+		}
+
+		if ok, err := p.requireMatch(JOIN); !ok {
+			return fc, err
+		}
+
 		if ok, err := p.requireMatch(IDENT); !ok {
 			return fc, err
 		}
@@ -308,7 +318,7 @@ func (p *Parser) FromClause() (FromClause, error) {
 		qj := QualifiedJoin{
 			LHS:      tblRef,
 			RHS:      p.Prev().Text,
-			JoinType: REGULAR_JOIN,
+			JoinType: jt,
 		}
 
 		if ok, err := p.requireMatch(ON); !ok {
@@ -426,7 +436,7 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 func (p *Parser) ValueExpression() (ValueExpression, error) {
 	ve := ValueExpression{}
 
-	if p.Prev().Type == IDENT && p.Cur().Type == DOT {
+	if p.Prev().Type == IDENT && p.curType(DOT) {
 		ve.Qualifier = p.Prev()
 		if !p.match(DOT) {
 			panic("should have matched a DOT")
@@ -592,6 +602,10 @@ func (p *Parser) requireMatch(types ...TokenType) (bool, error) {
 		return true, nil
 	}
 	return false, p.unexpectedTypeErr(types...)
+}
+
+func (p *Parser) curType(types ...TokenType) bool {
+	return hasType(p.Cur().Type, types...)
 }
 
 func hasType(targetType TokenType, types ...TokenType) bool {

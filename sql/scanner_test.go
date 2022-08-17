@@ -191,6 +191,105 @@ func TestScanSelectJoin(t *testing.T) {
 	}
 }
 
+func TestScanSelectLeftJoin(t *testing.T) {
+
+	const src = `SELECT table_1.field_1, table_2.field_2 FROM table_1 LEFT JOIN table_2 ON table_1.id = table_2.id`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_2",
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: LEFT,
+		},
+		{
+			Type: JOIN,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: ON,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
+
 func TestScanSelectStar(t *testing.T) {
 
 	const src = `SELECT * FROM the_table`

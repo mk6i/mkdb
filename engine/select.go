@@ -69,7 +69,11 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, []*btree.
 			tmpFields = append(tmpFields, lFields...)
 			tmpFields = append(tmpFields, rFields...)
 
+			rPadded := &btree.Row{Vals: make([]interface{}, len(rFields))}
+
 			for _, lRow := range lRows {
+				hasMatch := false
+
 				for _, rRow := range rRows {
 					tmpRow := lRow.Merge(rRow)
 					ok, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
@@ -77,7 +81,15 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, []*btree.
 						return nil, nil, err
 					}
 					if ok {
+						hasMatch = true
 						tmpRows = append(tmpRows, tmpRow)
+					}
+				}
+
+				if !hasMatch {
+					switch {
+					case v.JoinType == sql.LEFT_JOIN:
+						tmpRows = append(tmpRows, lRow.Merge(rPadded))
 					}
 				}
 			}
