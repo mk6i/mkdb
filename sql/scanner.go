@@ -63,6 +63,7 @@ const (
 	ON
 	ORDER
 	OUTER
+	RIGHT
 	SELECT
 	SEMICOLON
 	SET
@@ -149,6 +150,7 @@ var Tokens = map[TokenType]string{
 	ON:        "ON",
 	ORDER:     "ORDER",
 	OUTER:     "OUTER",
+	RIGHT:     "RIGHT",
 	SELECT:    "SELECT",
 	SEMICOLON: ";",
 	SET:       "SET",
