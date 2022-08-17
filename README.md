@@ -65,6 +65,15 @@ JOIN famous_lines ON famous_lines.name = family.name
 JOIN season ON season.number = famous_lines.season
 WHERE family.hair = "bald";
 
+SELECT family.name, famous_lines.quote, season.year
+FROM family
+LEFT JOIN famous_lines ON famous_lines.name = family.name
+LEFT JOIN season ON season.number = famous_lines.season;
+
+SELECT famous_lines.quote, season.year
+FROM famous_lines
+RIGHT JOIN season ON season.number = famous_lines.season;
+
 UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
 ```
 
