@@ -283,3 +283,41 @@ func TestSelectJoin(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectLeftJoin(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE family (name varchar(255),age int,hair varchar(255))`,
+		`CREATE TABLE famous_lines (name varchar(255),quote varchar(255),season int)`,
+
+		`INSERT INTO family (name, age, hair) VALUES ("Walter", 50, "bald")`,
+		`INSERT INTO family VALUES ("Skyler", 40, "blonde")`,
+		`INSERT INTO family VALUES ("Walter Jr.", 16, "brown")`,
+		`INSERT INTO family VALUES ("Holly", 1, "bald")`,
+
+		`INSERT INTO famous_lines VALUES ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "Walt, the Mastercard's the one we don't use.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3)`,
+
+		`SELECT family.name, famous_lines.quote
+			FROM family
+			LEFT JOIN famous_lines ON famous_lines.name = family.name`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+}
