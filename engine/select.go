@@ -41,16 +41,22 @@ func EvaluateSelect(q sql.Select, db string) error {
 	return nil
 }
 
-func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, []*btree.Field, error) {
+func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
 
 	switch v := tf.(type) {
-	case string:
-		tbl := string(v)
-		r, f, err := btree.Select(path, tbl)
+	case sql.TableName:
+		rows, fields, err := btree.Select(path, v.Name)
 		if err != nil {
 			return nil, nil, err
 		}
-		return r, f, err
+		tableID := v.Name
+		if v.CorrelationName != nil {
+			tableID = v.CorrelationName.(string)
+		}
+		for _, fd := range fields {
+			fd.TableID = tableID
+		}
+		return rows, fields, err
 	case sql.JoinedTable:
 		switch v := v.(type) {
 		case sql.QualifiedJoin:
@@ -65,7 +71,7 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, []*btree.
 
 			tmpRows := []*btree.Row{}
 
-			tmpFields := []*btree.Field{}
+			tmpFields := btree.Fields{}
 			tmpFields = append(tmpFields, lFields...)
 			tmpFields = append(tmpFields, rFields...)
 
@@ -129,21 +135,24 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, []*btree.
 	return nil, nil, nil
 }
 
-func projectColumns(sl sql.SelectList, qfields []*btree.Field, rows []*btree.Row) error {
+func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) error {
 	if sl[0].ColumnName.Type == sql.ASTRSK {
 		return nil
 	}
 
 	idxs := []int{}
-
-	for _, selectField := range sl {
-		for i, field := range qfields {
-			if selectField.Qualifier == nil || selectField.Qualifier.(sql.Token).Text == field.Table {
-				if selectField.ColumnName.Text == field.Column.(string) {
-					idxs = append(idxs, i)
-				}
-			}
+	for _, sf := range sl {
+		var idx int
+		var err error
+		if sf.Qualifier != nil {
+			idx, err = qfields.LookupColIdxByID(sf.Qualifier.(sql.Token).Text, sf.ColumnName.Text)
+		} else {
+			idx, err = qfields.LookupFieldIdx(sf.ColumnName.Text)
 		}
+		if err != nil {
+			return err
+		}
+		idxs = append(idxs, idx)
 	}
 
 	for _, row := range rows {
@@ -157,7 +166,7 @@ func projectColumns(sl sql.SelectList, qfields []*btree.Field, rows []*btree.Row
 	return nil
 }
 
-func filterRows(q sql.WhereClause, qfields []*btree.Field, rows []*btree.Row) ([]*btree.Row, error) {
+func filterRows(q sql.WhereClause, qfields btree.Fields, rows []*btree.Row) ([]*btree.Row, error) {
 	var ans []*btree.Row
 
 	for _, row := range rows {
@@ -173,7 +182,7 @@ func filterRows(q sql.WhereClause, qfields []*btree.Field, rows []*btree.Row) ([
 	return ans, nil
 }
 
-func evaluate(q interface{}, qfields []*btree.Field, row *btree.Row) (bool, error) {
+func evaluate(q interface{}, qfields btree.Fields, row *btree.Row) (bool, error) {
 	switch v := q.(type) {
 	case sql.SearchCondition: // or
 		return evalOr(v, qfields, row)
@@ -185,7 +194,7 @@ func evaluate(q interface{}, qfields []*btree.Field, row *btree.Row) (bool, erro
 	return false, fmt.Errorf("nothing to evaluate here")
 }
 
-func evalOr(q sql.SearchCondition, qfields []*btree.Field, row *btree.Row) (bool, error) {
+func evalOr(q sql.SearchCondition, qfields btree.Fields, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -197,7 +206,7 @@ func evalOr(q sql.SearchCondition, qfields []*btree.Field, row *btree.Row) (bool
 	return lhs || rhs, nil
 }
 
-func evalAnd(q sql.BooleanTerm, qfields []*btree.Field, row *btree.Row) (bool, error) {
+func evalAnd(q sql.BooleanTerm, qfields btree.Fields, row *btree.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -209,7 +218,7 @@ func evalAnd(q sql.BooleanTerm, qfields []*btree.Field, row *btree.Row) (bool, e
 	return lhs && rhs, nil
 }
 
-func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []*btree.Field, row *btree.Row) (bool, error) {
+func evalComparisonPredicate(q sql.ComparisonPredicate, qfields btree.Fields, row *btree.Row) (bool, error) {
 	lhs, err := evalPrimary(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -229,21 +238,24 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields []*btree.Field, 
 	return false, fmt.Errorf("nothing to compare here")
 }
 
-func evalPrimary(q interface{}, qfields []*btree.Field, row *btree.Row) (interface{}, error) {
+func evalPrimary(q interface{}, qfields btree.Fields, row *btree.Row) (interface{}, error) {
 	switch t := q.(type) {
 	case sql.ValueExpression:
 		switch t.ColumnName.Type {
 		case sql.STR:
 			return t.ColumnName.Text, nil
 		case sql.IDENT:
-			for i, field := range qfields {
-				if field.Column == t.ColumnName.Text {
-					if t.Qualifier == nil || t.Qualifier.(sql.Token).Text == field.Table {
-						return row.Vals[i], nil
-					}
-				}
+			var idx int
+			var err error
+			if t.Qualifier != nil {
+				idx, err = qfields.LookupColIdxByID(t.Qualifier.(sql.Token).Text, t.ColumnName.Text)
+			} else {
+				idx, err = qfields.LookupFieldIdx(t.ColumnName.Text)
 			}
-			return nil, fmt.Errorf("field not found: %s", t.ColumnName.Text)
+			if err != nil {
+				return nil, err
+			}
+			return row.Vals[idx], nil
 		case sql.INT:
 			intVal, err := strconv.Atoi(t.ColumnName.Text)
 			if err != nil {
@@ -284,7 +296,7 @@ func printTable(selectList []string, rows []*btree.Row) {
 	fmt.Printf("\n%d result(s) returned\n", len(rows))
 }
 
-func printableFields(sl sql.SelectList, fields []*btree.Field) []string {
+func printableFields(sl sql.SelectList, fields btree.Fields) []string {
 	ans := []string{}
 	if sl[0].ColumnName.Type == sql.ASTRSK {
 		for _, field := range fields {
