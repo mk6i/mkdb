@@ -27,6 +27,8 @@ var (
 	ErrTableNotExist     = errors.New("table does not exist")
 	ErrTableAlreadyExist = errors.New("table already exists")
 	ErrColCountMismatch  = errors.New("value list count does not match column list count")
+	ErrFieldAmbiguous    = errors.New("field is ambiguous")
+	ErrFieldNotFound     = errors.New("field not found")
 )
 
 type FieldDef struct {
@@ -457,7 +459,7 @@ func Select(path string, tableName string) ([]*Row, []*Field, error) {
 
 	fields := []*Field{}
 	for _, fd := range rs.Fields {
-		fields = append(fields, &Field{Column: fd.Name, Table: tableName})
+		fields = append(fields, &Field{Column: fd.Name})
 	}
 
 	fmt.Printf("relation %s schema: %v\n", tableName, rs)
@@ -538,16 +540,44 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 }
 
 type Field struct {
-	Qualifer string
-	Column   interface{}
-	Table    string
+	TableID string
+	Column  interface{}
 }
 
 func (f *Field) String() string {
-	if f.Qualifer != "" {
-		return fmt.Sprintf("%s.%s", f.Qualifer, f.Column)
+	if f.TableID != "" {
+		return fmt.Sprintf("%s.%s", f.TableID, f.Column)
 	}
 	return fmt.Sprintf("%s", f.Column)
+}
+
+type Fields []*Field
+
+func (fields Fields) LookupFieldIdx(fieldName string) (int, error) {
+	foundIdx := -1
+	for idx, f := range fields {
+		if f.Column == fieldName {
+			if foundIdx > -1 {
+				return -1, fmt.Errorf("%w: %s", ErrFieldAmbiguous, fieldName)
+			}
+			foundIdx = idx
+		}
+	}
+
+	if foundIdx == -1 {
+		return -1, fmt.Errorf("%w: %s", ErrFieldNotFound, fieldName)
+	}
+
+	return foundIdx, nil
+}
+
+func (fields Fields) LookupColIdxByID(tableID string, fieldName string) (int, error) {
+	for idx, f := range fields {
+		if f.Column == fieldName && f.TableID == tableID {
+			return idx, nil
+		}
+	}
+	return -1, fmt.Errorf("%w: %s", ErrFieldNotFound, fieldName)
 }
 
 type Row struct {
@@ -562,7 +592,7 @@ func (r *Row) Merge(row *Row) *Row {
 	return newRow
 }
 
-func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []*Field) ([]*Row, error) {
+func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields Fields) ([]*Row, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
@@ -597,7 +627,7 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields []*Field) ([
 	return results, nil
 }
 
-func validateFields(r *Relation, fields []*Field) error {
+func validateFields(r *Relation, fields Fields) error {
 	allowed := make(map[string]bool, len(r.Fields))
 
 	for _, fd := range r.Fields {

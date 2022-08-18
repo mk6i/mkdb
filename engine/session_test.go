@@ -268,14 +268,11 @@ func TestSelectJoin(t *testing.T) {
 		`INSERT INTO famous_lines VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2)`,
 		`INSERT INTO famous_lines VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3)`,
 
-		`SELECT name, age, hair FROM family`,
-		`SELECT name, quote, season FROM famous_lines`,
-		`SELECT number, year FROM season`,
-
-		`SELECT family.name, famous_lines.quote, season.year
-			FROM family
-			JOIN famous_lines ON famous_lines.name = family.name
-			JOIN season ON season.number = famous_lines.season`,
+		`SELECT f.name, quote, year
+		FROM family f
+		JOIN famous_lines ON famous_lines.name = f.name
+		JOIN season ON season.number = famous_lines.season
+		WHERE f.hair = "bald"`,
 	}
 	for _, q := range queries {
 		if err := s.ExecQuery(q); err != nil {
