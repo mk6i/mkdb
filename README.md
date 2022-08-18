@@ -59,20 +59,20 @@ INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "Oh, yes. Now w
 INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2);
 INSERT INTO famous_lines (name, quote, season) VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3);
 
-SELECT family.name, famous_lines.quote, season.year
-FROM family
-JOIN famous_lines ON famous_lines.name = family.name
-JOIN season ON season.number = famous_lines.season
-WHERE family.hair = "bald";
+SELECT f.name, quote, year
+FROM family f
+JOIN famous_lines fl ON fl.name = f.name
+JOIN season s ON s.number = fl.season
+WHERE hair = "bald";
 
-SELECT family.name, famous_lines.quote, season.year
-FROM family
-LEFT JOIN famous_lines ON famous_lines.name = family.name
-LEFT JOIN season ON season.number = famous_lines.season;
+SELECT f.name, quote, year
+FROM family f
+LEFT JOIN famous_lines fl ON fl.name = f.name
+LEFT JOIN season s ON s.number = fl.season;
 
-SELECT famous_lines.quote, season.year
-FROM famous_lines
-RIGHT JOIN season ON season.number = famous_lines.season;
+SELECT quote, year
+FROM famous_lines fl
+RIGHT JOIN season s ON s.number = fl.season;
 
 UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
 ```

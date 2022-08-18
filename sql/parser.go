@@ -24,12 +24,17 @@ type TableExpression struct {
 	FromClause
 	WhereClause interface{}
 }
+
 type ValueExpression struct {
 	Qualifier  interface{}
 	ColumnName Token
 }
 
-type TableName string
+type TableName struct {
+	CorrelationName interface{}
+	Name            string
+}
+
 type Pattern string
 type SelectList []ValueExpression
 type FromClause []TableReference
@@ -294,11 +299,12 @@ func (p *Parser) FromClause() (FromClause, error) {
 		return fc, nil
 	}
 
-	if ok, err := p.requireMatch(IDENT); !ok {
+	tn, err := p.TableName()
+	if err != nil {
 		return fc, err
 	}
 
-	tblRef := TableReference(p.Prev().Text)
+	tblRef := TableReference(tn)
 
 	for p.curType(JOIN, LEFT, RIGHT) {
 		jt := JoinType(REGULAR_JOIN)
@@ -313,13 +319,15 @@ func (p *Parser) FromClause() (FromClause, error) {
 			return fc, err
 		}
 
-		if ok, err := p.requireMatch(IDENT); !ok {
+		var rhs TableReference
+		rhs, err = p.TableName()
+		if err != nil {
 			return fc, err
 		}
 
 		qj := QualifiedJoin{
 			LHS:      tblRef,
-			RHS:      p.Prev().Text,
+			RHS:      rhs,
 			JoinType: jt,
 		}
 
@@ -470,6 +478,22 @@ func (p *Parser) SelectList() (SelectList, error) {
 	}
 
 	return sl, nil
+}
+
+func (p *Parser) TableName() (TableName, error) {
+	tn := TableName{}
+
+	if ok, err := p.requireMatch(IDENT); !ok {
+		return tn, err
+	}
+
+	tn.Name = p.Prev().Text
+
+	if p.match(IDENT) {
+		tn.CorrelationName = p.Prev().Text
+	}
+
+	return tn, nil
 }
 
 func (p *Parser) Insert() (InsertStatement, error) {

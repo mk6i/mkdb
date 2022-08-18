@@ -13,10 +13,24 @@ func TestParseSelect(t *testing.T) {
 		},
 		{
 			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
 			Text: "field_1",
 		},
 		{
 			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
 		},
 		{
 			Type: IDENT,
@@ -30,7 +44,18 @@ func TestParseSelect(t *testing.T) {
 			Text: "the_table",
 		},
 		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
 			Type: WHERE,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
 		},
 		{
 			Type: IDENT,
@@ -48,6 +73,13 @@ func TestParseSelect(t *testing.T) {
 		},
 		{
 			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
 			Text: "ident2",
 		},
 		{
@@ -62,12 +94,20 @@ func TestParseSelect(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "tt",
+				},
 				ColumnName: Token{
 					Type: IDENT,
 					Text: "field_1",
 				},
 			},
 			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "tt",
+				},
 				ColumnName: Token{
 					Type: IDENT,
 					Text: "field_2",
@@ -76,13 +116,20 @@ func TestParseSelect(t *testing.T) {
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
-				TableReference("the_table"),
+				TableName{
+					CorrelationName: "tt",
+					Name:            "the_table",
+				},
 			},
 			WhereClause: WhereClause{
 				SearchCondition: BooleanTerm{
 					LHS: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "tt",
+								},
 								ColumnName: Token{
 									Type:   IDENT,
 									Line:   0,
@@ -104,6 +151,10 @@ func TestParseSelect(t *testing.T) {
 					RHS: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "tt",
+								},
 								ColumnName: Token{
 									Type:   IDENT,
 									Line:   0,
@@ -281,8 +332,8 @@ func TestParseSelectJoin(t *testing.T) {
 			FromClause: FromClause{
 				QualifiedJoin{
 					LHS: QualifiedJoin{
-						LHS:      TableReference("table_1"),
-						RHS:      TableReference("table_2"),
+						LHS:      TableName{Name: "table_1"},
+						RHS:      TableName{Name: "table_2"},
 						JoinType: REGULAR_JOIN,
 						JoinCondition: Predicate{
 							ComparisonPredicate{
@@ -310,7 +361,7 @@ func TestParseSelectJoin(t *testing.T) {
 							},
 						},
 					},
-					RHS:      TableReference("table_3"),
+					RHS:      TableName{Name: "table_3"},
 					JoinType: REGULAR_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
@@ -499,8 +550,8 @@ func TestParseSelectLeftJoin(t *testing.T) {
 			FromClause: FromClause{
 				QualifiedJoin{
 					LHS: QualifiedJoin{
-						LHS:      TableReference("table_1"),
-						RHS:      TableReference("table_2"),
+						LHS:      TableName{Name: "table_1"},
+						RHS:      TableName{Name: "table_2"},
 						JoinType: LEFT_JOIN,
 						JoinCondition: Predicate{
 							ComparisonPredicate{
@@ -528,7 +579,7 @@ func TestParseSelectLeftJoin(t *testing.T) {
 							},
 						},
 					},
-					RHS:      TableReference("table_3"),
+					RHS:      TableName{Name: "table_3"},
 					JoinType: REGULAR_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
@@ -717,8 +768,8 @@ func TestParseSelectRightJoin(t *testing.T) {
 			FromClause: FromClause{
 				QualifiedJoin{
 					LHS: QualifiedJoin{
-						LHS:      TableReference("table_1"),
-						RHS:      TableReference("table_2"),
+						LHS:      TableName{Name: "table_1"},
+						RHS:      TableName{Name: "table_2"},
 						JoinType: RIGHT_JOIN,
 						JoinCondition: Predicate{
 							ComparisonPredicate{
@@ -746,7 +797,7 @@ func TestParseSelectRightJoin(t *testing.T) {
 							},
 						},
 					},
-					RHS:      TableReference("table_3"),
+					RHS:      TableName{Name: "table_3"},
 					JoinType: REGULAR_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
@@ -823,7 +874,7 @@ func TestParseSelectStar(t *testing.T) {
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
-				TableReference("the_table"),
+				TableName{Name: "the_table"},
 			},
 			WhereClause: nil,
 		},
