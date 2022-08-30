@@ -68,7 +68,8 @@ WHERE hair = "bald";
 SELECT f.name, quote, year
 FROM family f
 LEFT JOIN famous_lines fl ON fl.name = f.name
-LEFT JOIN season s ON s.number = fl.season;
+LEFT JOIN season s ON s.number = fl.season
+ORDER BY f.name;
 
 SELECT quote, year
 FROM famous_lines fl

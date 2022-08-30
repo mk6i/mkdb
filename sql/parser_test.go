@@ -89,6 +89,57 @@ func TestParseSelect(t *testing.T) {
 			Type: INT,
 			Text: "1234",
 		},
+		{
+			Type: ORDER,
+		},
+		{
+			Type: BY,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
+		{
+			Type: ASC,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_2",
+		},
+		{
+			Type: DESC,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
 	}
 
 	expected := Select{
@@ -174,6 +225,47 @@ func TestParseSelect(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		SortSpecificationList: []SortSpecification{
+			{
+				SortKey: ValueExpression{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "tt",
+					},
+					ColumnName: Token{
+						Type: IDENT,
+						Text: "field_1",
+					},
+				},
+				OrderingSpecification: Token{Type: ASC},
+			},
+			{
+				SortKey: ValueExpression{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "tt",
+					},
+					ColumnName: Token{
+						Type: IDENT,
+						Text: "field_2",
+					},
+				},
+				OrderingSpecification: Token{Type: DESC},
+			},
+			{
+				SortKey: ValueExpression{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "tt",
+					},
+					ColumnName: Token{
+						Type: IDENT,
+						Text: "field_1",
+					},
+				},
+				OrderingSpecification: Token{Type: ASC},
 			},
 		},
 	}
