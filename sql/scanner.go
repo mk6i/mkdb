@@ -32,6 +32,7 @@ const (
 
 	keyword_start
 	AS
+	ASC
 	BEGIN
 	BY
 	CASE
@@ -40,6 +41,7 @@ const (
 	COUNT
 	CREATE
 	DATABASE
+	DESC
 	DISTINCT
 	DOT
 	ELSE
@@ -119,6 +121,7 @@ var Tokens = map[TokenType]string{
 	RPAREN: ")",
 
 	AS:        "AS",
+	ASC:       "ASC",
 	BEGIN:     "BEGIN",
 	BY:        "BY",
 	CASE:      "CASE",
@@ -127,6 +130,7 @@ var Tokens = map[TokenType]string{
 	COUNT:     "COUNT",
 	CREATE:    "CREATE",
 	DATABASE:  "DATABASE",
+	DESC:      "DESC",
 	DISTINCT:  "DISTINCT",
 	DOT:       ".",
 	ELSE:      "ELSE",

@@ -18,11 +18,17 @@ const (
 type Select struct {
 	SelectList
 	TableExpression
+	SortSpecificationList []SortSpecification
 }
 
 type TableExpression struct {
 	FromClause
 	WhereClause interface{}
+}
+
+type SortSpecification struct {
+	SortKey               ValueExpression
+	OrderingSpecification Token
 }
 
 type ValueExpression struct {
@@ -272,7 +278,48 @@ func (p *Parser) Select() (Select, error) {
 		return sel, err
 	}
 
+	sel.SortSpecificationList, err = p.SortSpecificationList()
+	if err != nil {
+		return sel, err
+	}
+
 	return sel, nil
+}
+
+func (p *Parser) SortSpecificationList() ([]SortSpecification, error) {
+	var ss []SortSpecification
+
+	if !p.match(ORDER) {
+		return ss, nil
+	}
+	if ok, err := p.requireMatch(BY); !ok {
+		return ss, err
+	}
+
+	for p.match(IDENT) {
+		s := SortSpecification{
+			OrderingSpecification: Token{
+				Type: ASC,
+			},
+		}
+		var err error
+		s.SortKey, err = p.ValueExpression()
+		if err != nil {
+			return ss, err
+		}
+
+		if p.match(ASC, DESC) {
+			s.OrderingSpecification = p.Prev()
+		}
+
+		ss = append(ss, s)
+
+		if !p.match(COMMA) {
+			break
+		}
+	}
+
+	return ss, nil
 }
 
 func (p *Parser) TableExpression() (TableExpression, error) {
