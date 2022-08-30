@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -352,5 +353,76 @@ func TestSelectRightJoin(t *testing.T) {
 		if err := s.ExecQuery(q); err != nil {
 			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
 		}
+	}
+}
+
+func TestSelectSort(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE famous_lines (name varchar(255),quote varchar(255),season int)`,
+
+		`INSERT INTO famous_lines VALUES ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "Walt, the Mastercard's the one we don't use.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3)`,
+		`INSERT INTO famous_lines VALUES ("Uncle Hank", "You're the smartest guy I ever met.", 5)`,
+
+		`SELECT name, quote, season
+		FROM famous_lines
+		ORDER BY name DESC, quote ASC, season ASC`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+}
+
+func TestOrderNonExistentField(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE famous_lines (name varchar(255),quote varchar(255),season int)`,
+
+		`INSERT INTO famous_lines VALUES ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "Walt, the Mastercard's the one we don't use.", 1)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2)`,
+		`INSERT INTO famous_lines VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2)`,
+		`INSERT INTO famous_lines VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3)`,
+		`INSERT INTO famous_lines VALUES ("Uncle Hank", "You're the smartest guy I ever met.", 5)`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+
+	q := `SELECT name, quote
+	FROM famous_lines
+	ORDER BY season ASC`
+	err := s.ExecQuery(q)
+
+	if !errors.Is(err, ErrSortFieldNotFound) {
+		t.Errorf("expected ErrSortFieldNotFound error")
 	}
 }

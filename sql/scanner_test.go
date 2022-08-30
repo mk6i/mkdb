@@ -8,7 +8,14 @@ import (
 
 func TestScanSelect(t *testing.T) {
 
-	const src = `SELECT tt.field_1, tt.field_2 FROM the_table tt WHERE tt.ident = "some literal" OR tt.ident2 = 12 OR tt.ident != "a string"`
+	const src = `
+		SELECT tt.field_1, tt.field_2
+		FROM the_table tt
+		WHERE tt.ident = "some literal"
+			OR tt.ident2 = 12
+			OR tt.ident != "a string"
+		ORDER BY tt.field_1 ASC, tt.field_2 DESC
+	`
 
 	ts := NewTokenScanner(strings.NewReader(src))
 
@@ -114,6 +121,43 @@ func TestScanSelect(t *testing.T) {
 		{
 			Type: STR,
 			Text: "a string",
+		},
+		{
+			Type: ORDER,
+		},
+		{
+			Type: BY,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
+		{
+			Type: ASC,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "tt",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_2",
+		},
+		{
+			Type: DESC,
 		},
 	}
 

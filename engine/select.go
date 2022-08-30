@@ -1,13 +1,20 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+)
+
+var (
+	ErrSortFieldNotFound = errors.New("sort field is not in select list")
 )
 
 func EvaluateSelect(q sql.Select, db string) error {
@@ -30,7 +37,12 @@ func EvaluateSelect(q sql.Select, db string) error {
 		}
 	}
 
-	err = projectColumns(q.SelectList, fields, rows)
+	fields, err = projectColumns(q.SelectList, fields, rows)
+	if err != nil {
+		return err
+	}
+
+	err = sortColumns(q.SortSpecificationList, fields, rows)
 	if err != nil {
 		return err
 	}
@@ -135,12 +147,13 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, btree.Fie
 	return nil, nil, nil
 }
 
-func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) error {
+func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) (btree.Fields, error) {
 	if sl[0].ColumnName.Type == sql.ASTRSK {
-		return nil
+		return nil, nil
 	}
 
 	idxs := []int{}
+	var projFields btree.Fields
 	for _, sf := range sl {
 		var idx int
 		var err error
@@ -150,9 +163,10 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 			idx, err = qfields.LookupFieldIdx(sf.ColumnName.Text)
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 		idxs = append(idxs, idx)
+		projFields = append(projFields, qfields[idx])
 	}
 
 	for _, row := range rows {
@@ -161,6 +175,73 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 			tmp = append(tmp, row.Vals[idx])
 		}
 		row.Vals = tmp
+	}
+
+	return projFields, nil
+}
+
+func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btree.Row) error {
+
+	prevIdx := -1
+
+	for _, ss := range ssl {
+		var idx int
+		var err error
+		if ss.SortKey.Qualifier != nil {
+			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier.(sql.Token).Text, ss.SortKey.ColumnName.Text)
+		} else {
+			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName.Text)
+		}
+		if err != nil {
+			if errors.Is(err, btree.ErrFieldNotFound) {
+				return fmt.Errorf("%w: %s", ErrSortFieldNotFound, err)
+			}
+			return err
+		}
+
+		if prevIdx > -1 {
+			start := 0
+			for i := 1; i < len(rows); i++ {
+				for i < len(rows) && rows[i].Vals[prevIdx] == rows[i-1].Vals[prevIdx] {
+					i++
+				}
+				r := rows[start:i]
+				start = i
+				sort.Slice(r, func(i, j int) bool {
+					lhs := r[i].Vals[idx]
+					rhs := r[j].Vals[idx]
+					sortAsc := false
+					switch lhs.(type) {
+					case int32:
+						sortAsc = lhs.(int32) < rhs.(int32)
+					case string:
+						sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
+					}
+					if ss.OrderingSpecification.Type == sql.DESC {
+						sortAsc = !sortAsc
+					}
+					return sortAsc
+				})
+			}
+		} else {
+			sort.Slice(rows, func(i, j int) bool {
+				lhs := rows[i].Vals[idx]
+				rhs := rows[j].Vals[idx]
+				sortAsc := false
+				switch lhs.(type) {
+				case int32:
+					sortAsc = lhs.(int32) < rhs.(int32)
+				case string:
+					sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
+				}
+				if ss.OrderingSpecification.Type == sql.DESC {
+					sortAsc = !sortAsc
+				}
+				return sortAsc
+			})
+		}
+
+		prevIdx = idx
 	}
 
 	return nil
