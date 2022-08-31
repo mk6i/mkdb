@@ -182,8 +182,7 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 
 func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btree.Row) error {
 
-	prevIdx := -1
-
+	var sortIdxs []int
 	for _, ss := range ssl {
 		var idx int
 		var err error
@@ -198,51 +197,37 @@ func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btre
 			}
 			return err
 		}
+		sortIdxs = append(sortIdxs, idx)
+	}
 
-		if prevIdx > -1 {
-			start := 0
-			for i := 1; i < len(rows); i++ {
-				for i < len(rows) && rows[i].Vals[prevIdx] == rows[i-1].Vals[prevIdx] {
-					i++
-				}
-				r := rows[start:i]
-				start = i
-				sort.Slice(r, func(i, j int) bool {
-					lhs := r[i].Vals[idx]
-					rhs := r[j].Vals[idx]
-					sortAsc := false
-					switch lhs.(type) {
-					case int32:
-						sortAsc = lhs.(int32) < rhs.(int32)
-					case string:
-						sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
-					}
-					if ss.OrderingSpecification.Type == sql.DESC {
-						sortAsc = !sortAsc
-					}
-					return sortAsc
-				})
+	sort.Slice(rows, func(i, j int) bool {
+		for sortIdx, fieldIdx := range sortIdxs {
+			lhs := rows[i].Vals[fieldIdx]
+			rhs := rows[j].Vals[fieldIdx]
+
+			if lhs == rhs {
+				continue
 			}
-		} else {
-			sort.Slice(rows, func(i, j int) bool {
-				lhs := rows[i].Vals[idx]
-				rhs := rows[j].Vals[idx]
-				sortAsc := false
-				switch lhs.(type) {
-				case int32:
-					sortAsc = lhs.(int32) < rhs.(int32)
-				case string:
-					sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
-				}
-				if ss.OrderingSpecification.Type == sql.DESC {
-					sortAsc = !sortAsc
-				}
-				return sortAsc
-			})
+
+			sortAsc := false
+			switch lhs.(type) {
+			case int32:
+				sortAsc = lhs.(int32) < rhs.(int32)
+			case string:
+				sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
+			default:
+				panic(fmt.Sprintf("no comparison available for type %T", lhs))
+			}
+			if ssl[sortIdx].OrderingSpecification.Type == sql.DESC {
+				sortAsc = !sortAsc
+			}
+			return sortAsc
+
 		}
 
-		prevIdx = idx
-	}
+		// i & j are considered equal
+		return false
+	})
 
 	return nil
 }
