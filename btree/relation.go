@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type DataType uint8
@@ -583,6 +584,20 @@ func (fields Fields) LookupColIdxByID(tableID string, fieldName string) (int, er
 type Row struct {
 	RowID uint32
 	Vals  []interface{}
+}
+
+func (r *Row) String() string {
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, str := range r.Vals {
+		sb.WriteString(fmt.Sprint(str))
+		if i < len(r.Vals)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteByte(']')
+	sb.WriteByte('\n')
+	return sb.String()
 }
 
 func (r *Row) Merge(row *Row) *Row {
