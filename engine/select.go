@@ -157,7 +157,7 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, btree.Fie
 
 func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) (btree.Fields, error) {
 	if sl[0].ColumnName.Type == sql.ASTRSK {
-		return nil, nil
+		return qfields, nil
 	}
 
 	idxs := []int{}
