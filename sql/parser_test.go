@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -284,6 +285,226 @@ func TestParseSelect(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectLimitOffset(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: ASTRSK,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+		{
+			Type: LIMIT,
+		},
+		{
+			Type: INT,
+			Text: "10",
+		},
+		{
+			Type: OFFSET,
+		},
+		{
+			Type: INT,
+			Text: "20",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			ValueExpression{
+				ColumnName: Token{
+					Type: ASTRSK,
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				TableName{
+					Name: "the_table",
+				},
+			},
+		},
+		LimitOffsetClause: LimitOffsetClause{
+			LimitActive:  true,
+			OffsetActive: true,
+			Limit:        10,
+			Offset:       20,
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectOffsetLimit(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: ASTRSK,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+		{
+			Type: OFFSET,
+		},
+		{
+			Type: INT,
+			Text: "20",
+		},
+		{
+			Type: LIMIT,
+		},
+		{
+			Type: INT,
+			Text: "10",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			ValueExpression{
+				ColumnName: Token{
+					Type: ASTRSK,
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				TableName{
+					Name: "the_table",
+				},
+			},
+		},
+		LimitOffsetClause: LimitOffsetClause{
+			LimitActive:  true,
+			OffsetActive: true,
+			Limit:        10,
+			Offset:       20,
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectNegativeOffset(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: ASTRSK,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+		{
+			Type: OFFSET,
+		},
+		{
+			Type: INT,
+			Text: "-20",
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	_, err := p.Parse()
+
+	if !errors.Is(err, ErrNegativeOffset) {
+		t.Errorf("expected error: %v got: %v", ErrNegativeOffset, err)
+	}
+}
+
+func TestParseSelectNegativeLimit(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: ASTRSK,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+		{
+			Type: LIMIT,
+		},
+		{
+			Type: INT,
+			Text: "-20",
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	_, err := p.Parse()
+
+	if !errors.Is(err, ErrNegativeLimit) {
+		t.Errorf("expected error: %v got: %v", ErrNegativeOffset, err)
 	}
 }
 

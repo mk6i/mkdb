@@ -47,6 +47,14 @@ func EvaluateSelect(q sql.Select, db string) error {
 		return err
 	}
 
+	if q.LimitOffsetClause.OffsetActive {
+		rows = offset(q.LimitOffsetClause.Offset, rows)
+	}
+
+	if q.LimitOffsetClause.LimitActive {
+		rows = limit(q.LimitOffsetClause.Limit, rows)
+	}
+
 	printableFields := printableFields(q.SelectList, fields)
 	printTable(printableFields, rows)
 
@@ -378,4 +386,18 @@ func printableFields(sl sql.SelectList, fields btree.Fields) []string {
 		}
 	}
 	return ans
+}
+
+func limit(limit int, rows []*btree.Row) []*btree.Row {
+	if limit > len(rows) {
+		return rows
+	}
+	return rows[0:limit]
+}
+
+func offset(offset int, rows []*btree.Row) []*btree.Row {
+	if offset >= len(rows) {
+		return []*btree.Row{}
+	}
+	return rows[offset:]
 }

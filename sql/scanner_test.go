@@ -15,6 +15,7 @@ func TestScanSelect(t *testing.T) {
 			OR tt.ident2 = 12
 			OR tt.ident != "a string"
 		ORDER BY tt.field_1 ASC, tt.field_2 DESC
+		LIMIT 10 OFFSET 20
 	`
 
 	ts := NewTokenScanner(strings.NewReader(src))
@@ -158,6 +159,20 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DESC,
+		},
+		{
+			Type: LIMIT,
+		},
+		{
+			Type: INT,
+			Text: "10",
+		},
+		{
+			Type: OFFSET,
+		},
+		{
+			Type: INT,
+			Text: "20",
 		},
 	}
 
