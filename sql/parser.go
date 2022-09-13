@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,10 +16,16 @@ const (
 	REGULAR_JOIN
 )
 
+var (
+	ErrNegativeLimit  = errors.New("LIMIT clause can not be negative")
+	ErrNegativeOffset = errors.New("OFFSET clause can not be negative")
+)
+
 type Select struct {
 	SelectList
 	TableExpression
 	SortSpecificationList []SortSpecification
+	LimitOffsetClause
 }
 
 type TableExpression struct {
@@ -29,6 +36,13 @@ type TableExpression struct {
 type SortSpecification struct {
 	SortKey               ValueExpression
 	OrderingSpecification Token
+}
+
+type LimitOffsetClause struct {
+	LimitActive  bool
+	OffsetActive bool
+	Limit        int
+	Offset       int
 }
 
 type ValueExpression struct {
@@ -234,14 +248,11 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			if ok, err := p.requireMatch(LPAREN); !ok {
 				return ret, err
 			}
-			if ok, err := p.requireMatch(INT); !ok {
+			if intVal, err := p.requireInt(); err != nil {
 				return ret, err
+			} else {
+				cst.Len = intVal
 			}
-			intVal, err := strconv.Atoi(p.Prev().Text)
-			if err != nil {
-				return ret, err
-			}
-			cst.Len = intVal
 			if ok, err := p.requireMatch(RPAREN); !ok {
 				return ret, err
 			}
@@ -283,6 +294,11 @@ func (p *Parser) Select() (Select, error) {
 		return sel, err
 	}
 
+	sel.LimitOffsetClause, err = p.LimitOffsetClause()
+	if err != nil {
+		return sel, err
+	}
+
 	return sel, nil
 }
 
@@ -320,6 +336,35 @@ func (p *Parser) SortSpecificationList() ([]SortSpecification, error) {
 	}
 
 	return ss, nil
+}
+
+func (p *Parser) LimitOffsetClause() (LimitOffsetClause, error) {
+	lc := LimitOffsetClause{}
+	var err error
+
+	for p.match(LIMIT, OFFSET) {
+		switch {
+		case p.Prev().Type == LIMIT && !lc.LimitActive:
+			lc.LimitActive = true
+			if lc.Limit, err = p.requireInt(); err != nil {
+				return lc, err
+			}
+		case p.Prev().Type == OFFSET && !lc.OffsetActive:
+			lc.OffsetActive = true
+			if lc.Offset, err = p.requireInt(); err != nil {
+				return lc, err
+			}
+		}
+	}
+
+	switch {
+	case lc.Limit < 0:
+		return lc, ErrNegativeLimit
+	case lc.Offset < 0:
+		return lc, ErrNegativeOffset
+	}
+
+	return lc, err
 }
 
 func (p *Parser) TableExpression() (TableExpression, error) {
@@ -700,4 +745,11 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 		typeNames = append(typeNames, Tokens[tipe])
 	}
 	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ", "))
+}
+
+func (p *Parser) requireInt() (int, error) {
+	if ok, err := p.requireMatch(INT); !ok {
+		return 0, err
+	}
+	return strconv.Atoi(p.Prev().Text)
 }

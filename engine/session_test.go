@@ -426,3 +426,32 @@ func TestOrderNonExistentField(t *testing.T) {
 		t.Errorf("expected ErrSortFieldNotFound error")
 	}
 }
+
+func TestSelectLimitOffset(t *testing.T) {
+
+	defer func() {
+		if err := os.Remove("data/testdb"); err != nil {
+			t.Logf("error removing db: %s", err.Error())
+		}
+	}()
+
+	s := Session{}
+
+	queries := []string{
+		`CREATE DATABASE testdb`,
+		`USE testdb`,
+		`CREATE TABLE family (name varchar(255),age int,hair varchar(255))`,
+
+		`INSERT INTO family VALUES ("Walter", 50, "bald")`,
+		`INSERT INTO family VALUES ("Skyler", 40, "blonde")`,
+		`INSERT INTO family VALUES ("Walter Jr.", 16, "brown")`,
+		`INSERT INTO family VALUES ("Holly", 1, "bald")`,
+
+		`SELECT name FROM family LIMIT 2 OFFSET 1`,
+	}
+	for _, q := range queries {
+		if err := s.ExecQuery(q); err != nil {
+			t.Errorf("error running query:\n %s\nError: %s", q, err.Error())
+		}
+	}
+}
