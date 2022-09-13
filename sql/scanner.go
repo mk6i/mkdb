@@ -58,10 +58,12 @@ const (
 	JOIN
 	LEFT
 	LIKE
+	LIMIT
 	MAX
 	MIN
 	NOT
 	NULL
+	OFFSET
 	ON
 	ORDER
 	OUTER
@@ -147,10 +149,12 @@ var Tokens = map[TokenType]string{
 	JOIN:      "JOIN",
 	LEFT:      "LEFT",
 	LIKE:      "LIKE",
+	LIMIT:     "LIMIT",
 	MAX:       "MAX",
 	MIN:       "MIN",
 	NOT:       "NOT",
 	NULL:      "NULL",
+	OFFSET:    "OFFSET",
 	ON:        "ON",
 	ORDER:     "ORDER",
 	OUTER:     "OUTER",

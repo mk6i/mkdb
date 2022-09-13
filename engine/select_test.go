@@ -143,3 +143,121 @@ func TestSortColumns(t *testing.T) {
 		}
 	}
 }
+
+func TestLimit(t *testing.T) {
+	tc := []struct {
+		limit  int
+		given  []*btree.Row
+		expect []*btree.Row
+	}{
+		{
+			limit: 100,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			limit: 2,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+			},
+		},
+		{
+			limit: 0,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{},
+		},
+	}
+
+	for _, test := range tc {
+		actual := limit(test.limit, test.given)
+		if !reflect.DeepEqual(test.expect, actual) {
+			t.Errorf("result not limited as expected. \nexpected:\n%v, \nactual:\n%v\n", test.expect, actual)
+		}
+	}
+}
+
+func TestOffset(t *testing.T) {
+	tc := []struct {
+		offset int
+		given  []*btree.Row
+		expect []*btree.Row
+	}{
+		{
+			offset: 0,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			offset: 2,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			offset: 4,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{},
+		},
+		{
+			offset: 100,
+			given: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expect: []*btree.Row{},
+		},
+	}
+
+	for _, test := range tc {
+		actual := offset(test.offset, test.given)
+		if !reflect.DeepEqual(test.expect, actual) {
+			t.Errorf("result not limited as expected. \nexpected:\n%v, \nactual:\n%v\n", test.expect, actual)
+		}
+	}
+}

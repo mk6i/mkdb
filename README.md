@@ -75,6 +75,10 @@ SELECT quote, year
 FROM famous_lines fl
 RIGHT JOIN season s ON s.number = fl.season;
 
+SELECT *
+FROM family
+LIMIT 2 OFFSET 2;
+
 UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
 ```
 
