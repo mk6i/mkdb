@@ -8,7 +8,7 @@ import (
 	"github.com/mkaminski/bkdb/sql"
 )
 
-func EvaluateUpdate(q sql.UpdateStatementSearched, db string) error {
+func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetcher btree.Fetcher) error {
 
 	path, err := DBPath(db)
 	if err != nil {
@@ -16,7 +16,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string) error {
 	}
 
 	table := q.TableName
-	rows, fields, err := btree.Select(path, string(table))
+	rows, fields, err := fetcher(path, string(table))
 	if err != nil {
 		return err
 	}
