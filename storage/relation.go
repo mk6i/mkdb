@@ -32,6 +32,8 @@ var (
 	ErrFieldNotFound     = errors.New("field not found")
 )
 
+type Fetcher func(path string, tableName string) ([]*Row, []*Field, error)
+
 type FieldDef struct {
 	DataType
 	Name string
@@ -436,7 +438,11 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 	return nil
 }
 
-func Select(path string, tableName string) ([]*Row, []*Field, error) {
+func NewFetcher() Fetcher {
+	return fetch
+}
+
+func fetch(path string, tableName string) ([]*Row, []*Field, error) {
 
 	fmt.Printf("Select query. Table: %s\n", tableName)
 
