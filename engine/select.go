@@ -17,34 +17,30 @@ var (
 	ErrSortFieldNotFound = errors.New("sort field is not in select list")
 )
 
-func EvaluateSelect(q sql.Select, db string) error {
-	path, err := DBPath(db)
-	if err != nil {
-		return err
-	}
+func EvaluateSelect(q sql.Select, path string, fetcher btree.Fetcher) ([]*btree.Row, []*btree.Field, error) {
 
 	table := q.TableExpression.FromClause[0]
 
-	rows, fields, err := nestedLoopJoin(path, table)
+	rows, fields, err := nestedLoopJoin(fetcher, path, table)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if q.TableExpression.WhereClause != nil {
 		rows, err = filterRows(q.TableExpression.WhereClause.(sql.WhereClause), fields, rows)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
 
 	fields, err = projectColumns(q.SelectList, fields, rows)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	err = sortColumns(q.SortSpecificationList, fields, rows)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if q.LimitOffsetClause.OffsetActive {
@@ -55,17 +51,14 @@ func EvaluateSelect(q sql.Select, db string) error {
 		rows = limit(q.LimitOffsetClause.Limit, rows)
 	}
 
-	printableFields := printableFields(q.SelectList, fields)
-	printTable(printableFields, rows)
-
-	return nil
+	return rows, fields, nil
 }
 
-func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
+func nestedLoopJoin(fetcher btree.Fetcher, path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
 
 	switch v := tf.(type) {
 	case sql.TableName:
-		rows, fields, err := btree.Select(path, v.Name)
+		rows, fields, err := fetcher(path, v.Name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -80,11 +73,11 @@ func nestedLoopJoin(path string, tf sql.TableReference) ([]*btree.Row, btree.Fie
 	case sql.JoinedTable:
 		switch v := v.(type) {
 		case sql.QualifiedJoin:
-			lRows, lFields, err := nestedLoopJoin(path, v.LHS)
+			lRows, lFields, err := nestedLoopJoin(fetcher, path, v.LHS)
 			if err != nil {
 				return nil, nil, err
 			}
-			rRows, rFields, err := nestedLoopJoin(path, v.RHS)
+			rRows, rFields, err := nestedLoopJoin(fetcher, path, v.RHS)
 			if err != nil {
 				return nil, nil, err
 			}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
 )
 
@@ -47,16 +48,23 @@ func (s *Session) ExecQuery(q string) error {
 		}
 		fmt.Printf("created table %s\n", stmt.Name)
 	case sql.Select:
-		if err := EvaluateSelect(stmt, s.CurDB); err != nil {
+		path, err := DBPath(s.CurDB)
+		if err != nil {
 			return err
 		}
+		rows, fields, err := EvaluateSelect(stmt, path, btree.NewFetcher())
+		if err != nil {
+			return err
+		}
+		printableFields := printableFields(stmt.SelectList, fields)
+		printTable(printableFields, rows)
 	case sql.InsertStatement:
 		if err := EvaluateInsert(stmt, s.CurDB); err != nil {
 			return err
 		}
 		fmt.Printf("inserted %d record(s) into %s\n", 1, stmt.TableName)
 	case sql.UpdateStatementSearched:
-		if err := EvaluateUpdate(stmt, s.CurDB); err != nil {
+		if err := EvaluateUpdate(stmt, s.CurDB, btree.NewFetcher()); err != nil {
 			return err
 		}
 		fmt.Print("update successful\n", 1, stmt.TableName)
