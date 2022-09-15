@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -8,72 +9,19 @@ import (
 	"github.com/mkaminski/bkdb/sql"
 )
 
-func TestSelectStar(t *testing.T) {
-
-	query := sql.Select{
-		SelectList: sql.SelectList{
-			sql.ValueExpression{
-				ColumnName: sql.Token{
-					Type: sql.ASTRSK,
-				},
-			},
-		},
-		TableExpression: sql.TableExpression{
-			FromClause: sql.FromClause{
-				sql.TableName{
-					Name: "the_table",
-				},
-			},
-		},
-	}
-
-	givenFields := btree.Fields{
-		&btree.Field{Column: "col1"},
-		&btree.Field{Column: "col2"},
-	}
-	expectFields := []*btree.Field{
-		{Column: "col1", TableID: "the_table"},
-		{Column: "col2", TableID: "the_table"},
-	}
-	givenRows := []*btree.Row{
-		{Vals: []interface{}{"a", int32(1)}},
-		{Vals: []interface{}{"b", int32(2)}},
-		{Vals: []interface{}{"c", int32(3)}},
-	}
-	expectRows := []*btree.Row{
-		{Vals: []interface{}{"a", int32(1)}},
-		{Vals: []interface{}{"b", int32(2)}},
-		{Vals: []interface{}{"c", int32(3)}},
-	}
-
-	fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
-		return givenRows, givenFields, nil
-	}
-
-	actualRows, actualFields, err := EvaluateSelect(query, "", fetcher)
-	if err != nil {
-		t.Fatalf("encountered error on select *: %s", err.Error())
-	}
-
-	if !reflect.DeepEqual(expectRows, actualRows) {
-		t.Fatalf("rows do not match. expected: %s actual: %s", expectRows, actualRows)
-	}
-
-	if !reflect.DeepEqual(expectFields, actualFields) {
-		t.Fatalf("fields do not match. expected: %s actual: %s", expectFields, actualFields)
-	}
-}
-
-func TestSelectOrderBy(t *testing.T) {
+func TestSelect(t *testing.T) {
 
 	tc := []struct {
+		name         string
 		query        sql.Select
 		givenFields  btree.Fields
 		expectFields []*btree.Field
 		givenRows    []*btree.Row
 		expectRows   []*btree.Row
+		expectErr    error
 	}{
 		{
+			name: "SELECT with ORDER BY",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -156,6 +104,7 @@ func TestSelectOrderBy(t *testing.T) {
 			},
 		},
 		{
+			name: "SELECT with ORDER BY, second column contains identical values",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -231,143 +180,349 @@ func TestSelectOrderBy(t *testing.T) {
 				{Vals: []interface{}{"a", int32(1), int32(4)}},
 			},
 		},
+		{
+			name: "SELECT with ORDER BY on non-existent field",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				SortSpecificationList: []sql.SortSpecification{
+					{
+						SortKey: sql.ValueExpression{
+							Qualifier: nil,
+							ColumnName: sql.Token{
+								Type: sql.IDENT,
+								Text: "non_existent_col",
+							},
+						},
+						OrderingSpecification: sql.Token{Type: sql.DESC},
+					},
+				},
+			},
+			givenFields: btree.Fields{
+				&btree.Field{Column: "col1"},
+			},
+			expectFields: nil,
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"a"}},
+				{Vals: []interface{}{"b"}},
+				{Vals: []interface{}{"c"}},
+				{Vals: []interface{}{"d"}},
+			},
+			expectRows: nil,
+			expectErr:  ErrSortFieldNotFound,
+		},
+		{
+			name: "SELECT with LIMIT value that exceeds result set size",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					LimitActive: true,
+					Limit:       100,
+				},
+			},
+			givenFields: btree.Fields{
+				&btree.Field{Column: "col1"},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "the_table"},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			name: "SELECT with LIMIT value within size of result set",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					LimitActive: true,
+					Limit:       2,
+				},
+			},
+			givenFields: btree.Fields{
+				&btree.Field{Column: "col1"},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "the_table"},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+			},
+		},
+		{
+			name: "SELECT with LIMIT value 0",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					LimitActive: true,
+					Limit:       0,
+				},
+			},
+			givenFields: btree.Fields{
+				&btree.Field{Column: "col1"},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "the_table"},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{},
+		},
+		{
+			name: "SELECT with OFFSET value 0",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					OffsetActive: true,
+					Offset:       0,
+				},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			name: "SELECT with OFFSET value within size of result set",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					OffsetActive: true,
+					Offset:       2,
+				},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+		},
+		{
+			name: "SELECT with OFFSET value equal to result set size",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					OffsetActive: true,
+					Offset:       4,
+				},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{},
+		},
+		{
+			name: "SELECT with OFFSET value that exceeds result set size",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					OffsetActive: true,
+					Offset:       100,
+				},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{},
+		},
+		{
+			name: "SELECT with LIMIT and OFFSET",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						ColumnName: sql.Token{
+							Type: sql.ASTRSK,
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "the_table",
+						},
+					},
+				},
+				LimitOffsetClause: sql.LimitOffsetClause{
+					LimitActive:  true,
+					OffsetActive: true,
+					Limit:        2,
+					Offset:       1,
+				},
+			},
+			givenRows: []*btree.Row{
+				{Vals: []interface{}{"0"}},
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+				{Vals: []interface{}{"3"}},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{"1"}},
+				{Vals: []interface{}{"2"}},
+			},
+		},
 	}
 
 	for _, test := range tc {
+		t.Run(test.name, func(t *testing.T) {
+			fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
+				return test.givenRows, test.givenFields, nil
+			}
 
-		fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
-			return test.givenRows, test.givenFields, nil
-		}
+			actualRows, actualFields, err := EvaluateSelect(test.query, "", fetcher)
 
-		actualRows, actualFields, err := EvaluateSelect(test.query, "", fetcher)
-		if err != nil {
-			t.Fatalf("encountered error on select *: %s", err.Error())
-		}
+			if !errors.Is(err, test.expectErr) {
+				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)
+			}
 
-		if !reflect.DeepEqual(test.expectRows, actualRows) {
-			t.Fatalf("rows do not match. expected: %s actual: %s", test.expectRows, actualRows)
-		}
+			if !reflect.DeepEqual(test.expectRows, actualRows) {
+				t.Fatalf("rows do not match. expected: %s actual: %s", test.expectRows, actualRows)
+			}
 
-		if !reflect.DeepEqual(test.expectFields, actualFields) {
-			t.Fatalf("fields do not match. expected: %s actual: %s", test.expectFields, actualFields)
-		}
-	}
-}
-
-func TestLimit(t *testing.T) {
-	tc := []struct {
-		limit  int
-		given  []*btree.Row
-		expect []*btree.Row
-	}{
-		{
-			limit: 100,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-		},
-		{
-			limit: 2,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-			},
-		},
-		{
-			limit: 0,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{},
-		},
-	}
-
-	for _, test := range tc {
-		actual := limit(test.limit, test.given)
-		if !reflect.DeepEqual(test.expect, actual) {
-			t.Errorf("result not limited as expected. \nexpected:\n%v, \nactual:\n%v\n", test.expect, actual)
-		}
-	}
-}
-
-func TestOffset(t *testing.T) {
-	tc := []struct {
-		offset int
-		given  []*btree.Row
-		expect []*btree.Row
-	}{
-		{
-			offset: 0,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-		},
-		{
-			offset: 2,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-		},
-		{
-			offset: 4,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{},
-		},
-		{
-			offset: 100,
-			given: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
-			},
-			expect: []*btree.Row{},
-		},
-	}
-
-	for _, test := range tc {
-		actual := offset(test.offset, test.given)
-		if !reflect.DeepEqual(test.expect, actual) {
-			t.Errorf("result not limited as expected. \nexpected:\n%v, \nactual:\n%v\n", test.expect, actual)
-		}
+			if !reflect.DeepEqual(test.expectFields, actualFields) {
+				t.Fatalf("fields do not match. expected: %s actual: %s", test.expectFields, actualFields)
+			}
+		})
 	}
 }
