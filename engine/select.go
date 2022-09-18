@@ -89,7 +89,7 @@ func nestedLoopJoin(fetcher btree.Fetcher, path string, tf sql.TableReference) (
 			tmpFields = append(tmpFields, rFields...)
 
 			switch v.JoinType {
-			case sql.REGULAR_JOIN:
+			case sql.INNER_JOIN:
 				for _, lRow := range lRows {
 					for _, rRow := range rRows {
 						tmpRow := lRow.Merge(rRow)
