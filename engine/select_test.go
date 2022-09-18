@@ -14,14 +14,14 @@ func TestSelect(t *testing.T) {
 	tc := []struct {
 		name         string
 		query        sql.Select
-		givenFields  btree.Fields
+		givenFields  map[string]btree.Fields
 		expectFields []*btree.Field
-		givenRows    []*btree.Row
+		givenRows    map[string][]*btree.Row
 		expectRows   []*btree.Row
 		expectErr    error
 	}{
 		{
-			name: "SELECT with ORDER BY",
+			name: "SELECT with ORDER BY: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -33,7 +33,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -70,26 +70,30 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
-				&btree.Field{Column: "col2"},
-				&btree.Field{Column: "col3"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+					&btree.Field{Column: "col2"},
+					&btree.Field{Column: "col3"},
+				},
 			},
 			expectFields: []*btree.Field{
-				{Column: "col1", TableID: "the_table"},
-				{Column: "col2", TableID: "the_table"},
-				{Column: "col3", TableID: "the_table"},
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "col2", TableID: "tbl1"},
+				{Column: "col3", TableID: "tbl1"},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"c", int32(1), int32(8)}},
-				{Vals: []interface{}{"c", int32(5), int32(4)}},
-				{Vals: []interface{}{"c", int32(5), int32(5)}},
-				{Vals: []interface{}{"b", int32(5), int32(5)}},
-				{Vals: []interface{}{"b", int32(6), int32(6)}},
-				{Vals: []interface{}{"b", int32(7), int32(7)}},
-				{Vals: []interface{}{"a", int32(2), int32(2)}},
-				{Vals: []interface{}{"a", int32(3), int32(3)}},
-				{Vals: []interface{}{"a", int32(5), int32(5)}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"c", int32(1), int32(8)}},
+					{Vals: []interface{}{"c", int32(5), int32(4)}},
+					{Vals: []interface{}{"c", int32(5), int32(5)}},
+					{Vals: []interface{}{"b", int32(5), int32(5)}},
+					{Vals: []interface{}{"b", int32(6), int32(6)}},
+					{Vals: []interface{}{"b", int32(7), int32(7)}},
+					{Vals: []interface{}{"a", int32(2), int32(2)}},
+					{Vals: []interface{}{"a", int32(3), int32(3)}},
+					{Vals: []interface{}{"a", int32(5), int32(5)}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"c", int32(1), int32(8)}},
@@ -104,7 +108,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with ORDER BY, second column contains identical values",
+			name: "SELECT with ORDER BY, 2nd col has identical values: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -116,7 +120,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -153,23 +157,27 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
-				&btree.Field{Column: "col2"},
-				&btree.Field{Column: "col3"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+					&btree.Field{Column: "col2"},
+					&btree.Field{Column: "col3"},
+				},
 			},
 			expectFields: []*btree.Field{
-				{Column: "col1", TableID: "the_table"},
-				{Column: "col2", TableID: "the_table"},
-				{Column: "col3", TableID: "the_table"},
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "col2", TableID: "tbl1"},
+				{Column: "col3", TableID: "tbl1"},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"a", int32(1), int32(4)}},
-				{Vals: []interface{}{"a", int32(1), int32(5)}},
-				{Vals: []interface{}{"a", int32(1), int32(6)}},
-				{Vals: []interface{}{"b", int32(1), int32(1)}},
-				{Vals: []interface{}{"b", int32(1), int32(2)}},
-				{Vals: []interface{}{"b", int32(1), int32(3)}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"a", int32(1), int32(4)}},
+					{Vals: []interface{}{"a", int32(1), int32(5)}},
+					{Vals: []interface{}{"a", int32(1), int32(6)}},
+					{Vals: []interface{}{"b", int32(1), int32(1)}},
+					{Vals: []interface{}{"b", int32(1), int32(2)}},
+					{Vals: []interface{}{"b", int32(1), int32(3)}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"b", int32(1), int32(3)}},
@@ -181,7 +189,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with ORDER BY on non-existent field",
+			name: "SELECT with ORDER BY on non-existent field: SELECT * FROM tbl1 ORDER BY non_existent_col DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -193,7 +201,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -210,21 +218,25 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+				},
 			},
 			expectFields: nil,
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"a"}},
-				{Vals: []interface{}{"b"}},
-				{Vals: []interface{}{"c"}},
-				{Vals: []interface{}{"d"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"a"}},
+					{Vals: []interface{}{"b"}},
+					{Vals: []interface{}{"c"}},
+					{Vals: []interface{}{"d"}},
+				},
 			},
 			expectRows: nil,
 			expectErr:  ErrSortFieldNotFound,
 		},
 		{
-			name: "SELECT with LIMIT value that exceeds result set size",
+			name: "SELECT with LIMIT value that exceeds result set size: SELECT * FROM tbl1 LIMIT 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -236,7 +248,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -245,17 +257,21 @@ func TestSelect(t *testing.T) {
 					Limit:       100,
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+				},
 			},
 			expectFields: []*btree.Field{
-				{Column: "col1", TableID: "the_table"},
+				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"0"}},
@@ -265,7 +281,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with LIMIT value within size of result set",
+			name: "SELECT with LIMIT value within size of result set: SELECT * FROM tbl1 LIMIT 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -277,7 +293,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -286,17 +302,21 @@ func TestSelect(t *testing.T) {
 					Limit:       2,
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+				},
 			},
 			expectFields: []*btree.Field{
-				{Column: "col1", TableID: "the_table"},
+				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"0"}},
@@ -304,7 +324,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with LIMIT value 0",
+			name: "SELECT with LIMIT value 0: SELECT * FROM tbl1 LIMIT 0",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -316,7 +336,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -325,22 +345,26 @@ func TestSelect(t *testing.T) {
 					Limit:       0,
 				},
 			},
-			givenFields: btree.Fields{
-				&btree.Field{Column: "col1"},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "col1"},
+				},
 			},
 			expectFields: []*btree.Field{
-				{Column: "col1", TableID: "the_table"},
+				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{},
 		},
 		{
-			name: "SELECT with OFFSET value 0",
+			name: "SELECT with OFFSET value 0: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -352,7 +376,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -361,11 +385,13 @@ func TestSelect(t *testing.T) {
 					Offset:       0,
 				},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"0"}},
@@ -375,7 +401,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with OFFSET value within size of result set",
+			name: "SELECT with OFFSET value within size of result set: SELECT * FROM tbl1 OFFSET 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -387,7 +413,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -396,11 +422,13 @@ func TestSelect(t *testing.T) {
 					Offset:       2,
 				},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"2"}},
@@ -408,7 +436,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with OFFSET value equal to result set size",
+			name: "SELECT with OFFSET value equal to result set size: SELECT * FROM tbl1 OFFSET 4",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -420,7 +448,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -429,16 +457,18 @@ func TestSelect(t *testing.T) {
 					Offset:       4,
 				},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{},
 		},
 		{
-			name: "SELECT with OFFSET value that exceeds result set size",
+			name: "SELECT with OFFSET value that exceeds result set size: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -450,7 +480,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -459,16 +489,18 @@ func TestSelect(t *testing.T) {
 					Offset:       100,
 				},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{},
 		},
 		{
-			name: "SELECT with LIMIT and OFFSET",
+			name: "SELECT with LIMIT and OFFSET: SELECT * FROM tbl1 LIMIT 2 OFFSET 1",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.ValueExpression{
@@ -480,7 +512,7 @@ func TestSelect(t *testing.T) {
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
 						sql.TableName{
-							Name: "the_table",
+							Name: "tbl1",
 						},
 					},
 				},
@@ -491,15 +523,320 @@ func TestSelect(t *testing.T) {
 					Offset:       1,
 				},
 			},
-			givenRows: []*btree.Row{
-				{Vals: []interface{}{"0"}},
-				{Vals: []interface{}{"1"}},
-				{Vals: []interface{}{"2"}},
-				{Vals: []interface{}{"3"}},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"0"}},
+					{Vals: []interface{}{"1"}},
+					{Vals: []interface{}{"2"}},
+					{Vals: []interface{}{"3"}},
+				},
 			},
 			expectRows: []*btree.Row{
 				{Vals: []interface{}{"1"}},
 				{Vals: []interface{}{"2"}},
+			},
+		},
+		{
+			name: `SELECT with INNER JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 JOIN tbl2 ON tbl1.id = tbl2.id`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl1",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col1",
+						},
+					},
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl2",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col3",
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.QualifiedJoin{
+							LHS:      sql.TableName{Name: "tbl1"},
+							RHS:      sql.TableName{Name: "tbl2"},
+							JoinType: sql.INNER_JOIN,
+							JoinCondition: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl1",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+									CompOp: sql.EQ,
+									RHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl2",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col1"},
+					&btree.Field{Column: "col2"},
+				},
+				"tbl2": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col3"},
+					&btree.Field{Column: "col4"},
+				},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "col3", TableID: "tbl2"},
+			},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"id_+1", int32(1), int32(2)}},
+					{Vals: []interface{}{"id_+2", int32(3), int32(4)}},
+					{Vals: []interface{}{"id_+5", int32(5), int32(6)}},
+					{Vals: []interface{}{"id_+6", int32(7), int32(8)}},
+					{Vals: []interface{}{"id_+7", int32(9), int32(10)}},
+					{Vals: []interface{}{"id_+9", int32(11), int32(12)}},
+					{Vals: []interface{}{"id_+10", int32(13), int32(14)}},
+				},
+				"tbl2": {
+					{Vals: []interface{}{"id_+1", int32(15), int32(16)}},
+					{Vals: []interface{}{"id_-2", int32(17), int32(18)}},
+					{Vals: []interface{}{"id_+5", int32(19), int32(20)}},
+					{Vals: []interface{}{"id_-6", int32(21), int32(22)}},
+					{Vals: []interface{}{"id_+7", int32(23), int32(24)}},
+					{Vals: []interface{}{"id_-9", int32(25), int32(26)}},
+					{Vals: []interface{}{"id_+10", int32(27), int32(28)}},
+				},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{int32(1), int32(15)}},
+				{Vals: []interface{}{int32(5), int32(19)}},
+				{Vals: []interface{}{int32(9), int32(23)}},
+				{Vals: []interface{}{int32(13), int32(27)}},
+			},
+		},
+		{
+			name: `SELECT with LEFT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 LEFT JOIN tbl2 ON tbl1.id = tbl2.id`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl1",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col1",
+						},
+					},
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl2",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col3",
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.QualifiedJoin{
+							LHS:      sql.TableName{Name: "tbl1"},
+							RHS:      sql.TableName{Name: "tbl2"},
+							JoinType: sql.LEFT_JOIN,
+							JoinCondition: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl1",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+									CompOp: sql.EQ,
+									RHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl2",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col1"},
+					&btree.Field{Column: "col2"},
+				},
+				"tbl2": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col3"},
+					&btree.Field{Column: "col4"},
+				},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "col3", TableID: "tbl2"},
+			},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"id_1", int32(1), int32(2)}},
+					{Vals: []interface{}{"id_2", int32(3), int32(4)}},
+					{Vals: []interface{}{"id_3", int32(5), int32(6)}},
+					{Vals: []interface{}{"id_4", int32(7), int32(8)}},
+					{Vals: []interface{}{"id_5", int32(9), int32(10)}},
+					{Vals: []interface{}{"id_6", int32(11), int32(12)}},
+				},
+				"tbl2": {
+					{Vals: []interface{}{"id_1", int32(13), int32(14)}},
+					{Vals: []interface{}{"id_3", int32(15), int32(16)}},
+					{Vals: []interface{}{"id_5", int32(17), int32(18)}},
+				},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{int32(1), int32(13)}},
+				{Vals: []interface{}{int32(3), nil}},
+				{Vals: []interface{}{int32(5), int32(15)}},
+				{Vals: []interface{}{int32(7), nil}},
+				{Vals: []interface{}{int32(9), int32(17)}},
+				{Vals: []interface{}{int32(11), nil}},
+			},
+		},
+		{
+			name: `SELECT with RIGHT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 RIGHT JOIN tbl2 ON tbl1.id = tbl2.id`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl1",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col1",
+						},
+					},
+					sql.ValueExpression{
+						Qualifier: sql.Token{
+							Type: sql.IDENT,
+							Text: "tbl2",
+						},
+						ColumnName: sql.Token{
+							Type: sql.IDENT,
+							Text: "col3",
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.QualifiedJoin{
+							LHS:      sql.TableName{Name: "tbl1"},
+							RHS:      sql.TableName{Name: "tbl2"},
+							JoinType: sql.RIGHT_JOIN,
+							JoinCondition: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl1",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+									CompOp: sql.EQ,
+									RHS: sql.ValueExpression{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl2",
+										},
+										ColumnName: sql.Token{
+											Type: sql.IDENT,
+											Text: "id",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			givenFields: map[string]btree.Fields{
+				"tbl1": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col1"},
+					&btree.Field{Column: "col2"},
+				},
+				"tbl2": {
+					&btree.Field{Column: "id"},
+					&btree.Field{Column: "col3"},
+					&btree.Field{Column: "col4"},
+				},
+			},
+			expectFields: []*btree.Field{
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "col3", TableID: "tbl2"},
+			},
+			givenRows: map[string][]*btree.Row{
+				"tbl1": {
+					{Vals: []interface{}{"id_2", int32(1), int32(2)}},
+					{Vals: []interface{}{"id_4", int32(3), int32(4)}},
+					{Vals: []interface{}{"id_6", int32(5), int32(6)}},
+				},
+				"tbl2": {
+					{Vals: []interface{}{"id_1", int32(7), int32(8)}},
+					{Vals: []interface{}{"id_2", int32(9), int32(10)}},
+					{Vals: []interface{}{"id_3", int32(11), int32(12)}},
+					{Vals: []interface{}{"id_4", int32(13), int32(14)}},
+					{Vals: []interface{}{"id_5", int32(15), int32(16)}},
+					{Vals: []interface{}{"id_6", int32(17), int32(18)}},
+				},
+			},
+			expectRows: []*btree.Row{
+				{Vals: []interface{}{nil, int32(7)}},
+				{Vals: []interface{}{int32(1), int32(9)}},
+				{Vals: []interface{}{nil, int32(11)}},
+				{Vals: []interface{}{int32(3), int32(13)}},
+				{Vals: []interface{}{nil, int32(15)}},
+				{Vals: []interface{}{int32(5), int32(17)}},
 			},
 		},
 	}
@@ -507,7 +844,7 @@ func TestSelect(t *testing.T) {
 	for _, test := range tc {
 		t.Run(test.name, func(t *testing.T) {
 			fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
-				return test.givenRows, test.givenFields, nil
+				return test.givenRows[tableName], test.givenFields[tableName], nil
 			}
 
 			actualRows, actualFields, err := EvaluateSelect(test.query, "", fetcher)
