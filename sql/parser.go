@@ -13,7 +13,7 @@ const (
 	FULL_JOIN = iota
 	LEFT_JOIN
 	RIGHT_JOIN
-	REGULAR_JOIN
+	INNER_JOIN
 )
 
 var (
@@ -399,7 +399,7 @@ func (p *Parser) FromClause() (FromClause, error) {
 	tblRef := TableReference(tn)
 
 	for p.curType(JOIN, LEFT, RIGHT) {
-		jt := JoinType(REGULAR_JOIN)
+		jt := JoinType(INNER_JOIN)
 		switch {
 		case p.match(LEFT):
 			jt = LEFT_JOIN

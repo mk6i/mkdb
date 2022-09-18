@@ -647,7 +647,7 @@ func TestParseSelectJoin(t *testing.T) {
 					LHS: QualifiedJoin{
 						LHS:      TableName{Name: "table_1"},
 						RHS:      TableName{Name: "table_2"},
-						JoinType: REGULAR_JOIN,
+						JoinType: INNER_JOIN,
 						JoinCondition: Predicate{
 							ComparisonPredicate{
 								LHS: ValueExpression{
@@ -675,7 +675,7 @@ func TestParseSelectJoin(t *testing.T) {
 						},
 					},
 					RHS:      TableName{Name: "table_3"},
-					JoinType: REGULAR_JOIN,
+					JoinType: INNER_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
@@ -893,7 +893,7 @@ func TestParseSelectLeftJoin(t *testing.T) {
 						},
 					},
 					RHS:      TableName{Name: "table_3"},
-					JoinType: REGULAR_JOIN,
+					JoinType: INNER_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
@@ -1111,7 +1111,7 @@ func TestParseSelectRightJoin(t *testing.T) {
 						},
 					},
 					RHS:      TableName{Name: "table_3"},
-					JoinType: REGULAR_JOIN,
+					JoinType: INNER_JOIN,
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ValueExpression{
