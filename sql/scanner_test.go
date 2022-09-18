@@ -193,9 +193,9 @@ func TestScanSelect(t *testing.T) {
 	}
 }
 
-func TestScanSelectJoin(t *testing.T) {
+func TestScanSelectInnerJoin(t *testing.T) {
 
-	const src = `SELECT table_1.field_1, table_2.field_2 FROM table_1 JOIN table_2 ON table_1.id = table_2.id`
+	const src = `SELECT table_1.field_1, table_2.field_2 FROM table_1 INNER JOIN table_2 ON table_1.id = table_2.id`
 
 	ts := NewTokenScanner(strings.NewReader(src))
 
@@ -234,6 +234,9 @@ func TestScanSelectJoin(t *testing.T) {
 		{
 			Type: IDENT,
 			Text: "table_1",
+		},
+		{
+			Type: INNER,
 		},
 		{
 			Type: JOIN,
