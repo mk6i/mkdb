@@ -508,7 +508,7 @@ func TestParseSelectNegativeLimit(t *testing.T) {
 	}
 }
 
-func TestParseSelectJoin(t *testing.T) {
+func TestParseSelectInnerJoinSansInnerKeyword(t *testing.T) {
 
 	input := []Token{
 		{
@@ -580,6 +580,224 @@ func TestParseSelectJoin(t *testing.T) {
 		{
 			Type: IDENT,
 			Text: "id",
+		},
+		{
+			Type: JOIN,
+		},
+		{
+			Type: IDENT,
+			Text: "table_3",
+		},
+		{
+			Type: ON,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: IDENT,
+			Text: "table_3",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				ColumnName: Token{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			ValueExpression{
+				Qualifier: Token{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				ColumnName: Token{
+					Type: IDENT,
+					Text: "field_2",
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				QualifiedJoin{
+					LHS: QualifiedJoin{
+						LHS:      TableName{Name: "table_1"},
+						RHS:      TableName{Name: "table_2"},
+						JoinType: INNER_JOIN,
+						JoinCondition: Predicate{
+							ComparisonPredicate{
+								LHS: ValueExpression{
+									Qualifier: Token{
+										Type: IDENT,
+										Text: "table_1",
+									},
+									ColumnName: Token{
+										Type: IDENT,
+										Text: "id",
+									},
+								},
+								CompOp: EQ,
+								RHS: ValueExpression{
+									Qualifier: Token{
+										Type: IDENT,
+										Text: "table_2",
+									},
+									ColumnName: Token{
+										Type: IDENT,
+										Text: "id",
+									},
+								},
+							},
+						},
+					},
+					RHS:      TableName{Name: "table_3"},
+					JoinType: INNER_JOIN,
+					JoinCondition: Predicate{
+						ComparisonPredicate{
+							LHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "table_2",
+								},
+								ColumnName: Token{
+									Type: IDENT,
+									Text: "id",
+								},
+							},
+							CompOp: EQ,
+							RHS: ValueExpression{
+								Qualifier: Token{
+									Type: IDENT,
+									Text: "table_3",
+								},
+								ColumnName: Token{
+									Type: IDENT,
+									Text: "id",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectInnerJoinWithInnerKeyword(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_1",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "field_2",
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: JOIN,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: ON,
+		},
+		{
+			Type: IDENT,
+			Text: "table_1",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: IDENT,
+			Text: "table_2",
+		},
+		{
+			Type: DOT,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: INNER,
 		},
 		{
 			Type: JOIN,

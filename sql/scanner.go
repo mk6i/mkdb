@@ -53,6 +53,7 @@ const (
 	GROUP
 	HAVING
 	IN
+	INNER
 	INSERT
 	INTO
 	JOIN
@@ -144,6 +145,7 @@ var Tokens = map[TokenType]string{
 	GROUP:     "GROUP",
 	HAVING:    "HAVING",
 	IN:        "IN",
+	INNER:     "INNER",
 	INSERT:    "INSERT",
 	INTO:      "INTO",
 	JOIN:      "JOIN",

@@ -398,13 +398,17 @@ func (p *Parser) FromClause() (FromClause, error) {
 
 	tblRef := TableReference(tn)
 
-	for p.curType(JOIN, LEFT, RIGHT) {
-		jt := JoinType(INNER_JOIN)
+	for p.curType(JOIN, LEFT, RIGHT, INNER) {
+		var jt JoinType
 		switch {
 		case p.match(LEFT):
 			jt = LEFT_JOIN
 		case p.match(RIGHT):
 			jt = RIGHT_JOIN
+		case p.match(INNER):
+			fallthrough
+		default:
+			jt = INNER_JOIN
 		}
 
 		if ok, err := p.requireMatch(JOIN); !ok {
