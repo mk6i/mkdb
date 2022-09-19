@@ -3,7 +3,6 @@ package sql
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -41,8 +40,8 @@ type SortSpecification struct {
 type LimitOffsetClause struct {
 	LimitActive  bool
 	OffsetActive bool
-	Limit        int
-	Offset       int
+	Limit        int32
+	Offset       int32
 }
 
 type ValueExpression struct {
@@ -111,7 +110,7 @@ type ColumnDefinition struct {
 }
 
 type CharacterStringType struct {
-	Len  int
+	Len  int32
 	Type TokenType
 }
 
@@ -628,16 +627,9 @@ func (p *Parser) Insert() (InsertStatement, error) {
 	}
 	var cols []interface{}
 	for p.match(STR, INT) {
-		var val interface{}
-		switch p.Prev().Type {
-		case STR:
-			val = p.Prev().Text
-		case INT:
-			intVal, err := strconv.Atoi(p.Prev().Text)
-			if err != nil {
-				return is, err
-			}
-			val = int32(intVal)
+		val, err := p.Prev().Val()
+		if err != nil {
+			return is, err
 		}
 		cols = append(cols, val)
 		if !p.match(COMMA) {
@@ -751,9 +743,10 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ", "))
 }
 
-func (p *Parser) requireInt() (int, error) {
+func (p *Parser) requireInt() (int32, error) {
 	if err := p.requireMatch(INT); err != nil {
 		return 0, err
 	}
-	return strconv.Atoi(p.Prev().Text)
+	val, err := p.Prev().Val()
+	return val.(int32), err
 }

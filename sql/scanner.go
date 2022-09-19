@@ -1,7 +1,9 @@
 package sql
 
 import (
+	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"text/scanner"
 )
@@ -197,6 +199,20 @@ type Token struct {
 	Line   int
 	Column int
 	Text   string
+}
+
+func (t Token) Val() (interface{}, error) {
+	switch t.Type {
+	case STR:
+		return t.Text, nil
+	case INT:
+		intVal, err := strconv.Atoi(t.Text)
+		if err != nil {
+			return nil, err
+		}
+		return int32(intVal), nil
+	}
+	return nil, fmt.Errorf("unsupported token type: %v", t)
 }
 
 type TokenList struct {
