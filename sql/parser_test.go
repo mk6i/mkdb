@@ -338,8 +338,8 @@ func TestParseSelectLimitOffset(t *testing.T) {
 		LimitOffsetClause: LimitOffsetClause{
 			LimitActive:  true,
 			OffsetActive: true,
-			Limit:        10,
-			Offset:       20,
+			Limit:        int32(10),
+			Offset:       int32(20),
 		},
 	}
 
@@ -1488,7 +1488,7 @@ func TestParseCreateTable(t *testing.T) {
 			{
 				ColumnDefinition{
 					DataType: CharacterStringType{
-						Len:  255,
+						Len:  int32(255),
 						Type: T_VARCHAR,
 					},
 					Name: "LastName",

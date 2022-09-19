@@ -1,9 +1,6 @@
 package engine
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
 )
@@ -33,11 +30,11 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetcher btree.Fetc
 
 	for _, set := range q.Set {
 		cols = append(cols, set.ObjectColumn)
-		t, err := castTokenVal(set.UpdateSource.ColumnName)
+		val, err := set.UpdateSource.ColumnName.Val()
 		if err != nil {
 			return err
 		}
-		updateSrc = append(updateSrc, t)
+		updateSrc = append(updateSrc, val)
 	}
 
 	for _, row := range rows {
@@ -47,18 +44,4 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetcher btree.Fetc
 	}
 
 	return nil
-}
-
-func castTokenVal(t sql.Token) (interface{}, error) {
-	switch t.Type {
-	case sql.STR:
-		return t.Text, nil
-	case sql.INT:
-		intVal, err := strconv.Atoi(t.Text)
-		if err != nil {
-			return nil, err
-		}
-		return int32(intVal), nil
-	}
-	return nil, fmt.Errorf("unsupported token type: %v", t)
 }

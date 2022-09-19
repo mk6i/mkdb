@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -44,11 +43,11 @@ func EvaluateSelect(q sql.Select, path string, fetcher btree.Fetcher) ([]*btree.
 	}
 
 	if q.LimitOffsetClause.OffsetActive {
-		rows = offset(q.LimitOffsetClause.Offset, rows)
+		rows = offset(int(q.LimitOffsetClause.Offset), rows)
 	}
 
 	if q.LimitOffsetClause.LimitActive {
-		rows = limit(q.LimitOffsetClause.Limit, rows)
+		rows = limit(int(q.LimitOffsetClause.Limit), rows)
 	}
 
 	return rows, fields, nil
@@ -309,8 +308,6 @@ func evalPrimary(q interface{}, qfields btree.Fields, row *btree.Row) (interface
 	switch t := q.(type) {
 	case sql.ValueExpression:
 		switch t.ColumnName.Type {
-		case sql.STR:
-			return t.ColumnName.Text, nil
 		case sql.IDENT:
 			var idx int
 			var err error
@@ -323,12 +320,8 @@ func evalPrimary(q interface{}, qfields btree.Fields, row *btree.Row) (interface
 				return nil, err
 			}
 			return row.Vals[idx], nil
-		case sql.INT:
-			intVal, err := strconv.Atoi(t.ColumnName.Text)
-			if err != nil {
-				return nil, err
-			}
-			return int32(intVal), nil
+		default:
+			return t.ColumnName.Val()
 		}
 	}
 	return nil, fmt.Errorf("nothing to compare here")
