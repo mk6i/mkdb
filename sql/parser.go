@@ -160,7 +160,7 @@ type UseStatement struct {
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	if ok, err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE); !ok {
+	if err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE); err != nil {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -180,7 +180,7 @@ func (p *Parser) Parse() (interface{}, error) {
 }
 
 func (p *Parser) Create() (interface{}, error) {
-	if ok, err := p.requireMatch(DATABASE, TABLE); !ok {
+	if err := p.requireMatch(DATABASE, TABLE); err != nil {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -195,7 +195,7 @@ func (p *Parser) Create() (interface{}, error) {
 
 func (p *Parser) CreateDatabase() (CreateDatabase, error) {
 	cd := CreateDatabase{}
-	if ok, err := p.requireMatch(IDENT); !ok {
+	if err := p.requireMatch(IDENT); err != nil {
 		return cd, err
 	}
 	cd.Name = p.Prev().Text
@@ -222,7 +222,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 
 	var ret []TableElement
 
-	if ok, err := p.requireMatch(LPAREN); !ok {
+	if err := p.requireMatch(LPAREN); err != nil {
 		return ret, err
 	}
 
@@ -234,7 +234,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			},
 		}
 
-		if ok, err := p.requireMatch(T_INT, T_VARCHAR); !ok {
+		if err := p.requireMatch(T_INT, T_VARCHAR); err != nil {
 			return ret, err
 		}
 
@@ -245,7 +245,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			cst := CharacterStringType{
 				Type: p.Prev().Type,
 			}
-			if ok, err := p.requireMatch(LPAREN); !ok {
+			if err := p.requireMatch(LPAREN); err != nil {
 				return ret, err
 			}
 			if intVal, err := p.requireInt(); err != nil {
@@ -253,7 +253,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			} else {
 				cst.Len = intVal
 			}
-			if ok, err := p.requireMatch(RPAREN); !ok {
+			if err := p.requireMatch(RPAREN); err != nil {
 				return ret, err
 			}
 			te.ColumnDefinition.DataType = cst
@@ -268,7 +268,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 		}
 	}
 
-	if ok, err := p.requireMatch(RPAREN); !ok {
+	if err := p.requireMatch(RPAREN); err != nil {
 		return ret, err
 	}
 
@@ -308,7 +308,7 @@ func (p *Parser) SortSpecificationList() ([]SortSpecification, error) {
 	if !p.match(ORDER) {
 		return ss, nil
 	}
-	if ok, err := p.requireMatch(BY); !ok {
+	if err := p.requireMatch(BY); err != nil {
 		return ss, err
 	}
 
@@ -411,7 +411,7 @@ func (p *Parser) FromClause() (FromClause, error) {
 			jt = INNER_JOIN
 		}
 
-		if ok, err := p.requireMatch(JOIN); !ok {
+		if err := p.requireMatch(JOIN); err != nil {
 			return fc, err
 		}
 
@@ -427,7 +427,7 @@ func (p *Parser) FromClause() (FromClause, error) {
 			JoinType: jt,
 		}
 
-		if ok, err := p.requireMatch(ON); !ok {
+		if err := p.requireMatch(ON); err != nil {
 			return fc, err
 		}
 
@@ -512,7 +512,7 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	cp := ComparisonPredicate{}
 	var err error
 
-	if ok, err := p.requireMatch(STR, ASTRSK, IDENT, INT); !ok {
+	if err := p.requireMatch(STR, ASTRSK, IDENT, INT); err != nil {
 		return cp, err
 	}
 
@@ -521,13 +521,13 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 		return cp, err
 	}
 
-	if ok, err := p.requireMatch(EQ, NEQ, LT, GT, LTE, GTE); !ok {
+	if err := p.requireMatch(EQ, NEQ, LT, GT, LTE, GTE); err != nil {
 		return cp, err
 	}
 
 	cp.CompOp = p.Prev().Type
 
-	if ok, err := p.requireMatch(STR, ASTRSK, IDENT, INT); !ok {
+	if err := p.requireMatch(STR, ASTRSK, IDENT, INT); err != nil {
 		return cp, err
 	}
 
@@ -547,7 +547,7 @@ func (p *Parser) ValueExpression() (ValueExpression, error) {
 		if !p.match(DOT) {
 			panic("should have matched a DOT")
 		}
-		if ok, err := p.requireMatch(IDENT); !ok {
+		if err := p.requireMatch(IDENT); err != nil {
 			return ve, err
 		}
 	}
@@ -579,7 +579,7 @@ func (p *Parser) SelectList() (SelectList, error) {
 func (p *Parser) TableName() (TableName, error) {
 	tn := TableName{}
 
-	if ok, err := p.requireMatch(IDENT); !ok {
+	if err := p.requireMatch(IDENT); err != nil {
 		return tn, err
 	}
 
@@ -595,11 +595,11 @@ func (p *Parser) TableName() (TableName, error) {
 func (p *Parser) Insert() (InsertStatement, error) {
 	is := InsertStatement{}
 
-	if ok, err := p.requireMatch(INTO); !ok {
+	if err := p.requireMatch(INTO); err != nil {
 		return is, err
 	}
 
-	if ok, err := p.requireMatch(IDENT); !ok {
+	if err := p.requireMatch(IDENT); err != nil {
 		return is, err
 	}
 
@@ -614,16 +614,16 @@ func (p *Parser) Insert() (InsertStatement, error) {
 			}
 		}
 		is.InsertColumnsAndSource.InsertColumnList.ColumnNames = colNames
-		if ok, err := p.requireMatch(RPAREN); !ok {
+		if err := p.requireMatch(RPAREN); err != nil {
 			return is, err
 		}
 	}
 
-	if ok, err := p.requireMatch(VALUES); !ok {
+	if err := p.requireMatch(VALUES); err != nil {
 		return is, err
 	}
 
-	if ok, err := p.requireMatch(LPAREN); !ok {
+	if err := p.requireMatch(LPAREN); err != nil {
 		return is, err
 	}
 	var cols []interface{}
@@ -645,7 +645,7 @@ func (p *Parser) Insert() (InsertStatement, error) {
 		}
 	}
 	is.InsertColumnsAndSource.TableValueConstructor.Columns = cols
-	if ok, err := p.requireMatch(RPAREN); !ok {
+	if err := p.requireMatch(RPAREN); err != nil {
 		return is, err
 	}
 
@@ -655,13 +655,13 @@ func (p *Parser) Insert() (InsertStatement, error) {
 func (p *Parser) Update() (UpdateStatementSearched, error) {
 	us := UpdateStatementSearched{}
 
-	if ok, err := p.requireMatch(IDENT); !ok {
+	if err := p.requireMatch(IDENT); err != nil {
 		return us, err
 	}
 
 	us.TableName = p.Prev().Text
 
-	if ok, err := p.requireMatch(SET); !ok {
+	if err := p.requireMatch(SET); err != nil {
 		return us, err
 	}
 
@@ -669,11 +669,11 @@ func (p *Parser) Update() (UpdateStatementSearched, error) {
 		sc := SetClause{}
 		sc.ObjectColumn = p.Prev().Text
 
-		if ok, err := p.requireMatch(EQ); !ok {
+		if err := p.requireMatch(EQ); err != nil {
 			return us, err
 		}
 
-		if ok, err := p.requireMatch(STR, INT); !ok {
+		if err := p.requireMatch(STR, INT); err != nil {
 			return us, err
 		}
 
@@ -702,7 +702,7 @@ func (p *Parser) Update() (UpdateStatementSearched, error) {
 func (p *Parser) Use() (UseStatement, error) {
 	us := UseStatement{}
 
-	if ok, err := p.requireMatch(IDENT); !ok {
+	if err := p.requireMatch(IDENT); err != nil {
 		return us, err
 	}
 
@@ -719,11 +719,11 @@ func (p *Parser) match(types ...TokenType) bool {
 	return false
 }
 
-func (p *Parser) requireMatch(types ...TokenType) (bool, error) {
+func (p *Parser) requireMatch(types ...TokenType) error {
 	if p.match(types...) {
-		return true, nil
+		return nil
 	}
-	return false, p.unexpectedTypeErr(types...)
+	return p.unexpectedTypeErr(types...)
 }
 
 func (p *Parser) curType(types ...TokenType) bool {
@@ -752,7 +752,7 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 }
 
 func (p *Parser) requireInt() (int, error) {
-	if ok, err := p.requireMatch(INT); !ok {
+	if err := p.requireMatch(INT); err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(p.Prev().Text)
