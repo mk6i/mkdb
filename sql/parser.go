@@ -387,8 +387,8 @@ func (p *Parser) TableExpression() (TableExpression, error) {
 func (p *Parser) FromClause() (FromClause, error) {
 	fc := FromClause{}
 
-	if !p.match(FROM) {
-		return fc, nil
+	if err := p.requireMatch(FROM); err != nil {
+		return fc, err
 	}
 
 	tn, err := p.TableName()
