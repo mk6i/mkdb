@@ -58,6 +58,10 @@ type Pattern string
 type SelectList []ValueExpression
 type FromClause []TableReference
 
+// SimpleTable is one of QuerySpecification, TableValueConstructor,
+// or ExplicitTable (tbd)
+type SimpleTable interface{}
+
 // TableReference is one of TableName or JoinedTable
 type TableReference interface{}
 
@@ -132,7 +136,7 @@ type InsertStatement struct {
 
 type InsertColumnsAndSource struct {
 	InsertColumnList
-	TableValueConstructor
+	QueryExpression SimpleTable
 }
 
 type InsertColumnList struct {
@@ -140,7 +144,11 @@ type InsertColumnList struct {
 }
 
 type TableValueConstructor struct {
-	Columns []interface{}
+	TableValueConstructorList []RowValueConstructor
+}
+
+type RowValueConstructor struct {
+	RowValueConstructorList []interface{}
 }
 
 type UpdateStatementSearched struct {
@@ -622,24 +630,32 @@ func (p *Parser) Insert() (InsertStatement, error) {
 		return is, err
 	}
 
-	if err := p.requireMatch(LPAREN); err != nil {
-		return is, err
-	}
-	var cols []interface{}
-	for p.match(STR, INT) {
-		val, err := p.Prev().Val()
-		if err != nil {
+	var tvc TableValueConstructor
+	for p.match(LPAREN) {
+		var rvc RowValueConstructor
+
+		for p.match(STR, INT) {
+			val, err := p.Prev().Val()
+			if err != nil {
+				return is, err
+			}
+			rvc.RowValueConstructorList = append(rvc.RowValueConstructorList, val)
+			if !p.match(COMMA) {
+				break
+			}
+		}
+
+		if err := p.requireMatch(RPAREN); err != nil {
 			return is, err
 		}
-		cols = append(cols, val)
+
+		tvc.TableValueConstructorList = append(tvc.TableValueConstructorList, rvc)
+
 		if !p.match(COMMA) {
 			break
 		}
 	}
-	is.InsertColumnsAndSource.TableValueConstructor.Columns = cols
-	if err := p.requireMatch(RPAREN); err != nil {
-		return is, err
-	}
+	is.QueryExpression = tvc
 
 	return is, nil
 }

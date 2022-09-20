@@ -1602,14 +1602,68 @@ func TestParseInsert(t *testing.T) {
 		},
 		{
 			Type: STR,
-			Text: "value2",
+			Text: "2",
 		},
 		{
 			Type: COMMA,
 		},
 		{
 			Type: STR,
-			Text: "value3",
+			Text: "3",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "4",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "5",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "6",
+		},
+		{
+			Type: RPAREN,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: INT,
+			Text: "7",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "8",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "9",
 		},
 		{
 			Type: RPAREN,
@@ -1626,11 +1680,11 @@ func TestParseInsert(t *testing.T) {
 					"column3",
 				},
 			},
-			TableValueConstructor: TableValueConstructor{
-				Columns: []interface{}{
-					int32(1),
-					"value2",
-					"value3",
+			QueryExpression: TableValueConstructor{
+				TableValueConstructorList: []RowValueConstructor{
+					{RowValueConstructorList: []interface{}{int32(1), "2", "3"}},
+					{RowValueConstructorList: []interface{}{int32(4), "5", "6"}},
+					{RowValueConstructorList: []interface{}{int32(7), "8", "9"}},
 				},
 			},
 		},
@@ -1698,11 +1752,9 @@ func TestParseInsertSansColumnList(t *testing.T) {
 	expected := InsertStatement{
 		TableName: "thedatabase",
 		InsertColumnsAndSource: InsertColumnsAndSource{
-			TableValueConstructor: TableValueConstructor{
-				Columns: []interface{}{
-					int32(1),
-					"value2",
-					"value3",
+			QueryExpression: TableValueConstructor{
+				TableValueConstructorList: []RowValueConstructor{
+					{RowValueConstructorList: []interface{}{int32(1), "value2", "value3"}},
 				},
 			},
 		},

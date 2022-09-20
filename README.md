@@ -42,22 +42,25 @@ CREATE TABLE season (
     year int
 );
 
-INSERT INTO family (name, age, hair) VALUES ("Walter", 50, "bald");
-INSERT INTO family (name, age, hair) VALUES ("Skyler", 40, "blonde");
-INSERT INTO family (name, age, hair) VALUES ("Walter Jr.", 16, "brown");
-INSERT INTO family (name, age, hair) VALUES ("Holly", 1, "bald");
+INSERT INTO family (name, age, hair) VALUES
+    ("Walter", 50, "bald"),
+    ("Skyler", 40, "blonde"),
+    ("Walter Jr.", 16, "brown"),
+    ("Holly", 1, "bald");
 
-INSERT INTO season (number, year) VALUES (1, 2008);
-INSERT INTO season (number, year) VALUES (2, 2009);
-INSERT INTO season (number, year) VALUES (3, 2010);
-INSERT INTO season (number, year) VALUES (4, 2011);
-INSERT INTO season (number, year) VALUES (5, 2012);
+INSERT INTO season (number, year) VALUES
+    (1, 2008),
+    (2, 2009),
+    (3, 2010),
+    (4, 2011),
+    (5, 2012);
 
-INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1);
-INSERT INTO famous_lines (name, quote, season) VALUES ("Skyler", "Walt, the Mastercard's the one we don't use.", 1);
-INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2);
-INSERT INTO famous_lines (name, quote, season) VALUES ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2);
-INSERT INTO famous_lines (name, quote, season) VALUES ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3);
+INSERT INTO famous_lines (name, quote, season) VALUES
+    ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1),
+    ("Skyler", "Walt, the Mastercard's the one we don't use.", 1),
+    ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2),
+    ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2),
+    ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3);
 
 SELECT f.name, quote, year
 FROM family f

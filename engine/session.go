@@ -59,10 +59,11 @@ func (s *Session) ExecQuery(q string) error {
 		printableFields := printableFields(stmt.SelectList, fields)
 		printTable(printableFields, rows)
 	case sql.InsertStatement:
-		if err := EvaluateInsert(stmt, s.CurDB); err != nil {
+		if count, err := EvaluateInsert(stmt, s.CurDB); err != nil {
 			return err
+		} else {
+			fmt.Printf("inserted %d record(s) into %s\n", count, stmt.TableName)
 		}
-		fmt.Printf("inserted %d record(s) into %s\n", 1, stmt.TableName)
 	case sql.UpdateStatementSearched:
 		if err := EvaluateUpdate(stmt, s.CurDB, btree.NewFetcher()); err != nil {
 			return err
