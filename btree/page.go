@@ -190,24 +190,39 @@ func (p *page) getRightmostKey() uint32 {
 	return p.cells[p.offsets[len(p.offsets)-1]].(*keyCell).key
 }
 
-type pageBuffer struct {
-	buf *bytes.Buffer
-}
+func (p *page) encode() (*bytes.Buffer, error) {
+	buf := &bytes.Buffer{}
 
-func (r *pageBuffer) encode(p *page) error {
-
-	binary.Write(r.buf, binary.LittleEndian, p.pageID)
-	binary.Write(r.buf, binary.LittleEndian, p.cellType)
-	binary.Write(r.buf, binary.LittleEndian, p.rightOffset)
-	binary.Write(r.buf, binary.LittleEndian, p.hasLSib)
-	binary.Write(r.buf, binary.LittleEndian, p.hasRSib)
-	binary.Write(r.buf, binary.LittleEndian, p.lSibPageID)
-	binary.Write(r.buf, binary.LittleEndian, p.rSibPageID)
+	if err := binary.Write(buf, binary.LittleEndian, p.pageID); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.cellType); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.rightOffset); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.hasLSib); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.hasRSib); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.lSibPageID); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, p.rSibPageID); err != nil {
+		return nil, err
+	}
 
 	cellCount := uint32(len(p.offsets))
-	binary.Write(r.buf, binary.LittleEndian, cellCount)
+	if err := binary.Write(buf, binary.LittleEndian, cellCount); err != nil {
+		return nil, err
+	}
 	for i := 0; i < len(p.offsets); i++ {
-		binary.Write(r.buf, binary.LittleEndian, p.offsets[i])
+		if err := binary.Write(buf, binary.LittleEndian, p.offsets[i]); err != nil {
+			return nil, err
+		}
 	}
 
 	bufFooter := &bytes.Buffer{}
@@ -216,70 +231,109 @@ func (r *pageBuffer) encode(p *page) error {
 		switch p.cellType {
 		case KeyCell:
 			keyCell := p.cells[p.offsets[i]].(*keyCell)
-			binary.Write(bufFooter, binary.LittleEndian, keyCell.key)
-			binary.Write(bufFooter, binary.LittleEndian, keyCell.pageID)
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.key); err != nil {
+				return nil, err
+			}
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.pageID); err != nil {
+				return nil, err
+			}
 		case KeyValueCell:
 			keyCell := p.cells[p.offsets[i]].(*keyValueCell)
-			binary.Write(bufFooter, binary.LittleEndian, keyCell.key)
-			binary.Write(bufFooter, binary.LittleEndian, keyCell.valueSize)
-			binary.Write(bufFooter, binary.LittleEndian, keyCell.valueBytes)
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.key); err != nil {
+				return nil, err
+			}
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.valueSize); err != nil {
+				return nil, err
+			}
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.valueBytes); err != nil {
+				return nil, err
+			}
 		default:
 			panic("unexpected cell type")
 		}
 	}
 
-	freeSize := uint16(4096 - r.buf.Len() - bufFooter.Len() - 2)
+	freeSize := uint16(4096 - buf.Len() - bufFooter.Len() - 2)
 
 	// write out the free buffer, which separates the header
-	binary.Write(r.buf, binary.LittleEndian, freeSize)
-	binary.Write(r.buf, binary.LittleEndian, make([]byte, freeSize))
+	if err := binary.Write(buf, binary.LittleEndian, freeSize); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, make([]byte, freeSize)); err != nil {
+		return nil, err
+	}
 
-	r.buf.Write(bufFooter.Bytes())
+	if _, err := buf.Write(bufFooter.Bytes()); err != nil {
+		return nil, err
+	}
 
-	return nil
+	return buf, nil
 }
 
-func (r *pageBuffer) decode() *page {
-
-	p := &page{}
-
-	binary.Read(r.buf, binary.LittleEndian, &p.pageID)
-	binary.Read(r.buf, binary.LittleEndian, &p.cellType)
-	binary.Read(r.buf, binary.LittleEndian, &p.rightOffset)
-	binary.Read(r.buf, binary.LittleEndian, &p.hasLSib)
-	binary.Read(r.buf, binary.LittleEndian, &p.hasRSib)
-	binary.Read(r.buf, binary.LittleEndian, &p.lSibPageID)
-	binary.Read(r.buf, binary.LittleEndian, &p.rSibPageID)
+func (p *page) decode(buf *bytes.Buffer) error {
+	if err := binary.Read(buf, binary.LittleEndian, &p.pageID); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.cellType); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.rightOffset); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.hasLSib); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.hasRSib); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.lSibPageID); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.rSibPageID); err != nil {
+		return err
+	}
 
 	var cellCount uint32
-	binary.Read(r.buf, binary.LittleEndian, &cellCount)
+	if err := binary.Read(buf, binary.LittleEndian, &cellCount); err != nil {
+		return err
+	}
 	for i := uint32(0); i < cellCount; i++ {
 		var offset uint16
-		binary.Read(r.buf, binary.LittleEndian, &offset)
+		if err := binary.Read(buf, binary.LittleEndian, &offset); err != nil {
+			return err
+		}
 		p.offsets = append(p.offsets, offset)
 	}
 
-	binary.Read(r.buf, binary.LittleEndian, &p.freeSize)
+	if err := binary.Read(buf, binary.LittleEndian, &p.freeSize); err != nil {
+		return err
+	}
 
-	r.buf.Next(int(p.freeSize))
+	buf.Next(int(p.freeSize))
 
 	p.cells = make([]interface{}, cellCount)
 	for i := uint32(0); i < cellCount; i++ {
-
 		switch p.cellType {
 		case KeyCell:
 			cell := &keyCell{}
-			binary.Read(r.buf, binary.LittleEndian, &cell.key)
-			binary.Read(r.buf, binary.LittleEndian, &cell.pageID)
+			if err := binary.Read(buf, binary.LittleEndian, &cell.key); err != nil {
+				return err
+			}
+			if err := binary.Read(buf, binary.LittleEndian, &cell.pageID); err != nil {
+				return err
+			}
 			p.cells[p.offsets[i]] = cell
 		case KeyValueCell:
 			cell := &keyValueCell{}
-			binary.Read(r.buf, binary.LittleEndian, &cell.key)
-			binary.Read(r.buf, binary.LittleEndian, &cell.valueSize)
+			if err := binary.Read(buf, binary.LittleEndian, &cell.key); err != nil {
+				return err
+			}
+			if err := binary.Read(buf, binary.LittleEndian, &cell.valueSize); err != nil {
+				return err
+			}
 			strBuf := make([]byte, cell.valueSize)
-			_, err := r.buf.Read(strBuf)
-			if err != nil {
-				panic("unexpected cell type")
+			if _, err := buf.Read(strBuf); err != nil {
+				return err
 			}
 			cell.valueBytes = strBuf
 			p.cells[p.offsets[i]] = cell
@@ -288,7 +342,7 @@ func (r *pageBuffer) decode() *page {
 		}
 	}
 
-	return p
+	return nil
 }
 
 type store interface {
@@ -400,12 +454,7 @@ func (f *fileStore) update(p *page) error {
 		return err
 	}
 
-	buf := bytes.NewBuffer(make([]byte, 0))
-	pb := &pageBuffer{
-		buf: buf,
-	}
-
-	err = pb.encode(p)
+	buf, err := p.encode()
 	if err != nil {
 		return err
 	}
@@ -430,12 +479,7 @@ func (f *fileStore) append(p *page) error {
 		return err
 	}
 
-	buf := bytes.NewBuffer(make([]byte, 0))
-	pb := &pageBuffer{
-		buf: buf,
-	}
-
-	err = pb.encode(p)
+	buf, err := p.encode()
 	if err != nil {
 		return err
 	}
@@ -463,11 +507,10 @@ func (f *fileStore) fetch(offset uint32) (*page, error) {
 		return nil, err
 	}
 
-	pb := &pageBuffer{
-		buf: bytes.NewBuffer(buf),
+	pg := &page{}
+	if err := pg.decode(bytes.NewBuffer(buf)); err != nil {
+		return nil, err
 	}
-
-	pg := pb.decode()
 
 	return pg, nil
 }
