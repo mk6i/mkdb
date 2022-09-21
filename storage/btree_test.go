@@ -17,7 +17,10 @@ func TestBTree(t *testing.T) {
 		},
 	}
 
-	bt.store.append(rootPg)
+	if err := bt.store.append(rootPg); err != nil {
+		t.Fatal(err)
+	}
+
 	bt.setRoot(rootPg)
 
 	tbl := []struct {
@@ -38,19 +41,16 @@ func TestBTree(t *testing.T) {
 	}
 
 	for _, expect := range tbl {
-		key, err := bt.insertKey(expect.key, expect.val)
+		err := bt.insertKey(expect.key, expect.val)
 		if err != nil {
-			t.Errorf("got insertion error for %s: %s", expect.val, err.Error())
-		}
-		if key != expect.key {
-			t.Errorf("expected primary key %d, got %d", uint32(expect.key), key)
+			t.Fatalf("got insertion error for %s: %s", expect.val, err.Error())
 		}
 	}
 
 	for _, expect := range tbl {
 		val, err := bt.find(expect.key)
 		if err != nil {
-			t.Errorf("got retrieval error for %d: %s", expect.key, err.Error())
+			t.Fatalf("got retrieval error for %d: %s", expect.key, err.Error())
 		}
 		if !bytes.Equal(val, expect.val) {
 			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val, expect.val)
@@ -74,7 +74,10 @@ func TestBTree(t *testing.T) {
 		{key: 11, val: []byte("lumber")},
 	}
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, expect := range tblSorted {
 		val, ok := <-ch
@@ -86,7 +89,10 @@ func TestBTree(t *testing.T) {
 		}
 	}
 
-	ch = bt.scanLeft()
+	ch, err = bt.scanLeft()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := len(tblSorted) - 1; i >= 0; i-- {
 		val, ok := <-ch

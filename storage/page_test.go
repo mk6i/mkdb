@@ -41,7 +41,9 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 
 	var rp pageBuffer
 	rp.buf = bytes.NewBuffer(make([]byte, 0))
-	rp.encode(page)
+	if err := rp.encode(page); err != nil {
+		t.Fatal(err)
+	}
 
 	if rp.buf.Len() != 4096 {
 		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
@@ -87,7 +89,9 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 
 	var rp pageBuffer
 	rp.buf = bytes.NewBuffer(make([]byte, 0))
-	rp.encode(page)
+	if err := rp.encode(page); err != nil {
+		t.Fatal(err)
+	}
 
 	if len(rp.buf.Bytes()) != 4096 {
 		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
@@ -111,7 +115,9 @@ func TestMemoryStore(t *testing.T) {
 	m := &memoryStore{}
 
 	for _, p := range pages {
-		m.append(p)
+		if err := m.append(p); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	for idx, p := range pages {
@@ -160,13 +166,15 @@ func TestFileStore(t *testing.T) {
 	root := &page{
 		cellType: KeyValueCell,
 	}
-	_, err = fs2.append(root)
-	if err != nil {
+	if err := fs2.append(root); err != nil {
 		t.Errorf("error appending root: %s", err.Error())
 	}
 	fs2.setRoot(root)
 
-	root2 := fs2.getRoot()
+	root2, err := fs2.getRoot()
+	if err != nil {
+		t.Errorf("unable to fetch root: %s", err.Error())
+	}
 
 	if root.cellType != root2.cellType {
 		t.Errorf("root cell types do not match")
@@ -289,17 +297,28 @@ func TestSplitLeafNode(t *testing.T) {
 		cellType: KeyValueCell,
 	}
 
-	pg.appendCell(0, []byte("hello 0"))
-	pg.appendCell(1, []byte("hello 1"))
-	pg.appendCell(2, []byte("hello 2"))
-	pg.appendCell(3, []byte("hello 3"))
+	if err := pg.appendCell(0, []byte("hello 0")); err != nil {
+		t.Fatal(err)
+	}
+	if err := pg.appendCell(1, []byte("hello 1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := pg.appendCell(2, []byte("hello 2")); err != nil {
+		t.Fatal(err)
+	}
+	if err := pg.appendCell(3, []byte("hello 3")); err != nil {
+		t.Fatal(err)
+	}
 
 	if !pg.isFull(branchingFactor) {
 		t.Errorf("page is supposed to be full but is not. branching factor: %d", branchingFactor)
 	}
 
 	newPg := &page{}
-	parentKey := pg.split(newPg)
+	parentKey, err := pg.split(newPg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if parentKey != 2 {
 		t.Errorf("parent key is unexpected. actual: %d", parentKey)
