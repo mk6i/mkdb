@@ -257,7 +257,9 @@ func CreateDB(path string) error {
 	if pgTblPg.pageID != initalPageTableOffset {
 		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initalPageTableOffset, pgTblPg.pageID)
 	}
-	fs.setPageTableRoot(pgTblPg)
+	if err := fs.setPageTableRoot(pgTblPg); err != nil {
+		return err
+	}
 	if err := insertPageTable(fs, pgTblPg.pageID, pageTableName); err != nil {
 		return err
 	}
@@ -311,11 +313,10 @@ func CreateTable(path string, r *Relation, tableName string) error {
 func createPage(fs *fileStore) (*page, error) {
 	rootPg := &page{cellType: KeyValueCell}
 
-	_, err := fs.append(rootPg)
-	if err != nil {
+	if err := fs.append(rootPg); err != nil {
 		return rootPg, err
 	}
-	return rootPg, err
+	return rootPg, nil
 }
 
 func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
@@ -346,7 +347,11 @@ func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
 		return err
 	}
 
-	curRoot := bt.getRoot()
+	curRoot, err := bt.getRoot()
+	if err != nil {
+		return err
+	}
+
 	if curRoot.pageID != pgTablePg.pageID {
 		fs.setPageTableRoot(curRoot)
 	}
@@ -365,7 +370,11 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 	bt := &BTree{store: fs}
 	bt.setRoot(pgTablePg)
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		return err
+	}
+
 	for cell := range ch {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
@@ -381,8 +390,12 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 			if err != nil {
 				return err
 			}
-			cell.pg.updateCell(cell.key, buf.Bytes())
-			fs.update(cell.pg)
+			if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
+				return err
+			}
+			if err := fs.update(cell.pg); err != nil {
+				return err
+			}
 			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageId, tableName)
 			return nil
 		}
@@ -427,7 +440,11 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName stri
 			return err
 		}
 
-		newRootPg := bt.getRoot()
+		newRootPg, err := bt.getRoot()
+		if err != nil {
+			return err
+		}
+
 		if newRootPg.pageID != schemaTablePg.pageID {
 			if err := updatePageTable(fs, newRootPg.pageID, schemaTableName); err != nil {
 				return err
@@ -485,10 +502,13 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 		return 0, err
 	}
 
-	// todo why doesn't setRoot return an err?
 	bt.setRoot(pg)
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		return 0, err
+	}
+
 	for cell := range ch {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
@@ -519,12 +539,15 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 		return nil, err
 	}
 
-	// todo why doesn't setRoot return an err?
 	bt.setRoot(pg)
 
 	r := &Relation{}
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		return nil, err
+	}
+
 	for cell := range ch {
 		tuple := Tuple{
 			Relation: &schemaTableSchema,
@@ -622,12 +645,15 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields Fields) ([]*
 		return nil, err
 	}
 
-	// todo why doesn't setRoot return an err?
 	bt.setRoot(pg)
 
 	var results []*Row
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		return nil, err
+	}
+
 	for cell := range ch {
 		tuple := Tuple{
 			Relation: r,
@@ -718,7 +744,11 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 	}
 
 	// update page table with new root if the old root split
-	curPage := bt.getRoot()
+	curPage, err := bt.getRoot()
+	if err != nil {
+		return err
+	}
+
 	if curPage.pageID != tablePg.pageID {
 		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
 			return err
@@ -753,7 +783,11 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 	bt := BTree{store: fs}
 	bt.setRoot(pg)
 
-	ch := bt.scanRight()
+	ch, err := bt.scanRight()
+	if err != nil {
+		return err
+	}
+
 	for cell := range ch {
 		if cell.key != rowID {
 			continue
@@ -775,8 +809,12 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 			return err
 		}
 
-		cell.pg.updateCell(cell.key, buf.Bytes())
-		fs.update(cell.pg)
+		if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
+			return err
+		}
+		if err := fs.update(cell.pg); err != nil {
+			return err
+		}
 	}
 
 	return nil

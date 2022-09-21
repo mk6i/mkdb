@@ -148,20 +148,22 @@ func (p *page) isFull(branchFactor uint32) bool {
 	return len(p.offsets) >= int(branchFactor)
 }
 
-func (p *page) split(newPg *page) uint32 {
+func (p *page) split(newPg *page) (uint32, error) {
 
 	if p.cellType == KeyValueCell {
 		mid := len(p.offsets) / 2
 
 		for i := mid; i < len(p.offsets); i++ {
 			cell := p.cells[p.offsets[i]].(*keyValueCell)
-			newPg.appendCell(cell.key, cell.valueBytes)
+			if err := newPg.appendCell(cell.key, cell.valueBytes); err != nil {
+				return 0, err
+			}
 		}
 
 		p.offsets = p.offsets[0:mid]
 		// todo make old cells reusable
 		cell := newPg.cells[newPg.offsets[0]].(*keyValueCell)
-		return cell.key
+		return cell.key, nil
 	}
 
 	// else keycell...
@@ -169,7 +171,9 @@ func (p *page) split(newPg *page) uint32 {
 
 	for i := mid + 1; i < len(p.offsets); i++ {
 		cell := p.cells[p.offsets[i]].(*keyCell)
-		newPg.appendKeyCell(cell.key, cell.pageID)
+		if err := newPg.appendKeyCell(cell.key, cell.pageID); err != nil {
+			return 0, err
+		}
 	}
 
 	newPg.setRightMostKey(p.rightOffset)
@@ -179,7 +183,7 @@ func (p *page) split(newPg *page) uint32 {
 	p.offsets = p.offsets[0:mid]
 	// todo make old cells reusable
 
-	return key
+	return key, nil
 }
 
 func (p *page) getRightmostKey() uint32 {
@@ -288,15 +292,15 @@ func (r *pageBuffer) decode() *page {
 }
 
 type store interface {
-	append(p *page) (uint32, error)
+	append(p *page) error
 	update(p *page) error
 	fetch(offset uint32) (*page, error)
 	getLastKey() uint32
-	incrementLastKey()
-	getRoot() *page
+	incrementLastKey() error
+	getRoot() (*page, error)
 	getBranchFactor() uint32
 	setRoot(pg *page)
-	setPageTableRoot(pg *page)
+	setPageTableRoot(pg *page) error
 }
 
 type memoryStore struct {
@@ -310,8 +314,8 @@ func (m *memoryStore) getBranchFactor() uint32 {
 	return m.branchFactor
 }
 
-func (m *memoryStore) getRoot() *page {
-	return m.root
+func (m *memoryStore) getRoot() (*page, error) {
+	return m.root, nil
 }
 
 func (m *memoryStore) setRoot(pg *page) {
@@ -322,18 +326,19 @@ func (m *memoryStore) getLastKey() uint32 {
 	return m.lastKey
 }
 
-func (m *memoryStore) incrementLastKey() {
+func (m *memoryStore) incrementLastKey() error {
 	m.lastKey++
+	return nil
 }
 
-func (m *memoryStore) setPageTableRoot(pg *page) {
+func (m *memoryStore) setPageTableRoot(pg *page) error {
+	return nil
 }
 
-func (m *memoryStore) append(p *page) (uint32, error) {
-	pageID := uint32(len(m.pages))
-	p.pageID = pageID
+func (m *memoryStore) append(p *page) error {
+	p.pageID = uint32(len(m.pages))
 	m.pages = append(m.pages, p)
-	return pageID, nil
+	return nil
 }
 
 func (m *memoryStore) update(p *page) error {
@@ -360,30 +365,27 @@ func (f *fileStore) getBranchFactor() uint32 {
 	return f.branchFactor
 }
 
-func (f *fileStore) getRoot() *page {
+func (f *fileStore) getRoot() (*page, error) {
 	pg, err := f.fetch(f.rootOffset)
-	if err != nil {
-		panic(fmt.Sprintf("error fetching root: %s", err.Error()))
-	}
-	return pg
+	return pg, err
 }
 
 func (f *fileStore) setRoot(pg *page) {
 	f.rootOffset = pg.pageID
 }
 
-func (f *fileStore) setPageTableRoot(pg *page) {
+func (f *fileStore) setPageTableRoot(pg *page) error {
 	f.pageTableRoot = pg.pageID
-	f.save()
+	return f.save()
 }
 
 func (f *fileStore) getLastKey() uint32 {
 	return f.lastKey
 }
 
-func (f *fileStore) incrementLastKey() {
+func (f *fileStore) incrementLastKey() error {
 	f.lastKey++
-	f.save()
+	return f.save()
 }
 
 func (f *fileStore) update(p *page) error {
@@ -413,19 +415,19 @@ func (f *fileStore) update(p *page) error {
 	return err
 }
 
-func (f *fileStore) append(p *page) (uint32, error) {
+func (f *fileStore) append(p *page) error {
 
 	p.pageID = f.nextFreeOffset
 
 	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer file.Close()
 
 	_, err = file.Seek(int64(f.nextFreeOffset), 0)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0))
@@ -435,17 +437,17 @@ func (f *fileStore) append(p *page) (uint32, error) {
 
 	err = pb.encode(p)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	_, err = file.Write(buf.Bytes())
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	f.nextFreeOffset += 4096
 
-	return p.pageID, nil
+	return nil
 }
 
 func (f *fileStore) fetch(offset uint32) (*page, error) {
