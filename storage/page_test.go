@@ -1,7 +1,6 @@
 package btree
 
 import (
-	"bytes"
 	"os"
 	"reflect"
 	"testing"
@@ -9,7 +8,7 @@ import (
 
 func TestEncodeDecodeKeyCell(t *testing.T) {
 
-	page := &page{
+	pg := &page{
 		pageID:   10,
 		cellType: KeyCell,
 		offsets:  []uint16{2, 1, 0, 3},
@@ -39,26 +38,28 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 		rSibPageID:  3,
 	}
 
-	var rp pageBuffer
-	rp.buf = bytes.NewBuffer(make([]byte, 0))
-	if err := rp.encode(page); err != nil {
+	buf, err := pg.encode()
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if rp.buf.Len() != 4096 {
-		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
+	if buf.Len() != 4096 {
+		t.Fatalf("page size is not 4096 bytes, got %d\n", buf.Cap())
 	}
 
-	actual := rp.decode()
+	actual := &page{}
+	if err = actual.decode(buf); err != nil {
+		t.Fatal(err)
+	}
 
-	if !reflect.DeepEqual(page, actual) {
-		t.Errorf("Structs are not the same: %v\n%v", page, actual)
+	if !reflect.DeepEqual(pg, actual) {
+		t.Errorf("Structs are not the same: %v\n%v", pg, actual)
 	}
 }
 
 func TestEncodeDecodeKeyValueCell(t *testing.T) {
 
-	page := &page{
+	pg := &page{
 		pageID:   10,
 		cellType: KeyValueCell,
 		offsets:  []uint16{2, 1, 0, 3},
@@ -87,30 +88,28 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 		},
 	}
 
-	var rp pageBuffer
-	rp.buf = bytes.NewBuffer(make([]byte, 0))
-	if err := rp.encode(page); err != nil {
+	buf, err := pg.encode()
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(rp.buf.Bytes()) != 4096 {
-		t.Fatalf("page size is not 4096 bytes, got %d\n", rp.buf.Cap())
+	if len(buf.Bytes()) != 4096 {
+		t.Fatalf("page size is not 4096 bytes, got %d\n", buf.Cap())
 	}
 
-	actual := rp.decode()
+	actual := &page{}
+	if err = actual.decode(buf); err != nil {
+		t.Fatal(err)
+	}
 
-	if !reflect.DeepEqual(page, actual) {
-		t.Errorf("Structs are not the same: %v\n%v", page, actual)
+	if !reflect.DeepEqual(pg, actual) {
+		t.Errorf("Structs are not the same: %v\n%v", pg, actual)
 	}
 }
 
 func TestMemoryStore(t *testing.T) {
 
-	pages := []*page{
-		&page{},
-		&page{},
-		&page{},
-	}
+	pages := []*page{{}, {}, {}}
 
 	m := &memoryStore{}
 
