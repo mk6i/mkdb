@@ -9,11 +9,11 @@ import (
 func TestScanSelect(t *testing.T) {
 
 	const src = `
-		SELECT tt.field_1, tt.field_2
+		SELECT "tt"."field_1", tt.field_2
 		FROM the_table tt
-		WHERE tt.ident = "some literal"
+		WHERE tt.ident = 'some literal'
 			OR tt.ident2 = 12
-			OR tt.ident != "a string"
+			OR tt.ident != 'a string'
 		ORDER BY tt.field_1 ASC, tt.field_2 DESC
 		LIMIT 10 OFFSET 20
 	`
@@ -644,7 +644,7 @@ func TestScanCreateDatabase(t *testing.T) {
 
 func TestScanInsert(t *testing.T) {
 
-	const src = `INSERT INTO thedatabase (column1, column2, column3) VALUES (1, "value2", "value3")`
+	const src = `INSERT INTO thedatabase (column1, column2, column3) VALUES (1, 'value2', 'value3')`
 
 	ts := NewTokenScanner(strings.NewReader(src))
 
@@ -731,7 +731,7 @@ func TestScanInsert(t *testing.T) {
 
 func TestScanUpdate(t *testing.T) {
 
-	const src = `UPDATE thedatabase SET column1 = "val1", column2 = "val2", column3 = "val3" WHERE id = 4`
+	const src = `UPDATE thedatabase SET column1 = 'val1', column2 = 'val2', column3 = 'val3' WHERE id = 4`
 
 	ts := NewTokenScanner(strings.NewReader(src))
 

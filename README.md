@@ -43,10 +43,10 @@ CREATE TABLE season (
 );
 
 INSERT INTO family (name, age, hair) VALUES
-    ("Walter", 50, "bald"),
-    ("Skyler", 40, "blonde"),
-    ("Walter Jr.", 16, "brown"),
-    ("Holly", 1, "bald");
+    ('Walter', 50, 'bald'),
+    ('Skyler', 40, 'blonde'),
+    ('Walter Jr.', 16, 'brown'),
+    ('Holly', 1, 'bald');
 
 INSERT INTO season (number, year) VALUES
     (1, 2008),
@@ -56,17 +56,17 @@ INSERT INTO season (number, year) VALUES
     (5, 2012);
 
 INSERT INTO famous_lines (name, quote, season) VALUES
-    ("Walter", "Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.", 1),
-    ("Skyler", "Walt, the Mastercard's the one we don't use.", 1),
-    ("Walter", "Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.", 2),
-    ("Walter", "How was I supposed to know you were chauffeuring Tuco to my doorstep?", 2),
-    ("Skyler", "We have discussed everything we need to discuss... I thought I made myself very clear.", 3);
+    ('Walter', 'Chemistry is, well technically, chemistry is the study of matter. But I prefer to see it as the study of change.', 1),
+    ('Skyler', 'Walt, the Mastercard\'s the one we don\'t use.', 1),
+    ('Walter', 'Oh, yes. Now we just need to figure out a delivery device, and then no more Tuco.', 2),
+    ('Walter', 'How was I supposed to know you were chauffeuring Tuco to my doorstep?', 2),
+    ('Skyler', 'We have discussed everything we need to discuss... I thought I made myself very clear.', 3);
 
 SELECT f.name, quote, year
 FROM family f
 JOIN famous_lines fl ON fl.name = f.name
 JOIN season s ON s.number = fl.season
-WHERE hair = "bald";
+WHERE hair = 'bald';
 
 SELECT f.name, quote, year
 FROM family f
@@ -82,7 +82,7 @@ SELECT *
 FROM family
 LIMIT 2 OFFSET 2;
 
-UPDATE family SET age = 2, hair = "blonde" WHERE name = "Holly";
+UPDATE family SET age = 2, hair = 'blonde' WHERE name = 'Holly';
 ```
 
 #### View All Tables
