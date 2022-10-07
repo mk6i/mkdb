@@ -5,13 +5,10 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"text/scanner"
 )
 
 const (
-	EOF = iota
-
-	literal_start
+	literal_start = iota
 	IDENT
 	INT
 	STR
@@ -106,8 +103,6 @@ func (t TokenType) IsOperator() bool {
 }
 
 var Tokens = map[TokenType]string{
-	EOF: "EOF",
-
 	IDENT: "IDENT",
 	INT:   "INT",
 	STR:   "STR",
@@ -260,7 +255,7 @@ func (tl *TokenList) Advance() bool {
 }
 
 type tokenScanner struct {
-	s   scanner.Scanner
+	s   Scanner
 	cur rune
 }
 
@@ -276,18 +271,23 @@ func (ts *tokenScanner) Cur() Token {
 		Line:   ts.s.Line,
 	}
 	switch ts.cur {
-	case scanner.EOF:
+	case EOF:
 		tok.Type = EOF
-	case scanner.Ident:
+	case Ident:
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			tok.Type = kw
 		} else {
 			tok.Type = IDENT
 			tok.Text = ts.s.TokenText()
 		}
-	case scanner.Int:
+	case Int:
 		tok.Type = INT
 		tok.Text = ts.s.TokenText()
+	case DelimIdent:
+		tok.Type = IDENT
+		// strip quotes
+		tok.Text = ts.s.TokenText()
+		tok.Text = tok.Text[1 : len(tok.Text)-1]
 	default:
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			if kw == BANG && ts.s.Peek() == '=' {
@@ -308,5 +308,5 @@ func (ts *tokenScanner) Cur() Token {
 
 func (ts *tokenScanner) Next() bool {
 	ts.cur = ts.s.Scan()
-	return ts.cur != scanner.EOF
+	return ts.cur != EOF
 }

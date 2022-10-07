@@ -58,21 +58,21 @@ func TestMain(t *testing.T) {
 		)`,
 		`SELECT table_name, page_id FROM sys_pages`,
 		`SELECT table_name, field_name, field_length, field_type FROM sys_schema`,
-		`INSERT INTO people (person_id, first_name) VALUES (1, "John")`,
-		`INSERT INTO people VALUES (2, "Ikra", "Freeman"),
-			(3, "Gerrard", "Torres"),
-			(4, "Malia", "Brewer"),
-			(5, "Willow", "Reeves"),
-			(6, "Mylee", "Mclean"),
-			(7, "Leland", "Booth"),
-			(8, "Chance", "Snyder"),
-			(9, "Cairo", "Lim"),
-			(10, "Khadija", "Crane")`,
+		`INSERT INTO people (person_id, first_name) VALUES (1, 'John')`,
+		`INSERT INTO people VALUES (2, 'Ikra', 'Freeman'),
+			(3, 'Gerrard', 'Torres'),
+			(4, 'Malia', 'Brewer'),
+			(5, 'Willow', 'Reeves'),
+			(6, 'Mylee', 'Mclean'),
+			(7, 'Leland', 'Booth'),
+			(8, 'Chance', 'Snyder'),
+			(9, 'Cairo', 'Lim'),
+			(10, 'Khadija', 'Crane')`,
 		`SELECT person_id, first_name, last_name FROM people`,
 		`SELECT * FROM people`,
-		`SELECT * FROM people WHERE last_name = "Brewer"`,
-		`UPDATE people SET person_id = 600 WHERE last_name = "Crane"`,
-		`SELECT * FROM people WHERE last_name = "Crane"`,
+		`SELECT * FROM people WHERE last_name = 'Brewer'`,
+		`UPDATE people SET person_id = 600 WHERE last_name = 'Crane'`,
+		`SELECT * FROM people WHERE last_name = 'Crane'`,
 	}
 
 	s := Session{}
@@ -103,7 +103,7 @@ func TestInsertNonExistentTable(t *testing.T) {
 		}
 	}
 
-	q := `INSERT INTO people (person_id, first_name, last_name) VALUES (1, "John", "Doe")`
+	q := `INSERT INTO people (person_id, first_name, last_name) VALUES (1, 'John', 'Doe')`
 	err := s.ExecQuery(q)
 
 	if err != btree.ErrTableNotExist {
@@ -136,7 +136,7 @@ func TestInsertColCountMismatch(t *testing.T) {
 		}
 	}
 
-	q := `INSERT INTO people (person_id, first_name, last_name) VALUES ("John", "Doe")`
+	q := `INSERT INTO people (person_id, first_name, last_name) VALUES ('John', 'Doe')`
 	err := s.ExecQuery(q)
 
 	if err != btree.ErrColCountMismatch {
@@ -169,7 +169,7 @@ func TestInsertSansColListColCountMismatch(t *testing.T) {
 		}
 	}
 
-	q := `INSERT INTO people VALUES ("John", "Doe")`
+	q := `INSERT INTO people VALUES ('John', 'Doe')`
 	err := s.ExecQuery(q)
 
 	if err != btree.ErrColCountMismatch {
