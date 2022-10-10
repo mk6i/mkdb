@@ -54,7 +54,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 			return err
 		}
 
-		if pg.isFull(b.store.getBranchFactor()) {
+		if pg.isFull() {
 			newPg := &page{}
 			if err := b.store.append(newPg); err != nil {
 				return err
@@ -105,7 +105,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 			return err
 		}
 
-		if pg.isFull(b.store.getBranchFactor()) {
+		if pg.isFull() {
 			newPg := &page{
 				cellType: KeyValueCell,
 			}

@@ -17,6 +17,40 @@ const (
 	KeyValueCell
 )
 
+const (
+	// maximum size (in bytes) of serialized page
+	pageSize = 4096
+
+	// size (in bytes) of fixed space used to store page metadata
+	pageHeaderSize = 4 + // field: pageID
+		1 + // field: cellType
+		4 + // field: rightOffset
+		1 + // field: hasLSib
+		1 + // field: hasRSib
+		4 + // field: lSibPageID
+		4 + // field: rSibPageID
+		4 + // field: cellCount
+		2 // field: freeSize
+
+	// size (in bytes) of offset array element
+	offsetElemSize = 2
+
+	// size (in bytes) of key cell
+	keyCellSize = 4 + // field: key
+		4 // field: pageID
+
+	// size (in bytes) of key-value cell
+	keyValueSize = 4 + // field: key
+		4 + // field: alueSize
+		400 // field: value (maximum size in bytes)
+
+	// maximum number of non-leaf node elements
+	maxInternalNodeCells = (pageSize - pageHeaderSize) / (offsetElemSize + keyCellSize)
+
+	// maximum number of leaf node elements
+	maxLeafNodeCells = (pageSize - pageHeaderSize) / (offsetElemSize + keyValueSize)
+)
+
 type keyCell struct {
 	key    uint32
 	pageID uint32
@@ -144,8 +178,15 @@ func (p *page) findCellOffsetByKey(key uint32) (offset int, found bool) {
 	return low, false
 }
 
-func (p *page) isFull(branchFactor uint32) bool {
-	return len(p.offsets) >= int(branchFactor)
+func (p *page) isFull() bool {
+	switch p.cellType {
+	case KeyCell:
+		return len(p.offsets) >= maxInternalNodeCells
+	case KeyValueCell:
+		return len(p.offsets) >= maxLeafNodeCells
+	default:
+		panic("unexpected cell type")
+	}
 }
 
 func (p *page) split(newPg *page) (uint32, error) {
@@ -253,7 +294,7 @@ func (p *page) encode() (*bytes.Buffer, error) {
 		}
 	}
 
-	freeSize := uint16(4096 - buf.Len() - bufFooter.Len() - 2)
+	freeSize := uint16(pageSize - buf.Len() - bufFooter.Len() - 2)
 
 	// write out the free buffer, which separates the header
 	if err := binary.Write(buf, binary.LittleEndian, freeSize); err != nil {
@@ -265,6 +306,10 @@ func (p *page) encode() (*bytes.Buffer, error) {
 
 	if _, err := buf.Write(bufFooter.Bytes()); err != nil {
 		return nil, err
+	}
+
+	if buf.Len() != pageSize {
+		panic(fmt.Sprintf("page size is not %d bytes, got %d\n", pageSize, buf.Len()))
 	}
 
 	return buf, nil
@@ -352,20 +397,14 @@ type store interface {
 	getLastKey() uint32
 	incrementLastKey() error
 	getRoot() (*page, error)
-	getBranchFactor() uint32
 	setRoot(pg *page)
 	setPageTableRoot(pg *page) error
 }
 
 type memoryStore struct {
-	pages        []*page
-	lastKey      uint32
-	root         *page
-	branchFactor uint32
-}
-
-func (m *memoryStore) getBranchFactor() uint32 {
-	return m.branchFactor
+	pages   []*page
+	lastKey uint32
+	root    *page
 }
 
 func (m *memoryStore) getRoot() (*page, error) {
@@ -410,13 +449,8 @@ type fileStore struct {
 	path           string
 	lastKey        uint32
 	rootOffset     uint32
-	branchFactor   uint32
 	nextFreeOffset uint32
 	pageTableRoot  uint32
-}
-
-func (f *fileStore) getBranchFactor() uint32 {
-	return f.branchFactor
 }
 
 func (f *fileStore) getRoot() (*page, error) {
@@ -489,7 +523,7 @@ func (f *fileStore) append(p *page) error {
 		return err
 	}
 
-	f.nextFreeOffset += 4096
+	f.nextFreeOffset += pageSize
 
 	return nil
 }
@@ -501,7 +535,7 @@ func (f *fileStore) fetch(offset uint32) (*page, error) {
 	}
 	defer file.Close()
 
-	buf := make([]byte, 4096)
+	buf := make([]byte, pageSize)
 	_, err = file.ReadAt(buf, int64(offset))
 	if err != nil && err != io.EOF {
 		return nil, err
@@ -542,10 +576,6 @@ func (f *fileStore) save() error {
 	if err != nil {
 		return err
 	}
-	err = binary.Write(writer, binary.LittleEndian, f.branchFactor)
-	if err != nil {
-		return err
-	}
 	err = binary.Write(writer, binary.LittleEndian, f.nextFreeOffset)
 	if err != nil {
 		return err
@@ -571,10 +601,6 @@ func (f *fileStore) open() error {
 		return err
 	}
 	err = binary.Read(file, binary.LittleEndian, &f.pageTableRoot)
-	if err != nil {
-		return err
-	}
-	err = binary.Read(file, binary.LittleEndian, &f.branchFactor)
 	if err != nil {
 		return err
 	}
