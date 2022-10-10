@@ -134,7 +134,6 @@ func TestFileStore(t *testing.T) {
 
 	fs1 := fileStore{
 		path:           "/tmp/page_file",
-		branchFactor:   4,
 		nextFreeOffset: 4096,
 	}
 
@@ -152,10 +151,6 @@ func TestFileStore(t *testing.T) {
 	err = fs2.open()
 	if err != nil {
 		t.Errorf("unable to open file store: %s", err.Error())
-	}
-
-	if fs1.branchFactor != fs2.branchFactor {
-		t.Errorf("file store branch factors do not match")
 	}
 
 	if fs1.nextFreeOffset != fs2.nextFreeOffset {
@@ -288,9 +283,71 @@ func findCellByKeyTestCase(t *testing.T, pg *page) {
 	}
 }
 
-func TestSplitLeafNode(t *testing.T) {
+func TestIsFullKeyValueCellExpectFull(t *testing.T) {
+	pg := &page{
+		cellType: KeyValueCell,
+	}
 
-	branchingFactor := uint32(4)
+	for i := 0; i < maxLeafNodeCells; i++ {
+		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if !pg.isFull() {
+		t.Errorf("leaf node is supposed to be full but is not. max leaf node cells: %d", maxLeafNodeCells)
+	}
+}
+
+func TestIsFullKeyValueCellExpectNotFull(t *testing.T) {
+	pg := &page{
+		cellType: KeyValueCell,
+	}
+
+	for i := 0; i < maxLeafNodeCells-1; i++ {
+		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if pg.isFull() {
+		t.Errorf("leaf node is not supposed to be full, but it is. max leaf node cells: %d", maxLeafNodeCells)
+	}
+}
+
+func TestIsFullKeyCellExpectFull(t *testing.T) {
+	pg := &page{
+		cellType: KeyCell,
+	}
+
+	for i := 0; i < maxInternalNodeCells; i++ {
+		if err := pg.appendKeyCell(uint32(i), 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if !pg.isFull() {
+		t.Errorf("internal node is supposed to be full but is not. branch factor: %d", maxInternalNodeCells)
+	}
+}
+
+func TestIsFullKeyCellExpectNotFull(t *testing.T) {
+	pg := &page{
+		cellType: KeyCell,
+	}
+
+	for i := 0; i < maxInternalNodeCells-1; i++ {
+		if err := pg.appendKeyCell(uint32(i), 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if pg.isFull() {
+		t.Errorf("internal node is not supposed to be full, but it is. branch factor: %d", maxInternalNodeCells)
+	}
+}
+
+func TestSplitKeyValueCell(t *testing.T) {
 
 	pg := &page{
 		cellType: KeyValueCell,
@@ -307,10 +364,6 @@ func TestSplitLeafNode(t *testing.T) {
 	}
 	if err := pg.appendCell(3, []byte("hello 3")); err != nil {
 		t.Fatal(err)
-	}
-
-	if !pg.isFull(branchingFactor) {
-		t.Errorf("page is supposed to be full but is not. branching factor: %d", branchingFactor)
 	}
 
 	newPg := &page{}
