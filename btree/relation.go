@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	initalPageTableOffset    = 4096
+	initalPageTableOffset    = pageSize
 	initialSchemaTableOffset = initalPageTableOffset * 2
 	pageTableName            = "sys_pages"
 	schemaTableName          = "sys_schema"
@@ -242,8 +242,7 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 func CreateDB(path string) error {
 	fs := &fileStore{
 		path:           path,
-		branchFactor:   4,
-		nextFreeOffset: 4096,
+		nextFreeOffset: pageSize,
 	}
 	if err := fs.save(); err != nil {
 		return err

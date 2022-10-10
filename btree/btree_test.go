@@ -12,9 +12,7 @@ func TestBTree(t *testing.T) {
 	}
 
 	bt := &BTree{
-		store: &memoryStore{
-			branchFactor: 4,
-		},
+		store: &memoryStore{},
 	}
 
 	if err := bt.store.append(rootPg); err != nil {
