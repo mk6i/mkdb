@@ -369,38 +369,43 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 	bt := &BTree{store: fs}
 	bt.setRoot(pgTablePg)
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		return err
-	}
-
-	for cell := range ch {
+	found := false
+	err = bt.scanRight(func(cell *keyValueCell) (bool, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
 		}
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
-			return err
+			return StopScanning, err
 		}
 		if tuple.Vals["table_name"] == tableName {
 			oldVal := tuple.Vals["page_id"]
 			tuple.Vals["page_id"] = int32(pageId)
 			buf, err := tuple.Encode()
 			if err != nil {
-				return err
+				return StopScanning, err
 			}
 			if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
-				return err
+				return StopScanning, err
 			}
 			if err := fs.update(cell.pg); err != nil {
-				return err
+				return StopScanning, err
 			}
+			found = true
 			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageId, tableName)
-			return nil
+			return StopScanning, nil
 		}
+		return KeepScanning, nil
+	})
+	if err != nil {
+		return err
 	}
 
-	return fmt.Errorf("unable to update page table entry for %d", pageId)
+	if !found {
+		return fmt.Errorf("unable to update page table entry for %d", pageId)
+	}
+
+	return nil
 }
 
 func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName string) error {
@@ -503,25 +508,32 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 
 	bt.setRoot(pg)
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		return 0, err
-	}
-
-	for cell := range ch {
+	pgID := int32(0)
+	found := false
+	err = bt.scanRight(func(cell *keyValueCell) (bool, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
 		}
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
-			return 0, err
+			return StopScanning, err
 		}
 		if tuple.Vals["table_name"] == relName {
-			return tuple.Vals["page_id"].(int32), nil
+			found = true
+			pgID = tuple.Vals["page_id"].(int32)
+			return StopScanning, nil
 		}
+		return KeepScanning, nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+	if !found {
+		return 0, ErrTableNotExist
 	}
 
-	return 0, ErrTableNotExist
+	return pgID, nil
 }
 
 func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
@@ -542,27 +554,25 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 
 	r := &Relation{}
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		return nil, err
-	}
-
-	for cell := range ch {
+	err = bt.scanRight(func(cell *keyValueCell) (bool, error) {
 		tuple := Tuple{
 			Relation: &schemaTableSchema,
 			Vals:     make(map[string]interface{}),
 		}
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
-			return nil, err
+			return StopScanning, err
 		}
-		if tuple.Vals["table_name"] != relName {
-			continue
+		if tuple.Vals["table_name"] == relName {
+			r.Fields = append(r.Fields, FieldDef{
+				Name:     tuple.Vals["field_name"].(string),
+				Len:      tuple.Vals["field_length"].(int32),
+				DataType: DataType(tuple.Vals["field_type"].(int32)),
+			})
 		}
-		r.Fields = append(r.Fields, FieldDef{
-			Name:     tuple.Vals["field_name"].(string),
-			Len:      tuple.Vals["field_length"].(int32),
-			DataType: DataType(tuple.Vals["field_type"].(int32)),
-		})
+		return KeepScanning, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return r, nil
@@ -648,18 +658,13 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields Fields) ([]*
 
 	var results []*Row
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		return nil, err
-	}
-
-	for cell := range ch {
+	err = bt.scanRight(func(cell *keyValueCell) (bool, error) {
 		tuple := Tuple{
 			Relation: r,
 			Vals:     make(map[string]interface{}),
 		}
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
-			return nil, err
+			return StopScanning, err
 		}
 		row := &Row{
 			RowID: cell.key,
@@ -668,6 +673,11 @@ func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields Fields) ([]*
 			row.Vals = append(row.Vals, tuple.Vals[field.Column.(string)])
 		}
 		results = append(results, row)
+		return KeepScanning, nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return results, nil
@@ -782,21 +792,16 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 	bt := BTree{store: fs}
 	bt.setRoot(pg)
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		return err
-	}
-
-	for cell := range ch {
+	err = bt.scanRight(func(cell *keyValueCell) (bool, error) {
 		if cell.key != rowID {
-			continue
+			return KeepScanning, nil
 		}
 		tuple := Tuple{
 			Relation: r,
 			Vals:     make(map[string]interface{}),
 		}
 		if err := tuple.Decode(bytes.NewBuffer(cell.valueBytes)); err != nil {
-			return err
+			return StopScanning, err
 		}
 
 		for i, col := range cols {
@@ -805,15 +810,20 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 
 		buf, err := tuple.Encode()
 		if err != nil {
-			return err
+			return StopScanning, err
 		}
 
 		if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
-			return err
+			return StopScanning, err
 		}
 		if err := fs.update(cell.pg); err != nil {
-			return err
+			return StopScanning, err
 		}
+		return KeepScanning, nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	return nil

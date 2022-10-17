@@ -214,45 +214,51 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 	return cell.valueBytes, nil
 }
 
-func (b *BTree) scanRight() (chan *keyValueCell, error) {
-	node, err := b.getRoot()
+const (
+	KeepScanning = true
+	StopScanning = false
+)
+
+func (b *BTree) scanRight(f func(kv *keyValueCell) (bool, error)) error {
+	pg, err := b.getRoot()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// find left-most leaf node
-	for node.cellType == KeyCell {
-		pgID := node.cells[node.offsets[0]].(*keyCell).pageID
+	for pg.cellType == KeyCell {
+		pgID := pg.cells[pg.offsets[0]].(*keyCell).pageID
 		var err error
-		node, err = b.store.fetch(pgID)
+		pg, err = b.store.fetch(pgID)
 		if err != nil {
 			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
 		}
 	}
 
-	ch := make(chan *keyValueCell)
-
-	go func(pg *page) {
-		for {
-			for _, offset := range pg.offsets {
-				kvCell := pg.cells[offset].(*keyValueCell)
-				kvCell.pg = pg
-				ch <- kvCell
+	for {
+		for _, offset := range pg.offsets {
+			kvCell := pg.cells[offset].(*keyValueCell)
+			kvCell.pg = pg
+			nextScan, err := f(kvCell)
+			if err != nil {
+				return err
 			}
-			if pg.hasRSib {
-				var err error
-				pg, err = b.store.fetch(pg.rSibPageID)
-				if err != nil {
-					panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
-				}
-			} else {
-				break
+			if nextScan == StopScanning {
+				return nil
 			}
 		}
-		close(ch)
-	}(node)
+		if pg.hasRSib {
+			var err error
+			pg, err = b.store.fetch(pg.rSibPageID)
+			if err != nil {
+				panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+			}
+		} else {
+			break
+		}
+	}
 
-	return ch, nil
+	return nil
 }
 
 func (b *BTree) scanLeft() (chan *keyValueCell, error) {

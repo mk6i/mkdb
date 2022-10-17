@@ -1,9 +1,13 @@
 package engine
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/mkaminski/bkdb/btree"
@@ -19,6 +23,75 @@ var (
 	errDBNotExist    = errors.New("database does not exist")
 	errDBExists      = errors.New("database already exists")
 )
+
+func (s *Session) Import() error {
+	r := csv.NewReader(os.Stdin)
+
+	i := 0
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		name := record[0]
+		var birth interface{}
+		var death interface{}
+
+		if record[1] != "NULL" {
+			val, err := strconv.Atoi(record[1])
+			if err != nil {
+				fmt.Printf("failed to convert number. record: %v", record)
+				continue
+			}
+			birth = int32(val)
+		}
+		if record[2] != "NULL" {
+			val, err := strconv.Atoi(record[2])
+			if err != nil {
+				fmt.Printf("failed to convert number. record: %v", record)
+				continue
+			}
+			death = int32(val)
+		}
+
+		q := sql.InsertStatement{
+			TableName: "actor",
+			InsertColumnsAndSource: sql.InsertColumnsAndSource{
+				InsertColumnList: sql.InsertColumnList{
+					ColumnNames: []string{
+						"name",
+						"birth",
+						"death",
+					},
+				},
+				QueryExpression: sql.TableValueConstructor{
+					TableValueConstructorList: []sql.RowValueConstructor{
+						{RowValueConstructorList: []interface{}{
+							name,
+							birth,
+							death,
+						}},
+					},
+				},
+			},
+		}
+
+		if _, err := EvaluateInsert(q, "testdb"); err != nil {
+			fmt.Printf("error inserting %v: %s\n", record, err.Error())
+		} else if i%100 == 0 {
+			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
+		}
+
+		i++
+	}
+
+	return nil
+}
 
 func (s *Session) ExecQuery(q string) error {
 	stmt, err := parseSQL(q)

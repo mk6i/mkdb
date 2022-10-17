@@ -25,11 +25,14 @@ CREATE DATABASE testdb;
 
 USE testdb;
 
-CREATE TABLE family (
+CREATE TABLE actor (
     name varchar(255),
-    age int,
-    hair varchar(255)
+    birth int,
+    death int
 );
+
+
+
 
 CREATE TABLE famous_lines (
     name varchar(255),

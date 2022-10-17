@@ -4,5 +4,8 @@ clean:
 run-cli:
 	go run cmd/console/main.go
 
+run-csv-import:
+	go run cmd/csvimport/main.go
+
 test:
 	go test -v ./...
