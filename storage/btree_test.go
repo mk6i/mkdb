@@ -72,33 +72,36 @@ func TestBTree(t *testing.T) {
 		{key: 11, val: []byte("lumber")},
 	}
 
-	ch, err := bt.scanRight()
-	if err != nil {
-		t.Fatal(err)
-	}
+	idx := 0
 
-	for _, expect := range tblSorted {
-		val, ok := <-ch
-		if !ok {
-			t.Fatalf("channel is unexpectedly empty")
-		}
+	err := bt.scanRight(func(val *keyValueCell) (ScanAction, error) {
+		expect := tblSorted[idx]
 		if !bytes.Equal(val.valueBytes, expect.val) {
 			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)
+			return StopScanning, nil
 		}
-	}
-
-	ch, err = bt.scanLeft()
+		idx++
+		return KeepScanning, nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for i := len(tblSorted) - 1; i >= 0; i-- {
-		val, ok := <-ch
-		if !ok {
-			t.Fatalf("channel is unexpectedly empty")
+	idx = len(tblSorted) - 1
+	err = bt.scanLeft(func(val *keyValueCell) (ScanAction, error) {
+		expect := tblSorted[idx]
+		if !bytes.Equal(val.valueBytes, expect.val) {
+			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)
+			return StopScanning, nil
 		}
-		if !bytes.Equal(val.valueBytes, tblSorted[i].val) {
-			t.Errorf("value mismatch for key %d. got %s, expected %s", tblSorted[i].key, val.valueBytes, tblSorted[i].val)
+		idx--
+		if idx >= 0 {
+			return KeepScanning, nil
+		} else {
+			return StopScanning, nil
 		}
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

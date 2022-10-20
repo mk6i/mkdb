@@ -7,6 +7,15 @@ import (
 
 var errKeyAlreadyExists = errors.New("record already exists")
 
+// ScanAction signals whether the scan iterator can continue after processing
+// an iterator callack.
+type ScanAction bool
+
+var (
+	KeepScanning = ScanAction(true)
+	StopScanning = ScanAction(false)
+)
+
 type BTree struct {
 	store
 }
@@ -214,84 +223,85 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 	return cell.valueBytes, nil
 }
 
-func (b *BTree) scanRight() (chan *keyValueCell, error) {
-	node, err := b.getRoot()
+func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
+	pg, err := b.getRoot()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// find left-most leaf node
-	for node.cellType == KeyCell {
-		pgID := node.cells[node.offsets[0]].(*keyCell).pageID
+	for pg.cellType == KeyCell {
+		pgID := pg.cells[pg.offsets[0]].(*keyCell).pageID
 		var err error
-		node, err = b.store.fetch(pgID)
+		pg, err = b.store.fetch(pgID)
 		if err != nil {
 			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
 		}
 	}
 
-	ch := make(chan *keyValueCell)
-
-	go func(pg *page) {
-		for {
-			for _, offset := range pg.offsets {
-				kvCell := pg.cells[offset].(*keyValueCell)
-				kvCell.pg = pg
-				ch <- kvCell
+	for {
+		for _, offset := range pg.offsets {
+			kvCell := pg.cells[offset].(*keyValueCell)
+			kvCell.pg = pg
+			nextScan, err := f(kvCell)
+			if err != nil {
+				return err
 			}
-			if pg.hasRSib {
-				var err error
-				pg, err = b.store.fetch(pg.rSibPageID)
-				if err != nil {
-					panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
-				}
-			} else {
-				break
+			if nextScan == StopScanning {
+				return nil
 			}
 		}
-		close(ch)
-	}(node)
+		if pg.hasRSib {
+			var err error
+			pg, err = b.store.fetch(pg.rSibPageID)
+			if err != nil {
+				panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+			}
+		} else {
+			break
+		}
+	}
 
-	return ch, nil
+	return nil
 }
 
-func (b *BTree) scanLeft() (chan *keyValueCell, error) {
-
-	node, err := b.getRoot()
+func (b *BTree) scanLeft(f func(kv *keyValueCell) (ScanAction, error)) error {
+	pg, err := b.getRoot()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// find right-most leaf node
-	for node.cellType == KeyCell {
+	for pg.cellType == KeyCell {
 		var err error
-		node, err = b.store.fetch(node.rightOffset)
+		pg, err = b.store.fetch(pg.rightOffset)
 		if err != nil {
 			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
 		}
 	}
 
-	ch := make(chan *keyValueCell)
-
-	go func(pg *page) {
-		for {
-			for i := len(pg.offsets) - 1; i >= 0; i-- {
-				kvCell := pg.cells[pg.offsets[i]].(*keyValueCell)
-				kvCell.pg = pg
-				ch <- kvCell
+	for {
+		for offset := len(pg.offsets) - 1; offset >= 0; offset-- {
+			kvCell := pg.cells[pg.offsets[offset]].(*keyValueCell)
+			kvCell.pg = pg
+			nextScan, err := f(kvCell)
+			if err != nil {
+				return err
 			}
-			if pg.hasLSib {
-				var err error
-				pg, err = b.store.fetch(pg.lSibPageID)
-				if err != nil {
-					panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
-				}
-			} else {
-				break
+			if nextScan == StopScanning {
+				return nil
 			}
 		}
-		close(ch)
-	}(node)
+		if pg.hasLSib {
+			var err error
+			pg, err = b.store.fetch(pg.lSibPageID)
+			if err != nil {
+				panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+			}
+		} else {
+			break
+		}
+	}
 
-	return ch, nil
+	return nil
 }
