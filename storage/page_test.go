@@ -43,8 +43,8 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if buf.Len() != 4096 {
-		t.Fatalf("page size is not 4096 bytes, got %d\n", buf.Cap())
+	if buf.Len() != pageSize {
+		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
 	actual := &page{}
@@ -93,8 +93,8 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(buf.Bytes()) != 4096 {
-		t.Fatalf("page size is not 4096 bytes, got %d\n", buf.Cap())
+	if len(buf.Bytes()) != pageSize {
+		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
 	actual := &page{}
@@ -134,7 +134,7 @@ func TestFileStore(t *testing.T) {
 
 	fs1 := fileStore{
 		path:           "/tmp/page_file",
-		nextFreeOffset: 4096,
+		nextFreeOffset: pageSize,
 	}
 
 	defer os.Remove(fs1.path)
