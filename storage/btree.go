@@ -47,7 +47,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 			return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
 		}
 
-		var pgID uint32
+		var pgID uint64
 		if offset == len(pg.offsets) {
 			pgID = pg.rightOffset
 		} else {
@@ -199,7 +199,7 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 	for pg.cellType == KeyCell {
 		for i := 0; i <= len(pg.offsets); i++ {
 			if i == len(pg.offsets) || key < pg.cellKey(pg.offsets[i]) {
-				var pgID uint32
+				var pgID uint64
 				if i == len(pg.offsets) {
 					pgID = pg.rightOffset
 				} else {

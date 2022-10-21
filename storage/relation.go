@@ -318,12 +318,12 @@ func createPage(fs *fileStore) (*page, error) {
 	return rootPg, nil
 }
 
-func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
+func insertPageTable(fs *fileStore, pageID uint64, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
 			"table_name": tableName,
-			"page_id":    int32(pageId),
+			"page_id":    int32(pageID),
 		},
 	}
 
@@ -360,7 +360,7 @@ func insertPageTable(fs *fileStore, pageId uint32, tableName string) error {
 	return nil
 }
 
-func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
+func updatePageTable(fs *fileStore, pageID uint64, tableName string) error {
 	pgTablePg, err := fs.fetch(fs.pageTableRoot)
 	if err != nil {
 		return err
@@ -380,7 +380,7 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 		}
 		if tuple.Vals["table_name"] == tableName {
 			oldVal := tuple.Vals["page_id"]
-			tuple.Vals["page_id"] = int32(pageId)
+			tuple.Vals["page_id"] = int32(pageID)
 			buf, err := tuple.Encode()
 			if err != nil {
 				return StopScanning, err
@@ -392,7 +392,7 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 				return StopScanning, err
 			}
 			found = true
-			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageId, tableName)
+			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageID, tableName)
 			return StopScanning, nil
 		}
 		return KeepScanning, nil
@@ -402,20 +402,20 @@ func updatePageTable(fs *fileStore, pageId uint32, tableName string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("unable to update page table entry for %d", pageId)
+		return fmt.Errorf("unable to update page table entry for %d", pageID)
 	}
 
 	return nil
 }
 
-func insertSchemaTable(fs *fileStore, r *Relation, pageId uint32, tableName string) error {
+func insertSchemaTable(fs *fileStore, r *Relation, pageID uint64, tableName string) error {
 
 	pgID, err := getRelationPageID(fs, schemaTableName)
 	if err != nil {
 		return err
 	}
 
-	schemaTablePg, err := fs.fetch(uint32(pgID))
+	schemaTablePg, err := fs.fetch(uint64(pgID))
 	if err != nil {
 		return err
 	}
@@ -492,7 +492,7 @@ func fetch(path string, tableName string) ([]*Row, []*Field, error) {
 
 	fmt.Printf("relation %s schema: %v\n", tableName, rs)
 
-	rows, err := scanRelation(fs, uint32(pageID), rs, fields)
+	rows, err := scanRelation(fs, uint64(pageID), rs, fields)
 
 	return rows, fields, err
 }
@@ -545,7 +545,7 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 	}
 
 	// retrieve page table
-	pg, err := fs.fetch(uint32(schemaTblOffset))
+	pg, err := fs.fetch(uint64(schemaTblOffset))
 	if err != nil {
 		return nil, err
 	}
@@ -645,7 +645,7 @@ func (r *Row) Merge(row *Row) *Row {
 	return newRow
 }
 
-func scanRelation(fs *fileStore, pageID uint32, r *Relation, fields Fields) ([]*Row, error) {
+func scanRelation(fs *fileStore, pageID uint64, r *Relation, fields Fields) ([]*Row, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
@@ -710,7 +710,7 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		return err
 	}
 
-	tablePg, err := fs.fetch(uint32(pgID))
+	tablePg, err := fs.fetch(uint64(pgID))
 	if err != nil {
 		return err
 	}
@@ -779,7 +779,7 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 		return err
 	}
 
-	pg, err := fs.fetch(uint32(pgID))
+	pg, err := fs.fetch(uint64(pgID))
 	if err != nil {
 		return err
 	}

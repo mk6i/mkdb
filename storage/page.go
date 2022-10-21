@@ -22,13 +22,13 @@ const (
 	pageSize = 4096
 
 	// size (in bytes) of fixed space used to store page metadata
-	pageHeaderSize = 4 + // field: pageID
+	pageHeaderSize = 8 + // field: pageID
 		1 + // field: cellType
-		4 + // field: rightOffset
+		8 + // field: rightOffset
 		1 + // field: hasLSib
 		1 + // field: hasRSib
-		4 + // field: lSibPageID
-		4 + // field: rSibPageID
+		8 + // field: lSibPageID
+		8 + // field: rSibPageID
 		4 + // field: cellCount
 		2 // field: freeSize
 
@@ -37,7 +37,7 @@ const (
 
 	// size (in bytes) of key cell
 	keyCellSize = 4 + // field: key
-		4 // field: pageID
+		8 // field: pageID
 
 	// size (in bytes) of key-value cell
 	keyValueSize = 4 + // field: key
@@ -53,7 +53,7 @@ const (
 
 type keyCell struct {
 	key    uint32
-	pageID uint32
+	pageID uint64
 }
 
 type keyValueCell struct {
@@ -65,19 +65,19 @@ type keyValueCell struct {
 
 type page struct {
 	cellType
-	pageID      uint32
+	pageID      uint64
 	cellCount   uint32
 	offsets     []uint16
 	freeSize    uint16
 	cells       []interface{}
-	rightOffset uint32
+	rightOffset uint64
 	hasLSib     bool
 	hasRSib     bool
-	lSibPageID  uint32
-	rSibPageID  uint32
+	lSibPageID  uint64
+	rSibPageID  uint64
 }
 
-func (p *page) setRightMostKey(pageID uint32) {
+func (p *page) setRightMostKey(pageID uint64) {
 	p.rightOffset = pageID
 }
 
@@ -92,7 +92,7 @@ func (p *page) cellKey(offset uint16) uint32 {
 	}
 }
 
-func (p *page) appendKeyCell(key uint32, pageID uint32) error {
+func (p *page) appendKeyCell(key uint32, pageID uint64) error {
 	offset := len(p.offsets)
 	p.offsets = append(p.offsets, uint16(offset))
 	p.cells = append(p.cells, &keyCell{
@@ -123,7 +123,7 @@ func (p *page) updateCell(key uint32, value []byte) error {
 	return nil
 }
 
-func (p *page) insertKeyCell(offset uint32, key uint32, pageID uint32) error {
+func (p *page) insertKeyCell(offset uint32, key uint32, pageID uint64) error {
 	p.offsets = append(p.offsets[:offset+1], p.offsets[offset:]...)
 	p.offsets[offset] = uint16(len(p.cells))
 	p.cells = append(p.cells, &keyCell{
@@ -393,7 +393,7 @@ func (p *page) decode(buf *bytes.Buffer) error {
 type store interface {
 	append(p *page) error
 	update(p *page) error
-	fetch(offset uint32) (*page, error)
+	fetch(offset uint64) (*page, error)
 	getLastKey() uint32
 	incrementLastKey() error
 	getRoot() (*page, error)
@@ -429,7 +429,7 @@ func (m *memoryStore) setPageTableRoot(pg *page) error {
 }
 
 func (m *memoryStore) append(p *page) error {
-	p.pageID = uint32(len(m.pages))
+	p.pageID = uint64(len(m.pages))
 	m.pages = append(m.pages, p)
 	return nil
 }
@@ -438,7 +438,7 @@ func (m *memoryStore) update(p *page) error {
 	return nil
 }
 
-func (m *memoryStore) fetch(offset uint32) (*page, error) {
+func (m *memoryStore) fetch(offset uint64) (*page, error) {
 	if int(offset) >= len(m.pages) {
 		return nil, errors.New("page does not exist in store")
 	}
@@ -448,9 +448,9 @@ func (m *memoryStore) fetch(offset uint32) (*page, error) {
 type fileStore struct {
 	path           string
 	lastKey        uint32
-	rootOffset     uint32
-	nextFreeOffset uint32
-	pageTableRoot  uint32
+	rootOffset     uint64
+	nextFreeOffset uint64
+	pageTableRoot  uint64
 }
 
 func (f *fileStore) getRoot() (*page, error) {
@@ -528,7 +528,7 @@ func (f *fileStore) append(p *page) error {
 	return nil
 }
 
-func (f *fileStore) fetch(offset uint32) (*page, error) {
+func (f *fileStore) fetch(offset uint64) (*page, error) {
 	file, err := os.Open(f.path)
 	if err != nil {
 		return nil, err
