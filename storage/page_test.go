@@ -12,7 +12,7 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 		pageID:   10,
 		cellType: KeyCell,
 		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 4031,
+		freeSize: 3999,
 		cells: []interface{}{
 			&keyCell{
 				key:    123,
@@ -63,7 +63,7 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 		pageID:   10,
 		cellType: KeyValueCell,
 		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 3965,
+		freeSize: 3949,
 		cells: []interface{}{
 			&keyValueCell{
 				key:        1,
@@ -120,7 +120,7 @@ func TestMemoryStore(t *testing.T) {
 	}
 
 	for idx, p := range pages {
-		fp, err := m.fetch(uint32(idx))
+		fp, err := m.fetch(uint64(idx))
 		if err != nil {
 			t.Errorf("unable to fetch page at expectedOffset %d", idx)
 		}
