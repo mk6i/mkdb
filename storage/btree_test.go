@@ -25,7 +25,7 @@ func TestBTree(t *testing.T) {
 		key uint32
 		val []byte
 	}{
-		{key: 2, val: []byte("bounjour")},
+		{key: 2, val: []byte("bonjour")},
 		{key: 1, val: []byte("hello")},
 		{key: 5, val: []byte("chien")},
 		{key: 11, val: []byte("lumber")},
@@ -60,7 +60,7 @@ func TestBTree(t *testing.T) {
 		val []byte
 	}{
 		{key: 1, val: []byte("hello")},
-		{key: 2, val: []byte("bounjour")},
+		{key: 2, val: []byte("bonjour")},
 		{key: 3, val: []byte("hallo")},
 		{key: 4, val: []byte("chat")},
 		{key: 5, val: []byte("chien")},

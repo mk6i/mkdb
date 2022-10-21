@@ -35,10 +35,10 @@ func EvaluateCreateTable(q sql.CreateTable, db string) error {
 		}
 		switch t := elem.ColumnDefinition.DataType.(type) {
 		case sql.NumericType:
-			fd.DataType = btree.TYPE_INT
+			fd.DataType = btree.TypeInt
 		case sql.CharacterStringType:
-			fd.DataType = btree.TYPE_VARCHAR
-			fd.Len = int32(t.Len)
+			fd.DataType = btree.TypeVarchar
+			fd.Len = t.Len
 		default:
 			panic("unsupported column definition type")
 		}

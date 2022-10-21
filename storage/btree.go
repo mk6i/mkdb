@@ -8,7 +8,7 @@ import (
 var errKeyAlreadyExists = errors.New("record already exists")
 
 // ScanAction signals whether the scan iterator can continue after processing
-// an iterator callack.
+// an iterator callback.
 type ScanAction bool
 
 var (

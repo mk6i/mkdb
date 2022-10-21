@@ -81,7 +81,7 @@ func nestedLoopJoin(fetcher btree.Fetcher, path string, tf sql.TableReference) (
 				return nil, nil, err
 			}
 
-			tmpRows := []*btree.Row{}
+			var tmpRows []*btree.Row
 
 			tmpFields := btree.Fields{}
 			tmpFields = append(tmpFields, lFields...)
@@ -152,7 +152,7 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 		return qfields, nil
 	}
 
-	idxs := []int{}
+	var idxs []int
 	var projFields btree.Fields
 	for _, sf := range sl {
 		var idx int
@@ -170,7 +170,7 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 	}
 
 	for _, row := range rows {
-		tmp := []interface{}{}
+		var tmp []interface{}
 		for _, idx := range idxs {
 			tmp = append(tmp, row.Vals[idx])
 		}
@@ -357,7 +357,7 @@ func printTable(selectList []string, rows []*btree.Row) {
 }
 
 func printableFields(sl sql.SelectList, fields btree.Fields) []string {
-	ans := []string{}
+	var ans []string
 	if sl[0].ColumnName.Type == sql.ASTRSK {
 		for _, field := range fields {
 			ans = append(ans, field.Column.(string))
