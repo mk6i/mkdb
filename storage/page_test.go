@@ -9,33 +9,33 @@ import (
 func TestEncodeDecodeKeyCell(t *testing.T) {
 
 	pg := &page{
-		pageID:   10,
-		cellType: KeyCell,
-		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 3999,
+		fileOffset: 10,
+		cellType:   KeyCell,
+		offsets:    []uint16{2, 1, 0, 3},
+		freeSize:   3999,
 		cells: []interface{}{
 			&keyCell{
-				key:    123,
-				pageID: 3,
+				key:        123,
+				fileOffset: 3,
 			},
 			&keyCell{
-				key:    12,
-				pageID: 8,
+				key:        12,
+				fileOffset: 8,
 			},
 			&keyCell{
-				key:    1,
-				pageID: 6,
+				key:        1,
+				fileOffset: 6,
 			},
 			&keyCell{
-				key:    1234,
-				pageID: 2,
+				key:        1234,
+				fileOffset: 2,
 			},
 		},
-		rightOffset: 1,
-		hasLSib:     true,
-		hasRSib:     true,
-		lSibPageID:  2,
-		rSibPageID:  3,
+		rightOffset:    1,
+		hasLSib:        true,
+		hasRSib:        true,
+		lSibFileOffset: 2,
+		rSibFileOffset: 3,
 	}
 
 	buf, err := pg.encode()
@@ -60,10 +60,10 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 func TestEncodeDecodeKeyValueCell(t *testing.T) {
 
 	pg := &page{
-		pageID:   10,
-		cellType: KeyValueCell,
-		offsets:  []uint16{2, 1, 0, 3},
-		freeSize: 3949,
+		fileOffset: 10,
+		cellType:   KeyValueCell,
+		offsets:    []uint16{2, 1, 0, 3},
+		freeSize:   3949,
 		cells: []interface{}{
 			&keyValueCell{
 				key:        1,

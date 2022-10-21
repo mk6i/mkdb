@@ -64,7 +64,7 @@ var pageTableSchema = Relation{
 			Len:      255,
 		},
 		{
-			Name:     "page_id",
+			Name:     "file_offset",
 			DataType: TYPE_INT,
 		},
 	},
@@ -253,13 +253,13 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if pgTblPg.pageID != initalPageTableOffset {
-		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initalPageTableOffset, pgTblPg.pageID)
+	if pgTblPg.fileOffset != initalPageTableOffset {
+		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initalPageTableOffset, pgTblPg.fileOffset)
 	}
 	if err := fs.setPageTableRoot(pgTblPg); err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pgTblPg.pageID, pageTableName); err != nil {
+	if err := insertPageTable(fs, pgTblPg.fileOffset, pageTableName); err != nil {
 		return err
 	}
 
@@ -268,17 +268,17 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if schemaTblPg.pageID != initialSchemaTableOffset {
-		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.pageID)
+	if schemaTblPg.fileOffset != initialSchemaTableOffset {
+		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.fileOffset)
 	}
-	if err := insertPageTable(fs, schemaTblPg.pageID, schemaTableName); err != nil {
+	if err := insertPageTable(fs, schemaTblPg.fileOffset, schemaTableName); err != nil {
 		return err
 	}
 
-	if err := insertSchemaTable(fs, &pageTableSchema, pgTblPg.pageID, pageTableName); err != nil {
+	if err := insertSchemaTable(fs, &pageTableSchema, pageTableName); err != nil {
 		return err
 	}
-	if err := insertSchemaTable(fs, &schemaTableSchema, schemaTblPg.pageID, schemaTableName); err != nil {
+	if err := insertSchemaTable(fs, &schemaTableSchema, schemaTableName); err != nil {
 		return err
 	}
 
@@ -291,7 +291,7 @@ func CreateTable(path string, r *Relation, tableName string) error {
 		return err
 	}
 
-	_, err := getRelationPageID(fs, tableName)
+	_, err := getRelationFileOffset(fs, tableName)
 	if err != ErrTableNotExist {
 		return ErrTableAlreadyExist
 	}
@@ -300,10 +300,10 @@ func CreateTable(path string, r *Relation, tableName string) error {
 	if err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pg.pageID, tableName); err != nil {
+	if err := insertPageTable(fs, pg.fileOffset, tableName); err != nil {
 		return err
 	}
-	if err := insertSchemaTable(fs, r, pg.pageID, tableName); err != nil {
+	if err := insertSchemaTable(fs, r, tableName); err != nil {
 		return err
 	}
 	return nil
@@ -318,12 +318,12 @@ func createPage(fs *fileStore) (*page, error) {
 	return rootPg, nil
 }
 
-func insertPageTable(fs *fileStore, pageID uint64, tableName string) error {
+func insertPageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
-			"table_name": tableName,
-			"page_id":    int32(pageID),
+			"table_name":  tableName,
+			"file_offset": int32(fileOffset),
 		},
 	}
 
@@ -351,7 +351,7 @@ func insertPageTable(fs *fileStore, pageID uint64, tableName string) error {
 		return err
 	}
 
-	if curRoot.pageID != pgTablePg.pageID {
+	if curRoot.fileOffset != pgTablePg.fileOffset {
 		fs.setPageTableRoot(curRoot)
 	}
 
@@ -360,7 +360,7 @@ func insertPageTable(fs *fileStore, pageID uint64, tableName string) error {
 	return nil
 }
 
-func updatePageTable(fs *fileStore, pageID uint64, tableName string) error {
+func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 	pgTablePg, err := fs.fetch(fs.pageTableRoot)
 	if err != nil {
 		return err
@@ -379,8 +379,8 @@ func updatePageTable(fs *fileStore, pageID uint64, tableName string) error {
 			return StopScanning, err
 		}
 		if tuple.Vals["table_name"] == tableName {
-			oldVal := tuple.Vals["page_id"]
-			tuple.Vals["page_id"] = int32(pageID)
+			oldVal := tuple.Vals["file_offset"]
+			tuple.Vals["file_offset"] = int32(fileOffset)
 			buf, err := tuple.Encode()
 			if err != nil {
 				return StopScanning, err
@@ -392,7 +392,7 @@ func updatePageTable(fs *fileStore, pageID uint64, tableName string) error {
 				return StopScanning, err
 			}
 			found = true
-			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, pageID, tableName)
+			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, fileOffset, tableName)
 			return StopScanning, nil
 		}
 		return KeepScanning, nil
@@ -402,20 +402,20 @@ func updatePageTable(fs *fileStore, pageID uint64, tableName string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("unable to update page table entry for %d", pageID)
+		return fmt.Errorf("unable to update page table entry for %d", fileOffset)
 	}
 
 	return nil
 }
 
-func insertSchemaTable(fs *fileStore, r *Relation, pageID uint64, tableName string) error {
+func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
 
-	pgID, err := getRelationPageID(fs, schemaTableName)
+	fileOffset, err := getRelationFileOffset(fs, schemaTableName)
 	if err != nil {
 		return err
 	}
 
-	schemaTablePg, err := fs.fetch(uint64(pgID))
+	schemaTablePg, err := fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
@@ -449,8 +449,8 @@ func insertSchemaTable(fs *fileStore, r *Relation, pageID uint64, tableName stri
 			return err
 		}
 
-		if newRootPg.pageID != schemaTablePg.pageID {
-			if err := updatePageTable(fs, newRootPg.pageID, schemaTableName); err != nil {
+		if newRootPg.fileOffset != schemaTablePg.fileOffset {
+			if err := updatePageTable(fs, newRootPg.fileOffset, schemaTableName); err != nil {
 				return err
 			}
 			schemaTablePg = newRootPg
@@ -473,12 +473,12 @@ func fetch(path string, tableName string) ([]*Row, []*Field, error) {
 	}
 	fmt.Printf("page table root offset: %d\n", fs.pageTableRoot)
 
-	pageID, err := getRelationPageID(fs, tableName)
+	fileOffset, err := getRelationFileOffset(fs, tableName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	fmt.Printf("relation %s page id: %d\n", tableName, pageID)
+	fmt.Printf("relation %s page id: %d\n", tableName, fileOffset)
 
 	rs, err := getRelationSchema(fs, tableName)
 	if err != nil {
@@ -492,12 +492,12 @@ func fetch(path string, tableName string) ([]*Row, []*Field, error) {
 
 	fmt.Printf("relation %s schema: %v\n", tableName, rs)
 
-	rows, err := scanRelation(fs, uint64(pageID), rs, fields)
+	rows, err := scanRelation(fs, uint64(fileOffset), rs, fields)
 
 	return rows, fields, err
 }
 
-func getRelationPageID(fs *fileStore, relName string) (int32, error) {
+func getRelationFileOffset(fs *fileStore, relName string) (int32, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
@@ -508,7 +508,7 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 
 	bt.setRoot(pg)
 
-	pgID := int32(0)
+	fileOffset := int32(0)
 	found := false
 	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
 		tuple := Tuple{
@@ -520,7 +520,7 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 		}
 		if tuple.Vals["table_name"] == relName {
 			found = true
-			pgID = tuple.Vals["page_id"].(int32)
+			fileOffset = tuple.Vals["file_offset"].(int32)
 			return StopScanning, nil
 		}
 		return KeepScanning, nil
@@ -533,13 +533,13 @@ func getRelationPageID(fs *fileStore, relName string) (int32, error) {
 		return 0, ErrTableNotExist
 	}
 
-	return pgID, nil
+	return fileOffset, nil
 }
 
 func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 	bt := BTree{store: fs}
 
-	schemaTblOffset, err := getRelationPageID(fs, schemaTableName)
+	schemaTblOffset, err := getRelationFileOffset(fs, schemaTableName)
 	if err != nil {
 		return nil, err
 	}
@@ -645,11 +645,11 @@ func (r *Row) Merge(row *Row) *Row {
 	return newRow
 }
 
-func scanRelation(fs *fileStore, pageID uint64, r *Relation, fields Fields) ([]*Row, error) {
+func scanRelation(fs *fileStore, fileOffset uint64, r *Relation, fields Fields) ([]*Row, error) {
 	bt := BTree{store: fs}
 
 	// retrieve page table
-	pg, err := fs.fetch(pageID)
+	pg, err := fs.fetch(fileOffset)
 	if err != nil {
 		return nil, err
 	}
@@ -705,12 +705,12 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		return err
 	}
 
-	pgID, err := getRelationPageID(fs, tableName)
+	fileOffset, err := getRelationFileOffset(fs, tableName)
 	if err != nil {
 		return err
 	}
 
-	tablePg, err := fs.fetch(uint64(pgID))
+	tablePg, err := fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
@@ -758,8 +758,8 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		return err
 	}
 
-	if curPage.pageID != tablePg.pageID {
-		if err := updatePageTable(fs, curPage.pageID, tableName); err != nil {
+	if curPage.fileOffset != tablePg.fileOffset {
+		if err := updatePageTable(fs, curPage.fileOffset, tableName); err != nil {
 			return err
 		}
 	}
@@ -774,12 +774,12 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 		return err
 	}
 
-	pgID, err := getRelationPageID(fs, tableName)
+	fileOffset, err := getRelationFileOffset(fs, tableName)
 	if err != nil {
 		return err
 	}
 
-	pg, err := fs.fetch(uint64(pgID))
+	pg, err := fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
