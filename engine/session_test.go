@@ -56,7 +56,7 @@ func TestMain(t *testing.T) {
 		`CREATE TABLE tram (
 			name varchar(255)
 		)`,
-		`SELECT table_name, page_id FROM sys_pages`,
+		`SELECT table_name, file_offset FROM sys_pages`,
 		`SELECT table_name, field_name, field_length, field_type FROM sys_schema`,
 		`INSERT INTO people (person_id, first_name) VALUES (1, 'John')`,
 		`INSERT INTO people VALUES (2, 'Ikra', 'Freeman'),

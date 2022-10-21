@@ -88,7 +88,7 @@ UPDATE family SET age = 2, hair = 'blonde' WHERE name = 'Holly';
 #### View All Tables
 
 ```sql
-SELECT table_name, page_id FROM sys_pages;
+SELECT table_name, file_offset FROM sys_pages;
 ```
 
 #### View All Schemas

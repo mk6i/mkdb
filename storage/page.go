@@ -22,13 +22,13 @@ const (
 	pageSize = 4096
 
 	// size (in bytes) of fixed space used to store page metadata
-	pageHeaderSize = 8 + // field: pageID
+	pageHeaderSize = 8 + // field: fileOffset
 		1 + // field: cellType
 		8 + // field: rightOffset
 		1 + // field: hasLSib
 		1 + // field: hasRSib
-		8 + // field: lSibPageID
-		8 + // field: rSibPageID
+		8 + // field: lSibFileOffset
+		8 + // field: rSibFileOffset
 		4 + // field: cellCount
 		2 // field: freeSize
 
@@ -37,7 +37,7 @@ const (
 
 	// size (in bytes) of key cell
 	keyCellSize = 4 + // field: key
-		8 // field: pageID
+		8 // field: fileOffset
 
 	// size (in bytes) of key-value cell
 	keyValueSize = 4 + // field: key
@@ -52,8 +52,8 @@ const (
 )
 
 type keyCell struct {
-	key    uint32
-	pageID uint64
+	key        uint32
+	fileOffset uint64
 }
 
 type keyValueCell struct {
@@ -65,20 +65,20 @@ type keyValueCell struct {
 
 type page struct {
 	cellType
-	pageID      uint64
-	cellCount   uint32
-	offsets     []uint16
-	freeSize    uint16
-	cells       []interface{}
-	rightOffset uint64
-	hasLSib     bool
-	hasRSib     bool
-	lSibPageID  uint64
-	rSibPageID  uint64
+	fileOffset     uint64
+	cellCount      uint32
+	offsets        []uint16
+	freeSize       uint16
+	cells          []interface{}
+	rightOffset    uint64
+	hasLSib        bool
+	hasRSib        bool
+	lSibFileOffset uint64
+	rSibFileOffset uint64
 }
 
-func (p *page) setRightMostKey(pageID uint64) {
-	p.rightOffset = pageID
+func (p *page) setRightMostKey(fileOffset uint64) {
+	p.rightOffset = fileOffset
 }
 
 func (p *page) cellKey(offset uint16) uint32 {
@@ -92,12 +92,12 @@ func (p *page) cellKey(offset uint16) uint32 {
 	}
 }
 
-func (p *page) appendKeyCell(key uint32, pageID uint64) error {
+func (p *page) appendKeyCell(key uint32, fileOffset uint64) error {
 	offset := len(p.offsets)
 	p.offsets = append(p.offsets, uint16(offset))
 	p.cells = append(p.cells, &keyCell{
-		key:    key,
-		pageID: pageID,
+		key:        key,
+		fileOffset: fileOffset,
 	})
 	return nil
 }
@@ -123,15 +123,15 @@ func (p *page) updateCell(key uint32, value []byte) error {
 	return nil
 }
 
-func (p *page) insertKeyCell(offset uint32, key uint32, pageID uint64) error {
+func (p *page) insertKeyCell(offset uint32, key uint32, fileOffset uint64) error {
 	p.offsets = append(p.offsets[:offset+1], p.offsets[offset:]...)
 	p.offsets[offset] = uint16(len(p.cells))
 	p.cells = append(p.cells, &keyCell{
-		key:    key,
-		pageID: pageID,
+		key:        key,
+		fileOffset: fileOffset,
 	})
 	// todo: there has to be a better way to express this
-	p.cells[p.offsets[offset]].(*keyCell).pageID, p.cells[p.offsets[offset+1]].(*keyCell).pageID = p.cells[p.offsets[offset+1]].(*keyCell).pageID, p.cells[p.offsets[offset]].(*keyCell).pageID
+	p.cells[p.offsets[offset]].(*keyCell).fileOffset, p.cells[p.offsets[offset+1]].(*keyCell).fileOffset = p.cells[p.offsets[offset+1]].(*keyCell).fileOffset, p.cells[p.offsets[offset]].(*keyCell).fileOffset
 
 	return nil
 }
@@ -212,14 +212,14 @@ func (p *page) split(newPg *page) (uint32, error) {
 
 	for i := mid + 1; i < len(p.offsets); i++ {
 		cell := p.cells[p.offsets[i]].(*keyCell)
-		if err := newPg.appendKeyCell(cell.key, cell.pageID); err != nil {
+		if err := newPg.appendKeyCell(cell.key, cell.fileOffset); err != nil {
 			return 0, err
 		}
 	}
 
 	newPg.setRightMostKey(p.rightOffset)
 	key := p.cells[mid].(*keyCell).key
-	p.setRightMostKey(p.cells[mid].(*keyCell).pageID)
+	p.setRightMostKey(p.cells[mid].(*keyCell).fileOffset)
 
 	p.offsets = p.offsets[0:mid]
 	// todo make old cells reusable
@@ -234,7 +234,7 @@ func (p *page) getRightmostKey() uint32 {
 func (p *page) encode() (*bytes.Buffer, error) {
 	buf := &bytes.Buffer{}
 
-	if err := binary.Write(buf, binary.LittleEndian, p.pageID); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, p.fileOffset); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(buf, binary.LittleEndian, p.cellType); err != nil {
@@ -249,10 +249,10 @@ func (p *page) encode() (*bytes.Buffer, error) {
 	if err := binary.Write(buf, binary.LittleEndian, p.hasRSib); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(buf, binary.LittleEndian, p.lSibPageID); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, p.lSibFileOffset); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(buf, binary.LittleEndian, p.rSibPageID); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, p.rSibFileOffset); err != nil {
 		return nil, err
 	}
 
@@ -275,7 +275,7 @@ func (p *page) encode() (*bytes.Buffer, error) {
 			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.key); err != nil {
 				return nil, err
 			}
-			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.pageID); err != nil {
+			if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.fileOffset); err != nil {
 				return nil, err
 			}
 		case KeyValueCell:
@@ -316,7 +316,7 @@ func (p *page) encode() (*bytes.Buffer, error) {
 }
 
 func (p *page) decode(buf *bytes.Buffer) error {
-	if err := binary.Read(buf, binary.LittleEndian, &p.pageID); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &p.fileOffset); err != nil {
 		return err
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &p.cellType); err != nil {
@@ -331,10 +331,10 @@ func (p *page) decode(buf *bytes.Buffer) error {
 	if err := binary.Read(buf, binary.LittleEndian, &p.hasRSib); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &p.lSibPageID); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &p.lSibFileOffset); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &p.rSibPageID); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &p.rSibFileOffset); err != nil {
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (p *page) decode(buf *bytes.Buffer) error {
 			if err := binary.Read(buf, binary.LittleEndian, &cell.key); err != nil {
 				return err
 			}
-			if err := binary.Read(buf, binary.LittleEndian, &cell.pageID); err != nil {
+			if err := binary.Read(buf, binary.LittleEndian, &cell.fileOffset); err != nil {
 				return err
 			}
 			p.cells[p.offsets[i]] = cell
@@ -429,7 +429,7 @@ func (m *memoryStore) setPageTableRoot(pg *page) error {
 }
 
 func (m *memoryStore) append(p *page) error {
-	p.pageID = uint64(len(m.pages))
+	p.fileOffset = uint64(len(m.pages))
 	m.pages = append(m.pages, p)
 	return nil
 }
@@ -459,11 +459,11 @@ func (f *fileStore) getRoot() (*page, error) {
 }
 
 func (f *fileStore) setRoot(pg *page) {
-	f.rootOffset = pg.pageID
+	f.rootOffset = pg.fileOffset
 }
 
 func (f *fileStore) setPageTableRoot(pg *page) error {
-	f.pageTableRoot = pg.pageID
+	f.pageTableRoot = pg.fileOffset
 	return f.save()
 }
 
@@ -483,7 +483,7 @@ func (f *fileStore) update(p *page) error {
 	}
 	defer file.Close()
 
-	_, err = file.Seek(int64(p.pageID), 0)
+	_, err = file.Seek(int64(p.fileOffset), 0)
 	if err != nil {
 		return err
 	}
@@ -500,7 +500,7 @@ func (f *fileStore) update(p *page) error {
 
 func (f *fileStore) append(p *page) error {
 
-	p.pageID = f.nextFreeOffset
+	p.fileOffset = f.nextFreeOffset
 
 	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
