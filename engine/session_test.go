@@ -7,7 +7,7 @@ import (
 	"github.com/mkaminski/bkdb/btree"
 )
 
-func TestMain(t *testing.T) {
+func TestIntegration(t *testing.T) {
 
 	defer func() {
 		if err := os.Remove("data/testdb"); err != nil {

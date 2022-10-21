@@ -41,7 +41,7 @@ const (
 
 	// size (in bytes) of key-value cell
 	keyValueSize = 4 + // field: key
-		4 + // field: alueSize
+		4 + // field: valueSize
 		400 // field: value (maximum size in bytes)
 
 	// maximum number of non-leaf node elements

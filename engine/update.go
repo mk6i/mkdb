@@ -13,7 +13,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetcher btree.Fetc
 	}
 
 	table := q.TableName
-	rows, fields, err := fetcher(path, string(table))
+	rows, fields, err := fetcher(path, table)
 	if err != nil {
 		return err
 	}
@@ -25,8 +25,8 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetcher btree.Fetc
 		}
 	}
 
-	cols := []string{}
-	updateSrc := []interface{}{}
+	var cols []string
+	var updateSrc []interface{}
 
 	for _, set := range q.Set {
 		cols = append(cols, set.ObjectColumn)

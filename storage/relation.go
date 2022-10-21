@@ -12,13 +12,13 @@ import (
 type DataType uint8
 
 const (
-	TYPE_INT = iota
-	TYPE_VARCHAR
+	TypeInt = iota
+	TypeVarchar
 )
 
 const (
-	initalPageTableOffset    = pageSize
-	initialSchemaTableOffset = initalPageTableOffset * 2
+	initialPageTableOffset   = pageSize
+	initialSchemaTableOffset = initialPageTableOffset * 2
 	pageTableName            = "sys_pages"
 	schemaTableName          = "sys_schema"
 )
@@ -42,11 +42,11 @@ type FieldDef struct {
 
 func (f *FieldDef) Validate(val interface{}) error {
 	switch f.DataType {
-	case TYPE_INT:
+	case TypeInt:
 		if reflect.TypeOf(val).Kind() != reflect.Int32 {
 			return ErrTypeMismatch
 		}
-	case TYPE_VARCHAR:
+	case TypeVarchar:
 		if reflect.TypeOf(val).Kind() != reflect.String {
 			return ErrTypeMismatch
 		}
@@ -60,12 +60,12 @@ var pageTableSchema = Relation{
 	Fields: []FieldDef{
 		{
 			Name:     "table_name",
-			DataType: TYPE_VARCHAR,
+			DataType: TypeVarchar,
 			Len:      255,
 		},
 		{
 			Name:     "file_offset",
-			DataType: TYPE_INT,
+			DataType: TypeInt,
 		},
 	},
 }
@@ -74,21 +74,21 @@ var schemaTableSchema = Relation{
 	Fields: []FieldDef{
 		{
 			Name:     "table_name",
-			DataType: TYPE_VARCHAR,
+			DataType: TypeVarchar,
 			Len:      255,
 		},
 		{
 			Name:     "field_name",
-			DataType: TYPE_VARCHAR,
+			DataType: TypeVarchar,
 			Len:      255,
 		},
 		{
 			Name:     "field_type",
-			DataType: TYPE_INT,
+			DataType: TypeInt,
 		},
 		{
 			Name:     "field_length",
-			DataType: TYPE_INT,
+			DataType: TypeInt,
 			Len:      255,
 		},
 	},
@@ -101,7 +101,9 @@ type Relation struct {
 func (r *Relation) Encode() (*bytes.Buffer, error) {
 	buf := &bytes.Buffer{}
 
-	binary.Write(buf, binary.LittleEndian, uint16(len(r.Fields)))
+	if err := binary.Write(buf, binary.LittleEndian, uint16(len(r.Fields))); err != nil {
+		return buf, err
+	}
 
 	for _, fd := range r.Fields {
 		if err := binary.Write(buf, binary.LittleEndian, uint8(fd.DataType)); err != nil {
@@ -113,7 +115,7 @@ func (r *Relation) Encode() (*bytes.Buffer, error) {
 		if err := binary.Write(buf, binary.LittleEndian, []byte(fd.Name)); err != nil {
 			return buf, err
 		}
-		if fd.DataType == TYPE_VARCHAR {
+		if fd.DataType == TypeVarchar {
 			if err := binary.Write(buf, binary.LittleEndian, fd.Len); err != nil {
 				return buf, err
 			}
@@ -123,21 +125,23 @@ func (r *Relation) Encode() (*bytes.Buffer, error) {
 }
 
 func (r *Relation) Decode(buf *bytes.Buffer) error {
-	var len uint16
-	binary.Read(buf, binary.LittleEndian, &len)
+	var fieldCount uint16
+	if err := binary.Read(buf, binary.LittleEndian, &fieldCount); err != nil {
+		return err
+	}
 
-	for i := uint16(0); i < len; i++ {
+	for i := uint16(0); i < fieldCount; i++ {
 		fd := FieldDef{}
 		if err := binary.Read(buf, binary.LittleEndian, &fd.DataType); err != nil {
 			return err
 		}
 
-		var len uint32
-		if err := binary.Read(buf, binary.LittleEndian, &len); err != nil {
+		var nameLen uint32
+		if err := binary.Read(buf, binary.LittleEndian, &nameLen); err != nil {
 			return err
 		}
 
-		strBuf := make([]byte, len)
+		strBuf := make([]byte, nameLen)
 		_, err := buf.Read(strBuf)
 		if err != nil {
 			return err
@@ -145,7 +149,7 @@ func (r *Relation) Decode(buf *bytes.Buffer) error {
 
 		fd.Name = string(strBuf)
 
-		if fd.DataType == TYPE_VARCHAR {
+		if fd.DataType == TypeVarchar {
 			if err := binary.Read(buf, binary.LittleEndian, &fd.Len); err != nil {
 				return err
 			}
@@ -182,11 +186,11 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 		}
 
 		switch fd.DataType {
-		case TYPE_INT:
+		case TypeInt:
 			if err := binary.Write(buf, binary.LittleEndian, val); err != nil {
 				return buf, err
 			}
-		case TYPE_VARCHAR:
+		case TypeVarchar:
 			if err := binary.Write(buf, binary.LittleEndian, uint32(len(val.(string)))); err != nil {
 				return buf, err
 			}
@@ -212,18 +216,18 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 		var v interface{}
 
 		switch fd.DataType {
-		case TYPE_INT:
+		case TypeInt:
 			var val int32
 			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
 				return err
 			}
 			v = val
-		case TYPE_VARCHAR:
-			var len uint32
-			if err := binary.Read(buf, binary.LittleEndian, &len); err != nil {
+		case TypeVarchar:
+			var strLen uint32
+			if err := binary.Read(buf, binary.LittleEndian, &strLen); err != nil {
 				return err
 			}
-			strBuf := make([]byte, len)
+			strBuf := make([]byte, strLen)
 			_, err := buf.Read(strBuf)
 			if err != nil {
 				return err
@@ -253,8 +257,8 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if pgTblPg.fileOffset != initalPageTableOffset {
-		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initalPageTableOffset, pgTblPg.fileOffset)
+	if pgTblPg.fileOffset != initialPageTableOffset {
+		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initialPageTableOffset, pgTblPg.fileOffset)
 	}
 	if err := fs.setPageTableRoot(pgTblPg); err != nil {
 		return err
@@ -352,7 +356,9 @@ func insertPageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 	}
 
 	if curRoot.fileOffset != pgTablePg.fileOffset {
-		fs.setPageTableRoot(curRoot)
+		if err := fs.setPageTableRoot(curRoot); err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("inserted new page table record for %s, page id: %d\n", tableName, id)
@@ -485,7 +491,7 @@ func fetch(path string, tableName string) ([]*Row, []*Field, error) {
 		return nil, nil, err
 	}
 
-	fields := []*Field{}
+	var fields []*Field
 	for _, fd := range rs.Fields {
 		fields = append(fields, &Field{Column: fd.Name})
 	}
@@ -681,22 +687,6 @@ func scanRelation(fs *fileStore, fileOffset uint64, r *Relation, fields Fields) 
 	}
 
 	return results, nil
-}
-
-func validateFields(r *Relation, fields Fields) error {
-	allowed := make(map[string]bool, len(r.Fields))
-
-	for _, fd := range r.Fields {
-		allowed[fd.Name] = true
-	}
-
-	for _, field := range fields {
-		if _, ok := allowed[field.Column.(string)]; !ok {
-			return fmt.Errorf("field %s does not exist", field)
-		}
-	}
-
-	return nil
 }
 
 func Insert(path string, tableName string, cols []string, vals []interface{}) error {
