@@ -39,17 +39,29 @@ const (
 	keyCellSize = 4 + // field: key
 		8 // field: fileOffset
 
+	// maximum size (in bytes) of key-value cell value
+	maxValueSize = 400
+
 	// size (in bytes) of key-value cell
-	keyValueSize = 4 + // field: key
+	keyValueCellSize = 4 + // field: key
 		4 + // field: valueSize
-		400 // field: value (maximum size in bytes)
+		maxValueSize
 
 	// maximum number of non-leaf node elements
 	maxInternalNodeCells = (pageSize - pageHeaderSize) / (offsetElemSize + keyCellSize)
 
 	// maximum number of leaf node elements
-	maxLeafNodeCells = (pageSize - pageHeaderSize) / (offsetElemSize + keyValueSize)
+	maxLeafNodeCells = (pageSize - pageHeaderSize) / (offsetElemSize + keyValueCellSize)
 )
+
+var ErrRowTooLarge = errors.New(fmt.Sprintf("row exceeds %d bytes", maxValueSize))
+
+func checkRowSizeLimit(value []byte) error {
+	if len(value) > maxValueSize {
+		return ErrRowTooLarge
+	}
+	return nil
+}
 
 type keyCell struct {
 	key        uint32
@@ -114,6 +126,9 @@ func (p *page) appendCell(key uint32, value []byte) error {
 }
 
 func (p *page) updateCell(key uint32, value []byte) error {
+	if err := checkRowSizeLimit(value); err != nil {
+		return err
+	}
 	offset, found := p.findCellOffsetByKey(key)
 	if !found {
 		return fmt.Errorf("unable to find record to update for key %d", key)
@@ -137,6 +152,9 @@ func (p *page) insertKeyCell(offset uint32, key uint32, fileOffset uint64) error
 }
 
 func (p *page) insertCell(offset uint32, key uint32, value []byte) error {
+	if err := checkRowSizeLimit(value); err != nil {
+		return err
+	}
 	if uint32(len(p.offsets)) == offset { // nil or empty slice or after last element
 		p.offsets = append(p.offsets, uint16(len(p.cells)))
 	} else {
