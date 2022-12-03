@@ -235,7 +235,7 @@ func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
 		var err error
 		pg, err = b.store.fetch(fileOffset)
 		if err != nil {
-			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+			return fmt.Errorf("table scan error: %w", err)
 		}
 	}
 
@@ -255,7 +255,7 @@ func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
 			var err error
 			pg, err = b.store.fetch(pg.rSibFileOffset)
 			if err != nil {
-				panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+				return fmt.Errorf("table scan error: %w", err)
 			}
 		} else {
 			break
@@ -276,7 +276,7 @@ func (b *BTree) scanLeft(f func(kv *keyValueCell) (ScanAction, error)) error {
 		var err error
 		pg, err = b.store.fetch(pg.rightOffset)
 		if err != nil {
-			panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+			return fmt.Errorf("table scan error: %w", err)
 		}
 	}
 
@@ -296,7 +296,7 @@ func (b *BTree) scanLeft(f func(kv *keyValueCell) (ScanAction, error)) error {
 			var err error
 			pg, err = b.store.fetch(pg.lSibFileOffset)
 			if err != nil {
-				panic(fmt.Sprintf("error fetching page during table scan: %s", err.Error()))
+				return fmt.Errorf("table scan error: %w", err)
 			}
 		} else {
 			break
