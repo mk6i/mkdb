@@ -1,6 +1,7 @@
 package btree
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -418,4 +419,72 @@ func TestSplitKeyValueCell(t *testing.T) {
 			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
 	}
+}
+
+func TestKeyValueCellSizeLimit(t *testing.T) {
+
+	tbl := []struct {
+		name      string
+		fn        func() error
+		expectErr error
+	}{
+		{
+			name: "insert cell at size limit",
+			fn: func() error {
+				pg := &page{
+					cellType: KeyValueCell,
+				}
+				return pg.insertCell(0, 0, make([]byte, maxValueSize))
+			},
+			expectErr: nil,
+		},
+		{
+			name: "update cell at size limit",
+			fn: func() error {
+				pg := &page{
+					cellType: KeyValueCell,
+				}
+				err := pg.insertCell(0, 0, []byte("test"))
+				if err != nil {
+					return err
+				}
+				return pg.updateCell(0, make([]byte, maxValueSize))
+			},
+			expectErr: nil,
+		},
+		{
+			name: "insert cell over size limit",
+			fn: func() error {
+				pg := &page{
+					cellType: KeyValueCell,
+				}
+				return pg.insertCell(0, 0, make([]byte, maxValueSize+1))
+			},
+			expectErr: ErrRowTooLarge,
+		},
+		{
+			name: "update cell over size limit",
+			fn: func() error {
+				pg := &page{
+					cellType: KeyValueCell,
+				}
+				err := pg.insertCell(0, 0, []byte("test"))
+				if err != nil {
+					return err
+				}
+				return pg.updateCell(0, make([]byte, maxValueSize+1))
+			},
+			expectErr: ErrRowTooLarge,
+		},
+	}
+
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn()
+			if !errors.Is(err, tt.expectErr) {
+				t.Errorf("expected error `%v`, got %v", tt.expectErr, err)
+			}
+		})
+	}
+
 }
