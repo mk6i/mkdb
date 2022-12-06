@@ -7,36 +7,33 @@ import (
 	"testing"
 )
 
-func TestEncodeDecodeKeyCell(t *testing.T) {
+func TestEncodeDecodeInternalNode(t *testing.T) {
 
-	pg := &page{
-		fileOffset: 10,
-		cellType:   KeyCell,
-		offsets:    []uint16{2, 1, 0, 3},
-		freeSize:   3999,
-		cells: []interface{}{
-			&keyCell{
+	pg := &internalNode{
+		node: node{
+			fileOffset: 10,
+			offsets:    []uint16{2, 1, 0, 3},
+			freeSize:   4017,
+		},
+		cells: []*internalNodeCell{
+			{
 				key:        123,
 				fileOffset: 3,
 			},
-			&keyCell{
+			{
 				key:        12,
 				fileOffset: 8,
 			},
-			&keyCell{
+			{
 				key:        1,
 				fileOffset: 6,
 			},
-			&keyCell{
+			{
 				key:        1234,
 				fileOffset: 2,
 			},
 		},
-		rightOffset:    1,
-		hasLSib:        true,
-		hasRSib:        true,
-		lSibFileOffset: 2,
-		rSibFileOffset: 3,
+		rightOffset: 1,
 	}
 
 	buf, err := pg.encode()
@@ -48,7 +45,7 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
-	actual := &page{}
+	actual := &internalNode{}
 	if err = actual.decode(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -58,30 +55,31 @@ func TestEncodeDecodeKeyCell(t *testing.T) {
 	}
 }
 
-func TestEncodeDecodeKeyValueCell(t *testing.T) {
+func TestEncodeDecodeLeafNode(t *testing.T) {
 
-	pg := &page{
-		fileOffset: 10,
-		cellType:   KeyValueCell,
-		offsets:    []uint16{2, 1, 0, 3},
-		freeSize:   3949,
-		cells: []interface{}{
-			&keyValueCell{
+	pg := &leafNode{
+		node: node{
+			fileOffset: 10,
+			freeSize:   3957,
+			offsets:    []uint16{2, 1, 0, 3},
+		},
+		cells: []*leafNodeCell{
+			{
 				key:        1,
 				valueSize:  uint32(len("lorem ipsum")),
 				valueBytes: []byte("lorem ipsum"),
 			},
-			&keyValueCell{
+			{
 				key:        2,
 				valueSize:  uint32(len("dolor sit amet")),
 				valueBytes: []byte("dolor sit amet"),
 			},
-			&keyValueCell{
+			{
 				key:        3,
 				valueSize:  uint32(len("consectetur adipiscing elit")),
 				valueBytes: []byte("consectetur adipiscing elit"),
 			},
-			&keyValueCell{
+			{
 				key:        4,
 				valueSize:  uint32(len("sed do eiusmod")),
 				valueBytes: []byte("sed do eiusmod"),
@@ -98,7 +96,7 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
-	actual := &page{}
+	actual := &leafNode{}
 	if err = actual.decode(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +108,7 @@ func TestEncodeDecodeKeyValueCell(t *testing.T) {
 
 func TestMemoryStore(t *testing.T) {
 
-	pages := []*page{{}, {}, {}}
+	pages := []*leafNode{{}, {}, {}}
 
 	m := &memoryStore{}
 
@@ -158,9 +156,7 @@ func TestFileStore(t *testing.T) {
 		t.Errorf("file store branch factors do not match")
 	}
 
-	root := &page{
-		cellType: KeyValueCell,
-	}
+	root := &leafNode{}
 	if err := fs2.append(root); err != nil {
 		t.Errorf("error appending root: %s", err.Error())
 	}
@@ -171,37 +167,39 @@ func TestFileStore(t *testing.T) {
 		t.Errorf("unable to fetch root: %s", err.Error())
 	}
 
-	if root.cellType != root2.cellType {
+	if reflect.TypeOf(root) != reflect.TypeOf(root2) {
 		t.Errorf("root cell types do not match")
 	}
 }
 
 func TestFindCellByKey(t *testing.T) {
-	pages := []*page{
-		{
-			cellType: KeyCell,
-			offsets: []uint16{
-				0, 1, 2, 3, 4,
+	pages := []interface{}{
+		&internalNode{
+			node: node{
+				offsets: []uint16{
+					0, 1, 2, 3, 4,
+				},
 			},
-			cells: []interface{}{
-				&keyCell{key: 1},
-				&keyCell{key: 3},
-				&keyCell{key: 5},
-				&keyCell{key: 7},
-				&keyCell{key: 9},
+			cells: []*internalNodeCell{
+				{key: 1},
+				{key: 3},
+				{key: 5},
+				{key: 7},
+				{key: 9},
 			},
 		},
-		{
-			cellType: KeyValueCell,
-			offsets: []uint16{
-				0, 1, 2, 3, 4,
+		&leafNode{
+			node: node{
+				offsets: []uint16{
+					0, 1, 2, 3, 4,
+				},
 			},
-			cells: []interface{}{
-				&keyValueCell{key: 1},
-				&keyValueCell{key: 3},
-				&keyValueCell{key: 5},
-				&keyValueCell{key: 7},
-				&keyValueCell{key: 9},
+			cells: []*leafNodeCell{
+				{key: 1},
+				{key: 3},
+				{key: 5},
+				{key: 7},
+				{key: 9},
 			},
 		},
 	}
@@ -211,7 +209,7 @@ func TestFindCellByKey(t *testing.T) {
 	}
 }
 
-func findCellByKeyTestCase(t *testing.T, pg *page) {
+func findCellByKeyTestCase(t *testing.T, pg interface{}) {
 
 	tbl := []struct {
 		key            uint32
@@ -276,7 +274,17 @@ func findCellByKeyTestCase(t *testing.T, pg *page) {
 	}
 
 	for _, v := range tbl {
-		expectedOffset, expectedFound := pg.findCellOffsetByKey(v.key)
+
+		var expectedOffset int
+		var expectedFound bool
+
+		switch pg := pg.(type) {
+		case *internalNode:
+			expectedOffset, expectedFound = pg.findCellOffsetByKey(v.key)
+		case *leafNode:
+			expectedOffset, expectedFound = pg.findCellOffsetByKey(v.key)
+		}
+
 		if expectedOffset != v.expectedOffset || expectedFound != v.expectedFound {
 			t.Errorf("[key]: %d [page]: %v [expectedOffset]: %d [actualOffset]: %d [expectedFound]: %t [actualFound]: %t",
 				v.key, pg, v.expectedOffset, expectedOffset, v.expectedFound, expectedFound)
@@ -284,10 +292,8 @@ func findCellByKeyTestCase(t *testing.T, pg *page) {
 	}
 }
 
-func TestIsFullKeyValueCellExpectFull(t *testing.T) {
-	pg := &page{
-		cellType: KeyValueCell,
-	}
+func TestIsFullLeafNodeExpectFull(t *testing.T) {
+	pg := &leafNode{}
 
 	for i := 0; i < maxLeafNodeCells; i++ {
 		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
@@ -300,10 +306,8 @@ func TestIsFullKeyValueCellExpectFull(t *testing.T) {
 	}
 }
 
-func TestIsFullKeyValueCellExpectNotFull(t *testing.T) {
-	pg := &page{
-		cellType: KeyValueCell,
-	}
+func TestIsFullLeafNodeExpectNotFull(t *testing.T) {
+	pg := &leafNode{}
 
 	for i := 0; i < maxLeafNodeCells-1; i++ {
 		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
@@ -316,13 +320,11 @@ func TestIsFullKeyValueCellExpectNotFull(t *testing.T) {
 	}
 }
 
-func TestIsFullKeyCellExpectFull(t *testing.T) {
-	pg := &page{
-		cellType: KeyCell,
-	}
+func TestIsFullInternalNodeExpectFull(t *testing.T) {
+	pg := &internalNode{}
 
 	for i := 0; i < maxInternalNodeCells; i++ {
-		if err := pg.appendKeyCell(uint32(i), 1); err != nil {
+		if err := pg.appendCell(uint32(i), 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -332,13 +334,11 @@ func TestIsFullKeyCellExpectFull(t *testing.T) {
 	}
 }
 
-func TestIsFullKeyCellExpectNotFull(t *testing.T) {
-	pg := &page{
-		cellType: KeyCell,
-	}
+func TestIsFullInternalNodeExpectNotFull(t *testing.T) {
+	pg := &internalNode{}
 
 	for i := 0; i < maxInternalNodeCells-1; i++ {
-		if err := pg.appendKeyCell(uint32(i), 1); err != nil {
+		if err := pg.appendCell(uint32(i), 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -348,11 +348,8 @@ func TestIsFullKeyCellExpectNotFull(t *testing.T) {
 	}
 }
 
-func TestSplitKeyValueCell(t *testing.T) {
-
-	pg := &page{
-		cellType: KeyValueCell,
-	}
+func TestSplitLeafNode(t *testing.T) {
+	pg := &leafNode{}
 
 	if err := pg.appendCell(0, []byte("hello 0")); err != nil {
 		t.Fatal(err)
@@ -367,7 +364,7 @@ func TestSplitKeyValueCell(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newPg := &page{}
+	newPg := &leafNode{}
 	parentKey, err := pg.split(newPg)
 	if err != nil {
 		t.Fatal(err)
@@ -381,12 +378,12 @@ func TestSplitKeyValueCell(t *testing.T) {
 	}
 
 	expected := []interface{}{
-		&keyValueCell{
+		&leafNodeCell{
 			key:        0,
 			valueSize:  uint32(len([]byte("hello 0"))),
 			valueBytes: []byte("hello 0"),
 		},
-		&keyValueCell{
+		&leafNodeCell{
 			key:        1,
 			valueSize:  uint32(len([]byte("hello 1"))),
 			valueBytes: []byte("hello 1"),
@@ -395,18 +392,18 @@ func TestSplitKeyValueCell(t *testing.T) {
 
 	for i := 0; i < len(expected); i++ {
 		actual := pg.cells[pg.offsets[i]]
-		if !reflect.DeepEqual(actual.(*keyValueCell), expected[i].(*keyValueCell)) {
+		if !reflect.DeepEqual(actual, expected[i]) {
 			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
 	}
 
 	expected = []interface{}{
-		&keyValueCell{
+		&leafNodeCell{
 			key:        2,
 			valueSize:  uint32(len([]byte("hello 2"))),
 			valueBytes: []byte("hello 2"),
 		},
-		&keyValueCell{
+		&leafNodeCell{
 			key:        3,
 			valueSize:  uint32(len([]byte("hello 3"))),
 			valueBytes: []byte("hello 3"),
@@ -415,13 +412,13 @@ func TestSplitKeyValueCell(t *testing.T) {
 
 	for i := 0; i < len(expected); i++ {
 		actual := newPg.cells[pg.offsets[i]]
-		if !reflect.DeepEqual(actual.(*keyValueCell), expected[i].(*keyValueCell)) {
+		if !reflect.DeepEqual(actual, expected[i]) {
 			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
 	}
 }
 
-func TestKeyValueCellSizeLimit(t *testing.T) {
+func TestLeafNodeSizeLimit(t *testing.T) {
 
 	tbl := []struct {
 		name      string
@@ -431,9 +428,7 @@ func TestKeyValueCellSizeLimit(t *testing.T) {
 		{
 			name: "insert cell at size limit",
 			fn: func() error {
-				pg := &page{
-					cellType: KeyValueCell,
-				}
+				pg := &leafNode{}
 				return pg.insertCell(0, 0, make([]byte, maxValueSize))
 			},
 			expectErr: nil,
@@ -441,9 +436,7 @@ func TestKeyValueCellSizeLimit(t *testing.T) {
 		{
 			name: "update cell at size limit",
 			fn: func() error {
-				pg := &page{
-					cellType: KeyValueCell,
-				}
+				pg := &leafNode{}
 				err := pg.insertCell(0, 0, []byte("test"))
 				if err != nil {
 					return err
@@ -455,9 +448,7 @@ func TestKeyValueCellSizeLimit(t *testing.T) {
 		{
 			name: "insert cell over size limit",
 			fn: func() error {
-				pg := &page{
-					cellType: KeyValueCell,
-				}
+				pg := &leafNode{}
 				return pg.insertCell(0, 0, make([]byte, maxValueSize+1))
 			},
 			expectErr: ErrRowTooLarge,
@@ -465,9 +456,7 @@ func TestKeyValueCellSizeLimit(t *testing.T) {
 		{
 			name: "update cell over size limit",
 			fn: func() error {
-				pg := &page{
-					cellType: KeyValueCell,
-				}
+				pg := &leafNode{}
 				err := pg.insertCell(0, 0, []byte("test"))
 				if err != nil {
 					return err

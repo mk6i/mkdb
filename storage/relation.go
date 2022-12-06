@@ -257,13 +257,13 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if pgTblPg.fileOffset != initialPageTableOffset {
-		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initialPageTableOffset, pgTblPg.fileOffset)
+	if pgTblPg.getFileOffset() != initialPageTableOffset {
+		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initialPageTableOffset, pgTblPg.getFileOffset())
 	}
 	if err := fs.setPageTableRoot(pgTblPg); err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pgTblPg.fileOffset, pageTableName); err != nil {
+	if err := insertPageTable(fs, pgTblPg, pageTableName); err != nil {
 		return err
 	}
 
@@ -272,10 +272,10 @@ func CreateDB(path string) error {
 	if err != nil {
 		return err
 	}
-	if schemaTblPg.fileOffset != initialSchemaTableOffset {
-		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.fileOffset)
+	if schemaTblPg.getFileOffset() != initialSchemaTableOffset {
+		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.getFileOffset())
 	}
-	if err := insertPageTable(fs, schemaTblPg.fileOffset, schemaTableName); err != nil {
+	if err := insertPageTable(fs, schemaTblPg, schemaTableName); err != nil {
 		return err
 	}
 
@@ -304,7 +304,7 @@ func CreateTable(path string, r *Relation, tableName string) error {
 	if err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pg.fileOffset, tableName); err != nil {
+	if err := insertPageTable(fs, pg, tableName); err != nil {
 		return err
 	}
 	if err := insertSchemaTable(fs, r, tableName); err != nil {
@@ -313,8 +313,8 @@ func CreateTable(path string, r *Relation, tableName string) error {
 	return nil
 }
 
-func createPage(fs *fileStore) (*page, error) {
-	rootPg := &page{cellType: KeyValueCell}
+func createPage(fs *fileStore) (btreeNode, error) {
+	rootPg := &leafNode{}
 
 	if err := fs.append(rootPg); err != nil {
 		return rootPg, err
@@ -322,12 +322,12 @@ func createPage(fs *fileStore) (*page, error) {
 	return rootPg, nil
 }
 
-func insertPageTable(fs *fileStore, fileOffset uint64, tableName string) error {
+func insertPageTable(fs *fileStore, node btreeNode, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
 			"table_name":  tableName,
-			"file_offset": int32(fileOffset),
+			"file_offset": int32(node.getFileOffset()), // todo wat?
 		},
 	}
 
@@ -355,7 +355,8 @@ func insertPageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 		return err
 	}
 
-	if curRoot.fileOffset != pgTablePg.fileOffset {
+	rootChanged := curRoot.getFileOffset() != pgTablePg.getFileOffset()
+	if rootChanged {
 		if err := fs.setPageTableRoot(curRoot); err != nil {
 			return err
 		}
@@ -376,7 +377,7 @@ func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 	bt.setRoot(pgTablePg)
 
 	found := false
-	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -391,7 +392,7 @@ func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 			if err != nil {
 				return StopScanning, err
 			}
-			if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
+			if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 				return StopScanning, err
 			}
 			if err := fs.update(cell.pg); err != nil {
@@ -455,8 +456,9 @@ func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
 			return err
 		}
 
-		if newRootPg.fileOffset != schemaTablePg.fileOffset {
-			if err := updatePageTable(fs, newRootPg.fileOffset, schemaTableName); err != nil {
+		rootChanged := newRootPg.getFileOffset() != schemaTablePg.getFileOffset()
+		if rootChanged {
+			if err := updatePageTable(fs, newRootPg.getFileOffset(), schemaTableName); err != nil {
 				return err
 			}
 			schemaTablePg = newRootPg
@@ -516,7 +518,7 @@ func getRelationFileOffset(fs *fileStore, relName string) (int32, error) {
 
 	fileOffset := int32(0)
 	found := false
-	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -560,7 +562,7 @@ func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
 
 	r := &Relation{}
 
-	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &schemaTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -664,7 +666,7 @@ func scanRelation(fs *fileStore, fileOffset uint64, r *Relation, fields Fields) 
 
 	var results []*Row
 
-	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: r,
 			Vals:     make(map[string]interface{}),
@@ -748,8 +750,9 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		return err
 	}
 
-	if curPage.fileOffset != tablePg.fileOffset {
-		if err := updatePageTable(fs, curPage.fileOffset, tableName); err != nil {
+	rootChanged := curPage.getFileOffset() != tablePg.getFileOffset()
+	if rootChanged {
+		if err := updatePageTable(fs, curPage.getFileOffset(), tableName); err != nil {
 			return err
 		}
 	}
@@ -782,7 +785,7 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 	bt := BTree{store: fs}
 	bt.setRoot(pg)
 
-	err = bt.scanRight(func(cell *keyValueCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
 		if cell.key != rowID {
 			return KeepScanning, nil
 		}
@@ -803,7 +806,7 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 			return StopScanning, err
 		}
 
-		if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
+		if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 			return StopScanning, err
 		}
 		if err := fs.update(cell.pg); err != nil {

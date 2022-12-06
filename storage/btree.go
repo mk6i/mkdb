@@ -38,20 +38,20 @@ func (b *BTree) insertKey(key uint32, value []byte) error {
 	return err
 }
 
-func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) error {
+func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, value []byte) error {
 
-	if pg.cellType == KeyCell {
-
-		offset, found := pg.findCellOffsetByKey(key)
+	switch node := node.(type) {
+	case *internalNode:
+		offset, found := node.findCellOffsetByKey(key)
 		if found {
 			return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
 		}
 
 		var fileOffset uint64
-		if offset == len(pg.offsets) {
-			fileOffset = pg.rightOffset
+		if offset == len(node.offsets) {
+			fileOffset = node.rightOffset
 		} else {
-			fileOffset = pg.cells[pg.offsets[offset]].(*keyCell).fileOffset
+			fileOffset = node.cells[node.offsets[offset]].fileOffset
 		}
 
 		childPg, err := b.store.fetch(fileOffset)
@@ -59,33 +59,31 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 			return err
 		}
 
-		if err := b.insertHelper(pg, childPg, key, value); err != nil {
+		if err := b.insertHelper(node, childPg, key, value); err != nil {
 			return err
 		}
 
-		if pg.isFull() {
-			newPg := &page{}
+		if node.isFull() {
+			newPg := &internalNode{}
 			if err := b.store.append(newPg); err != nil {
 				return err
 			}
-			newKey, err := pg.split(newPg)
+			newKey, err := node.split(newPg)
 			if err != nil {
 				return err
 			}
 			if parent == nil {
-				parent = &page{
-					cellType: KeyCell,
-				}
+				parent = &internalNode{}
 				if err := b.store.append(parent); err != nil {
 					return err
 				}
 				b.store.setRoot(parent)
 				parent.setRightMostKey(newPg.fileOffset)
-				if err := parent.appendKeyCell(newKey, pg.fileOffset); err != nil {
+				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
 					return err
 				}
 			} else {
-				if err := parent.appendKeyCell(newKey, parent.rightOffset); err != nil {
+				if err := parent.appendCell(newKey, parent.rightOffset); err != nil {
 					return err
 				}
 				parent.setRightMostKey(newPg.fileOffset)
@@ -102,51 +100,47 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 				return err
 			}
 		}
-	} else {
-		offset, found := pg.findCellOffsetByKey(key)
+	case *leafNode:
+		offset, found := node.findCellOffsetByKey(key)
 		if found {
 			return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
 		}
-		if err := pg.insertCell(uint32(offset), key, value); err != nil {
+		if err := node.insertCell(uint32(offset), key, value); err != nil {
 			return err
 		}
-		if err := b.store.update(pg); err != nil {
+		if err := b.store.update(node); err != nil {
 			return err
 		}
 
-		if pg.isFull() {
-			newPg := &page{
-				cellType: KeyValueCell,
-			}
+		if node.isFull() {
+			newPg := &leafNode{}
 			if err := b.store.append(newPg); err != nil {
 				return err
 			}
-			newKey, err := pg.split(newPg)
+			newKey, err := node.split(newPg)
 			if err != nil {
 				return err
 			}
 
-			oldRSibFileOffset := pg.rSibFileOffset
-			pg.hasRSib = true
-			pg.rSibFileOffset = newPg.fileOffset
+			oldRSibFileOffset := node.rSibFileOffset
+			node.hasRSib = true
+			node.rSibFileOffset = newPg.fileOffset
 			newPg.hasLSib = true
-			newPg.lSibFileOffset = pg.fileOffset
+			newPg.lSibFileOffset = node.fileOffset
 
 			if parent == nil {
-				parent = &page{
-					cellType: KeyCell,
-				}
+				parent = &internalNode{}
 				if err := b.store.append(parent); err != nil {
 					return err
 				}
 				b.store.setRoot(parent)
 				parent.setRightMostKey(newPg.fileOffset)
-				if err := parent.appendKeyCell(newKey, pg.fileOffset); err != nil {
+				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
 					return err
 				}
 			} else {
 				if newKey > parent.getRightmostKey() {
-					if err := parent.appendKeyCell(newKey, parent.rightOffset); err != nil {
+					if err := parent.appendCell(newKey, parent.rightOffset); err != nil {
 						return err
 					}
 					parent.setRightMostKey(newPg.fileOffset)
@@ -158,7 +152,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 					if found {
 						return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, newKey)
 					}
-					if err := parent.insertKeyCell(uint32(offset), newKey, newPg.fileOffset); err != nil {
+					if err := parent.insertCell(uint32(offset), newKey, newPg.fileOffset); err != nil {
 						return err
 					}
 
@@ -167,7 +161,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 					if err != nil {
 						return err
 					}
-					rightSib.lSibFileOffset = newPg.fileOffset
+					rightSib.(*leafNode).lSibFileOffset = newPg.fileOffset
 					if err := b.store.update(rightSib); err != nil {
 						return err
 					}
@@ -177,7 +171,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 				return err
 			}
 		}
-		if err := b.store.update(pg); err != nil {
+		if err := b.store.update(node); err != nil {
 			return err
 		}
 		if parent != nil {
@@ -186,6 +180,7 @@ func (b *BTree) insertHelper(parent *page, pg *page, key uint32, value []byte) e
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -196,14 +191,18 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 		return nil, err
 	}
 
-	for pg.cellType == KeyCell {
-		for i := 0; i <= len(pg.offsets); i++ {
-			if i == len(pg.offsets) || key < pg.cellKey(pg.offsets[i]) {
+	for {
+		if _, ok := pg.(*internalNode); !ok {
+			break
+		}
+		// todo: replace with binary search
+		for i := 0; i <= len(pg.(*internalNode).offsets); i++ {
+			if i == len(pg.(*internalNode).offsets) || key < pg.(*internalNode).cellKey(pg.(*internalNode).offsets[i]) {
 				var fileOffset uint64
-				if i == len(pg.offsets) {
-					fileOffset = pg.rightOffset
+				if i == len(pg.(*internalNode).offsets) {
+					fileOffset = pg.(*internalNode).rightOffset
 				} else {
-					fileOffset = pg.cells[pg.offsets[i]].(*keyCell).fileOffset
+					fileOffset = pg.(*internalNode).cells[pg.(*internalNode).offsets[i]].fileOffset
 				}
 				var err error
 				pg, err = b.store.fetch(fileOffset)
@@ -215,23 +214,27 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 		}
 	}
 
-	offset, found := pg.findCellOffsetByKey(key)
+	offset, found := pg.(*leafNode).findCellOffsetByKey(key)
 	if !found {
 		return nil, nil
 	}
-	cell := pg.cells[pg.offsets[offset]].(*keyValueCell)
+	cell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
 	return cell.valueBytes, nil
 }
 
-func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
+func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 	pg, err := b.getRoot()
 	if err != nil {
 		return err
 	}
 
 	// find left-most leaf node
-	for pg.cellType == KeyCell {
-		fileOffset := pg.cells[pg.offsets[0]].(*keyCell).fileOffset
+	// todo: store reference to left-mode leaf node
+	for {
+		if _, ok := pg.(*internalNode); !ok {
+			break
+		}
+		fileOffset := pg.(*internalNode).cells[pg.(*internalNode).offsets[0]].fileOffset
 		var err error
 		pg, err = b.store.fetch(fileOffset)
 		if err != nil {
@@ -240,8 +243,8 @@ func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
 	}
 
 	for {
-		for _, offset := range pg.offsets {
-			kvCell := pg.cells[offset].(*keyValueCell)
+		for _, offset := range pg.(*leafNode).offsets {
+			kvCell := pg.(*leafNode).cells[offset]
 			kvCell.pg = pg
 			nextScan, err := f(kvCell)
 			if err != nil {
@@ -251,9 +254,9 @@ func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
 				return nil
 			}
 		}
-		if pg.hasRSib {
+		if pg.(*leafNode).hasRSib {
 			var err error
-			pg, err = b.store.fetch(pg.rSibFileOffset)
+			pg, err = b.store.fetch(pg.(*leafNode).rSibFileOffset)
 			if err != nil {
 				return fmt.Errorf("table scan error: %w", err)
 			}
@@ -265,24 +268,28 @@ func (b *BTree) scanRight(f func(kv *keyValueCell) (ScanAction, error)) error {
 	return nil
 }
 
-func (b *BTree) scanLeft(f func(kv *keyValueCell) (ScanAction, error)) error {
+func (b *BTree) scanLeft(f func(kv *leafNodeCell) (ScanAction, error)) error {
 	pg, err := b.getRoot()
 	if err != nil {
 		return err
 	}
 
 	// find right-most leaf node
-	for pg.cellType == KeyCell {
+	// todo: store reference to right-mode leaf node
+	for {
+		if _, ok := pg.(*internalNode); !ok {
+			break
+		}
 		var err error
-		pg, err = b.store.fetch(pg.rightOffset)
+		pg, err = b.store.fetch(pg.(*internalNode).rightOffset)
 		if err != nil {
 			return fmt.Errorf("table scan error: %w", err)
 		}
 	}
 
 	for {
-		for offset := len(pg.offsets) - 1; offset >= 0; offset-- {
-			kvCell := pg.cells[pg.offsets[offset]].(*keyValueCell)
+		for offset := len(pg.(*leafNode).offsets) - 1; offset >= 0; offset-- {
+			kvCell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
 			kvCell.pg = pg
 			nextScan, err := f(kvCell)
 			if err != nil {
@@ -292,9 +299,9 @@ func (b *BTree) scanLeft(f func(kv *keyValueCell) (ScanAction, error)) error {
 				return nil
 			}
 		}
-		if pg.hasLSib {
+		if pg.(*leafNode).hasLSib {
 			var err error
-			pg, err = b.store.fetch(pg.lSibFileOffset)
+			pg, err = b.store.fetch(pg.(*leafNode).lSibFileOffset)
 			if err != nil {
 				return fmt.Errorf("table scan error: %w", err)
 			}
