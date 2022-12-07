@@ -10,8 +10,6 @@ import (
 	"os"
 )
 
-type nodeType byte
-
 const (
 	InternalNode byte = iota
 	LeafNode
@@ -60,7 +58,7 @@ const (
 	maxLeafNodeCells = (pageSize - leafNodeHeaderSize) / (offsetElemSize + leafNodeCellSize)
 )
 
-var ErrRowTooLarge = errors.New(fmt.Sprintf("row exceeds %d bytes", maxValueSize))
+var ErrRowTooLarge = fmt.Errorf("row exceeds %d bytes", maxValueSize)
 
 func checkRowSizeLimit(value []byte) error {
 	if len(value) > maxValueSize {
@@ -83,7 +81,6 @@ type leafNodeCell struct {
 
 type node struct {
 	fileOffset uint64
-	cellCount  uint32
 	offsets    []uint16
 	freeSize   uint16
 }
@@ -347,10 +344,6 @@ func (n *leafNode) insertCell(offset uint32, key uint32, value []byte) error {
 		valueBytes: value,
 	})
 	return nil
-}
-
-func (n *leafNode) getCellValue(offset int) []byte {
-	return n.cells[offset].valueBytes
 }
 
 // findCellOffsetByKey searches for a cell by key. if found is true, offset is the
