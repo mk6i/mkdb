@@ -73,6 +73,8 @@ func TestIntegration(t *testing.T) {
 		`SELECT * FROM people WHERE last_name = 'Brewer'`,
 		`UPDATE people SET person_id = 600 WHERE last_name = 'Crane'`,
 		`SELECT * FROM people WHERE last_name = 'Crane'`,
+		`DELETE FROM people WHERE last_name = 'Crane'`,
+		`SELECT * FROM people WHERE last_name = 'Crane'`,
 	}
 
 	s := Session{}

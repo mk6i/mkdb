@@ -184,7 +184,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 	return nil
 }
 
-func (b *BTree) find(key uint32) ([]byte, error) {
+func (b *BTree) findCell(key uint32) (*leafNodeCell, error) {
 
 	pg, err := b.store.getRoot()
 	if err != nil {
@@ -218,8 +218,15 @@ func (b *BTree) find(key uint32) ([]byte, error) {
 	if !found {
 		return nil, nil
 	}
+
 	cell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
-	return cell.valueBytes, nil
+	if cell.deleted {
+		return nil, nil
+	}
+
+	// fixme: setting parent node is kind of yucky
+	cell.pg = pg
+	return cell, nil
 }
 
 func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
@@ -244,9 +251,12 @@ func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 
 	for {
 		for _, offset := range pg.(*leafNode).offsets {
-			kvCell := pg.(*leafNode).cells[offset]
-			kvCell.pg = pg
-			nextScan, err := f(kvCell)
+			cell := pg.(*leafNode).cells[offset]
+			if cell.deleted {
+				continue
+			}
+			cell.pg = pg
+			nextScan, err := f(cell)
 			if err != nil {
 				return err
 			}
@@ -289,9 +299,12 @@ func (b *BTree) scanLeft(f func(kv *leafNodeCell) (ScanAction, error)) error {
 
 	for {
 		for offset := len(pg.(*leafNode).offsets) - 1; offset >= 0; offset-- {
-			kvCell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
-			kvCell.pg = pg
-			nextScan, err := f(kvCell)
+			cell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
+			if cell.deleted {
+				continue
+			}
+			cell.pg = pg
+			nextScan, err := f(cell)
 			if err != nil {
 				return err
 			}

@@ -44,12 +44,12 @@ func TestBTree(t *testing.T) {
 	}
 
 	for _, expect := range tbl {
-		val, err := bt.find(expect.key)
+		val, err := bt.findCell(expect.key)
 		if err != nil {
 			t.Fatalf("got retrieval error for %d: %s", expect.key, err.Error())
 		}
-		if !bytes.Equal(val, expect.val) {
-			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val, expect.val)
+		if !bytes.Equal(val.valueBytes, expect.val) {
+			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)
 		}
 	}
 

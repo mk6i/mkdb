@@ -48,6 +48,7 @@ const (
 
 	// size (in bytes) of key-value cell
 	leafNodeCellSize = 4 + // field: key
+		1 + // field: deleted
 		4 + // field: valueSize
 		maxValueSize
 
@@ -77,6 +78,7 @@ type leafNodeCell struct {
 	valueSize  uint32
 	valueBytes []byte
 	pg         btreeNode
+	deleted    bool
 }
 
 type node struct {
@@ -429,6 +431,9 @@ func (p *leafNode) encode() (*bytes.Buffer, error) {
 		if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.key); err != nil {
 			return nil, err
 		}
+		if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.deleted); err != nil {
+			return nil, err
+		}
 		if err := binary.Write(bufFooter, binary.LittleEndian, keyCell.valueSize); err != nil {
 			return nil, err
 		}
@@ -504,6 +509,9 @@ func (p *leafNode) decode(buf *bytes.Buffer) error {
 	for i := uint32(0); i < cellCount; i++ {
 		cell := &leafNodeCell{}
 		if err := binary.Read(buf, binary.LittleEndian, &cell.key); err != nil {
+			return err
+		}
+		if err := binary.Read(buf, binary.LittleEndian, &cell.deleted); err != nil {
 			return err
 		}
 		if err := binary.Read(buf, binary.LittleEndian, &cell.valueSize); err != nil {
