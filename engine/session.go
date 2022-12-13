@@ -69,6 +69,16 @@ func (s *Session) ExecQuery(q string) error {
 			return err
 		}
 		fmt.Print("update successful\n", 1, stmt.TableName)
+	case sql.DeleteStatementSearched:
+		path, err := DBPath(s.CurDB)
+		if err != nil {
+			return err
+		}
+		if count, err := EvaluateDelete(stmt, path, btree.NewFetcher(), btree.MarkDeleted); err != nil {
+			return err
+		} else {
+			fmt.Printf("deleted %d record(s) into %s\n", count, stmt.TableName)
+		}
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}

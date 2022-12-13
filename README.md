@@ -18,7 +18,7 @@ make run-cli
 
 ### Run Queries
 
-#### Basic CRU~~D~~ Operations
+#### Basic CRUD Operations
 
 ```sql
 CREATE DATABASE testdb;
@@ -83,6 +83,8 @@ FROM family
 LIMIT 2 OFFSET 2;
 
 UPDATE family SET age = 2, hair = 'blonde' WHERE name = 'Holly';
+
+DELETE FROM family WHERE name = 'Walter';
 ```
 
 #### View All Tables

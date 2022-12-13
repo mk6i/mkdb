@@ -60,7 +60,7 @@ func TestEncodeDecodeLeafNode(t *testing.T) {
 	pg := &leafNode{
 		node: node{
 			fileOffset: 10,
-			freeSize:   3957,
+			freeSize:   3953,
 			offsets:    []uint16{2, 1, 0, 3},
 		},
 		cells: []*leafNodeCell{

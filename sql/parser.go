@@ -166,8 +166,13 @@ type UseStatement struct {
 	DBName string
 }
 
+type DeleteStatementSearched struct {
+	TableName   string
+	WhereClause interface{}
+}
+
 func (p *Parser) Parse() (interface{}, error) {
-	if err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE); err != nil {
+	if err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE, DELETE); err != nil {
 		return nil, err
 	}
 	switch p.Prev().Type {
@@ -181,6 +186,8 @@ func (p *Parser) Parse() (interface{}, error) {
 		return p.Update()
 	case USE:
 		return p.Use()
+	case DELETE:
+		return p.Delete()
 	default:
 		panic("unhandled type")
 	}
@@ -717,6 +724,28 @@ func (p *Parser) Use() (UseStatement, error) {
 	us.DBName = p.Prev().Text
 
 	return us, nil
+}
+
+func (p *Parser) Delete() (DeleteStatementSearched, error) {
+	del := DeleteStatementSearched{}
+
+	if err := p.requireMatch(FROM); err != nil {
+		return del, err
+	}
+
+	if err := p.requireMatch(IDENT); err != nil {
+		return del, err
+	}
+
+	del.TableName = p.Prev().Text
+
+	var err error
+	del.WhereClause, err = p.WhereClause()
+	if err != nil {
+		return del, err
+	}
+
+	return del, nil
 }
 
 func (p *Parser) match(types ...TokenType) bool {

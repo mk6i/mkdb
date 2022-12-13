@@ -1950,3 +1950,76 @@ func TestParseUse(t *testing.T) {
 		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
 	}
 }
+
+func TestParseDelete(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: DELETE,
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "thetable",
+		},
+		{
+			Type: WHERE,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "4",
+		},
+	}
+
+	expected := DeleteStatementSearched{
+		TableName: "thetable",
+		WhereClause: WhereClause{
+			SearchCondition: Predicate{
+				ComparisonPredicate{
+					LHS: ValueExpression{
+						ColumnName: Token{
+							Type:   IDENT,
+							Line:   0,
+							Column: 0,
+							Text:   "id",
+						},
+					},
+					CompOp: EQ,
+					RHS: ValueExpression{
+						ColumnName: Token{
+							Type:   INT,
+							Line:   0,
+							Column: 0,
+							Text:   "4",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}

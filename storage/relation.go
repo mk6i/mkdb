@@ -32,7 +32,9 @@ var (
 	ErrFieldNotFound     = errors.New("field not found")
 )
 
+// todo: put these interfaces in the consuming package
 type Fetcher func(path string, tableName string) ([]*Row, []*Field, error)
+type Deleter func(path string, tableName string, rowID uint32) error
 
 type FieldDef struct {
 	DataType
@@ -816,6 +818,42 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 	})
 
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func MarkDeleted(path string, tableName string, rowID uint32) error {
+	fs := &fileStore{path: path}
+	if err := fs.open(); err != nil {
+		return err
+	}
+
+	fileOffset, err := getRelationFileOffset(fs, tableName)
+	if err != nil {
+		return err
+	}
+
+	pg, err := fs.fetch(uint64(fileOffset))
+	if err != nil {
+		return err
+	}
+
+	bt := BTree{store: fs}
+	bt.setRoot(pg)
+
+	cell, err := bt.findCell(rowID)
+	if err != nil {
+		return err
+	}
+	if cell == nil {
+		return fmt.Errorf("unable to find cell for rowID %d", rowID)
+	}
+
+	cell.deleted = true
+
+	if err := bt.update(cell.pg); err != nil {
 		return err
 	}
 

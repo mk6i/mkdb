@@ -40,6 +40,7 @@ const (
 	COUNT
 	CREATE
 	DATABASE
+	DELETE
 	DESC
 	DISTINCT
 	DOT
@@ -130,6 +131,7 @@ var Tokens = map[TokenType]string{
 	COUNT:     "COUNT",
 	CREATE:    "CREATE",
 	DATABASE:  "DATABASE",
+	DELETE:    "DELETE",
 	DESC:      "DESC",
 	DISTINCT:  "DISTINCT",
 	DOT:       ".",
