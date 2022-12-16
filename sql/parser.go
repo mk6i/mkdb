@@ -18,7 +18,12 @@ const (
 var (
 	ErrNegativeLimit  = errors.New("LIMIT clause can not be negative")
 	ErrNegativeOffset = errors.New("OFFSET clause can not be negative")
+	ErrSyntax         = errors.New("syntax error")
 )
+
+func syntaxErr(t Token) error {
+	return fmt.Errorf("%w around `%s`", ErrSyntax, t.Text)
+}
 
 type Select struct {
 	SelectList
@@ -172,10 +177,9 @@ type DeleteStatementSearched struct {
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	if err := p.requireMatch(CREATE, SELECT, INSERT, USE, UPDATE, DELETE); err != nil {
-		return nil, err
-	}
-	switch p.Prev().Type {
+	cur := p.Cur()
+	p.Advance()
+	switch cur.Type {
 	case CREATE:
 		return p.Create()
 	case SELECT:
@@ -189,21 +193,20 @@ func (p *Parser) Parse() (interface{}, error) {
 	case DELETE:
 		return p.Delete()
 	default:
-		panic("unhandled type")
+		return nil, syntaxErr(cur)
 	}
 }
 
 func (p *Parser) Create() (interface{}, error) {
-	if err := p.requireMatch(DATABASE, TABLE); err != nil {
-		return nil, err
-	}
-	switch p.Prev().Type {
+	cur := p.Cur()
+	p.Advance()
+	switch cur.Type {
 	case DATABASE:
 		return p.CreateDatabase()
 	case TABLE:
 		return p.CreateTable()
 	default:
-		panic("unhandled type")
+		return nil, syntaxErr(cur)
 	}
 }
 
@@ -248,16 +251,15 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			},
 		}
 
-		if err := p.requireMatch(T_INT, T_VARCHAR); err != nil {
-			return ret, err
-		}
+		cur := p.Cur()
+		p.Advance()
 
-		switch p.Prev().Type {
+		switch cur.Type {
 		case T_INT:
 			te.ColumnDefinition.DataType = NumericType{}
 		case T_VARCHAR:
 			cst := CharacterStringType{
-				Type: p.Prev().Type,
+				Type: cur.Type,
 			}
 			if err := p.requireMatch(LPAREN); err != nil {
 				return ret, err
@@ -272,7 +274,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			}
 			te.ColumnDefinition.DataType = cst
 		default:
-			panic("unhandled type")
+			return ret, syntaxErr(cur)
 		}
 
 		ret = append(ret, te)
