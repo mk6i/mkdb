@@ -26,7 +26,7 @@ type Fetcher func(path string, tableName string) ([]*btree.Row, []*btree.Field, 
 func (s *Session) ExecQuery(q string) error {
 	stmt, err := parseSQL(q)
 	if err != nil {
-		return fmt.Errorf("error parsing sql: %s", err.Error())
+		return fmt.Errorf("unable to parse sql: %s", err.Error())
 	}
 
 	switch stmt := stmt.(type) {
