@@ -23,6 +23,7 @@ func TestScanSelect(t *testing.T) {
 	expected := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: IDENT,
@@ -30,6 +31,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -37,6 +39,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -44,6 +47,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -51,6 +55,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -62,6 +67,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: WHERE,
+			Text: "WHERE",
 		},
 		{
 			Type: IDENT,
@@ -69,6 +75,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -76,6 +83,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: STR,
@@ -83,6 +91,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: OR,
+			Text: "OR",
 		},
 		{
 			Type: IDENT,
@@ -90,6 +99,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -97,6 +107,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: INT,
@@ -104,6 +115,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: OR,
+			Text: "OR",
 		},
 		{
 			Type: IDENT,
@@ -111,6 +123,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -118,6 +131,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: NEQ,
+			Text: "!",
 		},
 		{
 			Type: STR,
@@ -125,9 +139,11 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: ORDER,
+			Text: "ORDER",
 		},
 		{
 			Type: BY,
+			Text: "BY",
 		},
 		{
 			Type: IDENT,
@@ -135,6 +151,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -142,9 +159,11 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: ASC,
+			Text: "ASC",
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -152,6 +171,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -159,9 +179,11 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: DESC,
+			Text: "DESC",
 		},
 		{
 			Type: LIMIT,
+			Text: "LIMIT",
 		},
 		{
 			Type: INT,
@@ -169,6 +191,7 @@ func TestScanSelect(t *testing.T) {
 		},
 		{
 			Type: OFFSET,
+			Text: "OFFSET",
 		},
 		{
 			Type: INT,
@@ -202,6 +225,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 	expected := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: IDENT,
@@ -209,6 +233,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -216,6 +241,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -223,6 +249,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -230,6 +257,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -237,9 +265,11 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: INNER,
+			Text: "INNER",
 		},
 		{
 			Type: JOIN,
+			Text: "JOIN",
 		},
 		{
 			Type: IDENT,
@@ -247,6 +277,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: ON,
+			Text: "ON",
 		},
 		{
 			Type: IDENT,
@@ -254,6 +285,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -261,6 +293,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: IDENT,
@@ -268,6 +301,7 @@ func TestScanSelectInnerJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -301,6 +335,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 	expected := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: IDENT,
@@ -308,6 +343,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -315,6 +351,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -322,6 +359,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -329,6 +367,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -336,9 +375,11 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: LEFT,
+			Text: "LEFT",
 		},
 		{
 			Type: JOIN,
+			Text: "JOIN",
 		},
 		{
 			Type: IDENT,
@@ -346,6 +387,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: ON,
+			Text: "ON",
 		},
 		{
 			Type: IDENT,
@@ -353,6 +395,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -360,6 +403,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: IDENT,
@@ -367,6 +411,7 @@ func TestScanSelectLeftJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -400,6 +445,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 	expected := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: IDENT,
@@ -407,6 +453,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -414,6 +461,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -421,6 +469,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -428,6 +477,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -435,9 +485,11 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: RIGHT,
+			Text: "RIGHT",
 		},
 		{
 			Type: JOIN,
+			Text: "JOIN",
 		},
 		{
 			Type: IDENT,
@@ -445,6 +497,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: ON,
+			Text: "ON",
 		},
 		{
 			Type: IDENT,
@@ -452,6 +505,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -459,6 +513,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: IDENT,
@@ -466,6 +521,7 @@ func TestScanSelectRightJoin(t *testing.T) {
 		},
 		{
 			Type: DOT,
+			Text: ".",
 		},
 		{
 			Type: IDENT,
@@ -499,12 +555,15 @@ func TestScanSelectStar(t *testing.T) {
 	expected := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: ASTRSK,
+			Text: "*",
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -543,9 +602,11 @@ func TestScanCreateTable(t *testing.T) {
 	expected := []Token{
 		{
 			Type: CREATE,
+			Text: "CREATE",
 		},
 		{
 			Type: TABLE,
+			Text: "TABLE",
 		},
 		{
 			Type: IDENT,
@@ -553,6 +614,7 @@ func TestScanCreateTable(t *testing.T) {
 		},
 		{
 			Type: LPAREN,
+			Text: "(",
 		},
 		{
 			Type: IDENT,
@@ -560,9 +622,11 @@ func TestScanCreateTable(t *testing.T) {
 		},
 		{
 			Type: T_INT,
+			Text: "int",
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -570,9 +634,11 @@ func TestScanCreateTable(t *testing.T) {
 		},
 		{
 			Type: T_VARCHAR,
+			Text: "varchar",
 		},
 		{
 			Type: LPAREN,
+			Text: "(",
 		},
 		{
 			Type: INT,
@@ -580,12 +646,15 @@ func TestScanCreateTable(t *testing.T) {
 		},
 		{
 			Type: RPAREN,
+			Text: ")",
 		},
 		{
 			Type: RPAREN,
+			Text: ")",
 		},
 		{
 			Type: SEMICOLON,
+			Text: ";",
 		},
 	}
 
@@ -615,9 +684,11 @@ func TestScanCreateDatabase(t *testing.T) {
 	expected := []Token{
 		{
 			Type: CREATE,
+			Text: "CREATE",
 		},
 		{
 			Type: DATABASE,
+			Text: "DATABASE",
 		},
 		{
 			Type: IDENT,
@@ -651,9 +722,11 @@ func TestScanInsert(t *testing.T) {
 	expected := []Token{
 		{
 			Type: INSERT,
+			Text: "INSERT",
 		},
 		{
 			Type: INTO,
+			Text: "INTO",
 		},
 		{
 			Type: IDENT,
@@ -661,6 +734,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: LPAREN,
+			Text: "(",
 		},
 		{
 			Type: IDENT,
@@ -668,6 +742,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -675,6 +750,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -682,12 +758,15 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: RPAREN,
+			Text: ")",
 		},
 		{
 			Type: VALUES,
+			Text: "VALUES",
 		},
 		{
 			Type: LPAREN,
+			Text: "(",
 		},
 		{
 			Type: INT,
@@ -695,6 +774,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: STR,
@@ -702,6 +782,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: STR,
@@ -709,6 +790,7 @@ func TestScanInsert(t *testing.T) {
 		},
 		{
 			Type: RPAREN,
+			Text: ")",
 		},
 	}
 
@@ -738,6 +820,7 @@ func TestScanUpdate(t *testing.T) {
 	expected := []Token{
 		{
 			Type: UPDATE,
+			Text: "UPDATE",
 		},
 		{
 			Type: IDENT,
@@ -745,6 +828,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: SET,
+			Text: "SET",
 		},
 		{
 			Type: IDENT,
@@ -752,6 +836,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: STR,
@@ -759,6 +844,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -766,6 +852,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: STR,
@@ -773,6 +860,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -780,6 +868,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: STR,
@@ -787,6 +876,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: WHERE,
+			Text: "WHERE",
 		},
 		{
 			Type: IDENT,
@@ -794,6 +884,7 @@ func TestScanUpdate(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: INT,
@@ -827,6 +918,7 @@ func TestScanUse(t *testing.T) {
 	expected := []Token{
 		{
 			Type: USE,
+			Text: "USE",
 		},
 		{
 			Type: IDENT,
@@ -855,6 +947,7 @@ func TestTokenList(t *testing.T) {
 	tokens := []Token{
 		{
 			Type: SELECT,
+			Text: "SELECT",
 		},
 		{
 			Type: IDENT,
@@ -862,6 +955,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: COMMA,
+			Text: ",",
 		},
 		{
 			Type: IDENT,
@@ -869,6 +963,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -876,6 +971,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: WHERE,
+			Text: "WHERE",
 		},
 		{
 			Type: IDENT,
@@ -883,6 +979,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: STR,
@@ -890,6 +987,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: OR,
+			Text: "OR",
 		},
 		{
 			Type: IDENT,
@@ -897,6 +995,7 @@ func TestTokenList(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: INT,
@@ -957,9 +1056,11 @@ func TestScanDelete(t *testing.T) {
 	expected := []Token{
 		{
 			Type: DELETE,
+			Text: "DELETE",
 		},
 		{
 			Type: FROM,
+			Text: "FROM",
 		},
 		{
 			Type: IDENT,
@@ -967,6 +1068,7 @@ func TestScanDelete(t *testing.T) {
 		},
 		{
 			Type: WHERE,
+			Text: "WHERE",
 		},
 		{
 			Type: IDENT,
@@ -974,6 +1076,7 @@ func TestScanDelete(t *testing.T) {
 		},
 		{
 			Type: EQ,
+			Text: "=",
 		},
 		{
 			Type: INT,
