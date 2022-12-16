@@ -32,10 +32,6 @@ var (
 	ErrFieldNotFound     = errors.New("field not found")
 )
 
-// todo: put these interfaces in the consuming package
-type Fetcher func(path string, tableName string) ([]*Row, []*Field, error)
-type Deleter func(path string, tableName string, rowID uint32) error
-
 type FieldDef struct {
 	DataType
 	Name string
@@ -469,11 +465,7 @@ func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
 	return nil
 }
 
-func NewFetcher() Fetcher {
-	return fetch
-}
-
-func fetch(path string, tableName string) ([]*Row, []*Field, error) {
+func Fetch(path string, tableName string) ([]*Row, []*Field, error) {
 
 	fmt.Printf("Select query. Table: %s\n", tableName)
 

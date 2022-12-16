@@ -16,11 +16,11 @@ var (
 	ErrSortFieldNotFound = errors.New("sort field is not in select list")
 )
 
-func EvaluateSelect(q sql.Select, path string, fetcher btree.Fetcher) ([]*btree.Row, []*btree.Field, error) {
+func EvaluateSelect(q sql.Select, path string, fetch Fetcher) ([]*btree.Row, []*btree.Field, error) {
 
 	table := q.TableExpression.FromClause[0]
 
-	rows, fields, err := nestedLoopJoin(fetcher, path, table)
+	rows, fields, err := nestedLoopJoin(fetch, path, table)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,11 +53,11 @@ func EvaluateSelect(q sql.Select, path string, fetcher btree.Fetcher) ([]*btree.
 	return rows, fields, nil
 }
 
-func nestedLoopJoin(fetcher btree.Fetcher, path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
+func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
 
 	switch v := tf.(type) {
 	case sql.TableName:
-		rows, fields, err := fetcher(path, v.Name)
+		rows, fields, err := fetch(path, v.Name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -72,11 +72,11 @@ func nestedLoopJoin(fetcher btree.Fetcher, path string, tf sql.TableReference) (
 	case sql.JoinedTable:
 		switch v := v.(type) {
 		case sql.QualifiedJoin:
-			lRows, lFields, err := nestedLoopJoin(fetcher, path, v.LHS)
+			lRows, lFields, err := nestedLoopJoin(fetch, path, v.LHS)
 			if err != nil {
 				return nil, nil, err
 			}
-			rRows, rFields, err := nestedLoopJoin(fetcher, path, v.RHS)
+			rRows, rFields, err := nestedLoopJoin(fetch, path, v.RHS)
 			if err != nil {
 				return nil, nil, err
 			}
