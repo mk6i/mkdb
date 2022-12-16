@@ -1,13 +1,12 @@
 package engine
 
 import (
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
 )
 
-func EvaluateDelete(q sql.DeleteStatementSearched, path string, fetcher btree.Fetcher, deleter btree.Deleter) (int, error) {
+func EvaluateDelete(q sql.DeleteStatementSearched, path string, fetch Fetcher, delete Deleter) (int, error) {
 	table := q.TableName
-	rows, fields, err := fetcher(path, table)
+	rows, fields, err := fetch(path, table)
 	if err != nil {
 		return 0, err
 	}
@@ -21,7 +20,7 @@ func EvaluateDelete(q sql.DeleteStatementSearched, path string, fetcher btree.Fe
 
 	count := 0
 	for _, row := range rows {
-		if err := deleter(path, q.TableName, row.RowID); err != nil {
+		if err := delete(path, q.TableName, row.RowID); err != nil {
 			return 0, err
 		}
 		count++
