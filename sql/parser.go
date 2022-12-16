@@ -781,13 +781,13 @@ func hasType(targetType TokenType, types ...TokenType) bool {
 func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	unex := Tokens[p.Cur().Type]
 	if p.Cur().Text != "" {
-		unex = fmt.Sprintf("%s (%s)", unex, p.Cur().Text)
+		unex = p.Cur().Text
 	}
 	var typeNames []string
 	for _, tipe := range types {
 		typeNames = append(typeNames, Tokens[tipe])
 	}
-	return fmt.Errorf("unexpected token type: %s. expected: %s", unex, strings.Join(typeNames, ", "))
+	return fmt.Errorf("unexpected token `%s`. expected %s", unex, strings.Join(typeNames, ", "))
 }
 
 func (p *Parser) requireInt() (int32, error) {

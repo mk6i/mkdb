@@ -104,9 +104,9 @@ func (t TokenType) IsOperator() bool {
 }
 
 var Tokens = map[TokenType]string{
-	IDENT: "IDENT",
-	INT:   "INT",
-	STR:   "STR",
+	IDENT: "an identifier",
+	INT:   "an integer",
+	STR:   "a string",
 
 	BANG:   "!",
 	AND:    "AND",
@@ -276,11 +276,10 @@ func (ts *tokenScanner) Cur() Token {
 	case EOF:
 		tok.Type = EOF
 	case Ident:
+		tok.Type = IDENT
+		tok.Text = ts.s.TokenText()
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			tok.Type = kw
-		} else {
-			tok.Type = IDENT
-			tok.Text = ts.s.TokenText()
 		}
 	case Int:
 		tok.Type = INT
@@ -291,6 +290,7 @@ func (ts *tokenScanner) Cur() Token {
 		tok.Text = ts.s.TokenText()
 		tok.Text = tok.Text[1 : len(tok.Text)-1]
 	default:
+		tok.Text = ts.s.TokenText()
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
 			if kw == BANG && ts.s.Peek() == '=' {
 				tok.Type = NEQ
@@ -300,7 +300,6 @@ func (ts *tokenScanner) Cur() Token {
 			}
 		} else {
 			tok.Type = STR
-			tok.Text = ts.s.TokenText()
 			// strip quotes
 			tok.Text = tok.Text[1 : len(tok.Text)-1]
 		}
