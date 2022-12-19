@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mkaminski/bkdb/btree"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func TestIntegration(t *testing.T) {
@@ -108,7 +108,7 @@ func TestInsertNonExistentTable(t *testing.T) {
 	q := `INSERT INTO people (person_id, first_name, last_name) VALUES (1, 'John', 'Doe')`
 	err := s.ExecQuery(q)
 
-	if err != btree.ErrTableNotExist {
+	if err != storage.ErrTableNotExist {
 		t.Errorf("expected ErrTableNotExist error")
 	}
 }
@@ -141,7 +141,7 @@ func TestInsertColCountMismatch(t *testing.T) {
 	q := `INSERT INTO people (person_id, first_name, last_name) VALUES ('John', 'Doe')`
 	err := s.ExecQuery(q)
 
-	if err != btree.ErrColCountMismatch {
+	if err != storage.ErrColCountMismatch {
 		t.Errorf("expected ErrColCountMismatch error")
 	}
 }
@@ -174,7 +174,7 @@ func TestInsertSansColListColCountMismatch(t *testing.T) {
 	q := `INSERT INTO people VALUES ('John', 'Doe')`
 	err := s.ExecQuery(q)
 
-	if err != btree.ErrColCountMismatch {
+	if err != storage.ErrColCountMismatch {
 		t.Errorf("expected ErrColCountMismatch error")
 	}
 }
@@ -202,7 +202,7 @@ func TestSelectNonExistentTable(t *testing.T) {
 	q := `SELECT person_id, first_name, last_name FROM people`
 	err := s.ExecQuery(q)
 
-	if err != btree.ErrTableNotExist {
+	if err != storage.ErrTableNotExist {
 		t.Errorf("expected ErrTableNotExist error")
 	}
 }
@@ -231,7 +231,7 @@ func TestCreateDuplicateTable(t *testing.T) {
 	q := `CREATE TABLE motorcycles (name varchar(255))`
 	err := s.ExecQuery(q)
 
-	if err != btree.ErrTableAlreadyExist {
+	if err != storage.ErrTableAlreadyExist {
 		t.Errorf("expected ErrTableAlreadyExist error")
 	}
 }

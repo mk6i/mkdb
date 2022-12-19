@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetch Fetcher) error {
@@ -38,7 +38,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetch Fetcher) err
 	}
 
 	for _, row := range rows {
-		if err := btree.Update(path, q.TableName, row.RowID, cols, updateSrc); err != nil {
+		if err := storage.Update(path, q.TableName, row.RowID, cols, updateSrc); err != nil {
 			return err
 		}
 	}

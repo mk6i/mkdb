@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 type Session struct {
@@ -21,7 +21,7 @@ var (
 )
 
 type Deleter func(path string, tableName string, rowID uint32) error
-type Fetcher func(path string, tableName string) ([]*btree.Row, []*btree.Field, error)
+type Fetcher func(path string, tableName string) ([]*storage.Row, []*storage.Field, error)
 
 func (s *Session) ExecQuery(q string) error {
 	stmt, err := parseSQL(q)
@@ -55,7 +55,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err != nil {
 			return err
 		}
-		rows, fields, err := EvaluateSelect(stmt, path, btree.Fetch)
+		rows, fields, err := EvaluateSelect(stmt, path, storage.Fetch)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func (s *Session) ExecQuery(q string) error {
 			fmt.Printf("inserted %d record(s) into %s\n", count, stmt.TableName)
 		}
 	case sql.UpdateStatementSearched:
-		if err := EvaluateUpdate(stmt, s.CurDB, btree.Fetch); err != nil {
+		if err := EvaluateUpdate(stmt, s.CurDB, storage.Fetch); err != nil {
 			return err
 		}
 		fmt.Print("update successful\n", 1, stmt.TableName)
@@ -77,7 +77,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err != nil {
 			return err
 		}
-		if count, err := EvaluateDelete(stmt, path, btree.Fetch, btree.MarkDeleted); err != nil {
+		if count, err := EvaluateDelete(stmt, path, storage.Fetch, storage.MarkDeleted); err != nil {
 			return err
 		} else {
 			fmt.Printf("deleted %d record(s) into %s\n", count, stmt.TableName)

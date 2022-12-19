@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func TestSelect(t *testing.T) {
@@ -14,10 +14,10 @@ func TestSelect(t *testing.T) {
 	tc := []struct {
 		name         string
 		query        sql.Select
-		givenFields  map[string]btree.Fields
-		expectFields []*btree.Field
-		givenRows    map[string][]*btree.Row
-		expectRows   []*btree.Row
+		givenFields  map[string]storage.Fields
+		expectFields []*storage.Field
+		givenRows    map[string][]*storage.Row
+		expectRows   []*storage.Row
 		expectErr    error
 	}{
 		{
@@ -70,19 +70,19 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
-					&btree.Field{Column: "col2"},
-					&btree.Field{Column: "col3"},
+					&storage.Field{Column: "col1"},
+					&storage.Field{Column: "col2"},
+					&storage.Field{Column: "col3"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 				{Column: "col2", TableID: "tbl1"},
 				{Column: "col3", TableID: "tbl1"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"c", int32(1), int32(8)}},
 					{Vals: []interface{}{"c", int32(5), int32(4)}},
@@ -95,7 +95,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"a", int32(5), int32(5)}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"c", int32(1), int32(8)}},
 				{Vals: []interface{}{"c", int32(5), int32(5)}},
 				{Vals: []interface{}{"c", int32(5), int32(4)}},
@@ -157,19 +157,19 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
-					&btree.Field{Column: "col2"},
-					&btree.Field{Column: "col3"},
+					&storage.Field{Column: "col1"},
+					&storage.Field{Column: "col2"},
+					&storage.Field{Column: "col3"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 				{Column: "col2", TableID: "tbl1"},
 				{Column: "col3", TableID: "tbl1"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"a", int32(1), int32(4)}},
 					{Vals: []interface{}{"a", int32(1), int32(5)}},
@@ -179,7 +179,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"b", int32(1), int32(3)}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"b", int32(1), int32(3)}},
 				{Vals: []interface{}{"b", int32(1), int32(2)}},
 				{Vals: []interface{}{"b", int32(1), int32(1)}},
@@ -218,13 +218,13 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
+					&storage.Field{Column: "col1"},
 				},
 			},
 			expectFields: nil,
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"a"}},
 					{Vals: []interface{}{"b"}},
@@ -257,15 +257,15 @@ func TestSelect(t *testing.T) {
 					Limit:       100,
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
+					&storage.Field{Column: "col1"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -273,7 +273,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"0"}},
 				{Vals: []interface{}{"1"}},
 				{Vals: []interface{}{"2"}},
@@ -302,15 +302,15 @@ func TestSelect(t *testing.T) {
 					Limit:       2,
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
+					&storage.Field{Column: "col1"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -318,7 +318,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"0"}},
 				{Vals: []interface{}{"1"}},
 			},
@@ -345,15 +345,15 @@ func TestSelect(t *testing.T) {
 					Limit:       0,
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "col1"},
+					&storage.Field{Column: "col1"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -361,7 +361,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{},
+			expectRows: []*storage.Row{},
 		},
 		{
 			name: "SELECT with OFFSET value 0: SELECT * FROM tbl1 OFFSET 100",
@@ -385,7 +385,7 @@ func TestSelect(t *testing.T) {
 					Offset:       0,
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -393,7 +393,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"0"}},
 				{Vals: []interface{}{"1"}},
 				{Vals: []interface{}{"2"}},
@@ -422,7 +422,7 @@ func TestSelect(t *testing.T) {
 					Offset:       2,
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -430,7 +430,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"2"}},
 				{Vals: []interface{}{"3"}},
 			},
@@ -457,7 +457,7 @@ func TestSelect(t *testing.T) {
 					Offset:       4,
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -465,7 +465,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{},
+			expectRows: []*storage.Row{},
 		},
 		{
 			name: "SELECT with OFFSET value that exceeds result set size: SELECT * FROM tbl1 OFFSET 100",
@@ -489,7 +489,7 @@ func TestSelect(t *testing.T) {
 					Offset:       100,
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -497,7 +497,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{},
+			expectRows: []*storage.Row{},
 		},
 		{
 			name: "SELECT with LIMIT and OFFSET: SELECT * FROM tbl1 LIMIT 2 OFFSET 1",
@@ -523,7 +523,7 @@ func TestSelect(t *testing.T) {
 					Offset:       1,
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"0"}},
 					{Vals: []interface{}{"1"}},
@@ -531,7 +531,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"3"}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{"1"}},
 				{Vals: []interface{}{"2"}},
 			},
@@ -596,23 +596,23 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col1"},
-					&btree.Field{Column: "col2"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col1"},
+					&storage.Field{Column: "col2"},
 				},
 				"tbl2": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col3"},
-					&btree.Field{Column: "col4"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col3"},
+					&storage.Field{Column: "col4"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 				{Column: "col3", TableID: "tbl2"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"id_+1", int32(1), int32(2)}},
 					{Vals: []interface{}{"id_+2", int32(3), int32(4)}},
@@ -632,7 +632,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"id_+10", int32(27), int32(28)}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{int32(1), int32(15)}},
 				{Vals: []interface{}{int32(5), int32(19)}},
 				{Vals: []interface{}{int32(9), int32(23)}},
@@ -699,23 +699,23 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col1"},
-					&btree.Field{Column: "col2"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col1"},
+					&storage.Field{Column: "col2"},
 				},
 				"tbl2": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col3"},
-					&btree.Field{Column: "col4"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col3"},
+					&storage.Field{Column: "col4"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 				{Column: "col3", TableID: "tbl2"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"id_1", int32(1), int32(2)}},
 					{Vals: []interface{}{"id_2", int32(3), int32(4)}},
@@ -730,7 +730,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"id_5", int32(17), int32(18)}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{int32(1), int32(13)}},
 				{Vals: []interface{}{int32(3), nil}},
 				{Vals: []interface{}{int32(5), int32(15)}},
@@ -799,23 +799,23 @@ func TestSelect(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col1"},
-					&btree.Field{Column: "col2"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col1"},
+					&storage.Field{Column: "col2"},
 				},
 				"tbl2": {
-					&btree.Field{Column: "id"},
-					&btree.Field{Column: "col3"},
-					&btree.Field{Column: "col4"},
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "col3"},
+					&storage.Field{Column: "col4"},
 				},
 			},
-			expectFields: []*btree.Field{
+			expectFields: []*storage.Field{
 				{Column: "col1", TableID: "tbl1"},
 				{Column: "col3", TableID: "tbl2"},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{Vals: []interface{}{"id_2", int32(1), int32(2)}},
 					{Vals: []interface{}{"id_4", int32(3), int32(4)}},
@@ -830,7 +830,7 @@ func TestSelect(t *testing.T) {
 					{Vals: []interface{}{"id_6", int32(17), int32(18)}},
 				},
 			},
-			expectRows: []*btree.Row{
+			expectRows: []*storage.Row{
 				{Vals: []interface{}{nil, int32(7)}},
 				{Vals: []interface{}{int32(1), int32(9)}},
 				{Vals: []interface{}{nil, int32(11)}},
@@ -843,7 +843,7 @@ func TestSelect(t *testing.T) {
 
 	for _, test := range tc {
 		t.Run(test.name, func(t *testing.T) {
-			fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
+			fetcher := func(path string, tableName string) ([]*storage.Row, []*storage.Field, error) {
 				return test.givenRows[tableName], test.givenFields[tableName], nil
 			}
 

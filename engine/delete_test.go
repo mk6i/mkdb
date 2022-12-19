@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func TestDelete(t *testing.T) {
@@ -14,8 +14,8 @@ func TestDelete(t *testing.T) {
 	tc := []struct {
 		name          string
 		query         sql.DeleteStatementSearched
-		givenFields   map[string]btree.Fields
-		givenRows     map[string][]*btree.Row
+		givenFields   map[string]storage.Fields
+		givenRows     map[string][]*storage.Row
 		expectDeleted []int32
 		expectErr     error
 	}{
@@ -47,12 +47,12 @@ func TestDelete(t *testing.T) {
 					},
 				},
 			},
-			givenFields: map[string]btree.Fields{
+			givenFields: map[string]storage.Fields{
 				"tbl1": {
-					&btree.Field{Column: "val"},
+					&storage.Field{Column: "val"},
 				},
 			},
-			givenRows: map[string][]*btree.Row{
+			givenRows: map[string][]*storage.Row{
 				"tbl1": {
 					{RowID: 1, Vals: []interface{}{"a"}},
 					{RowID: 2, Vals: []interface{}{"b"}},
@@ -70,7 +70,7 @@ func TestDelete(t *testing.T) {
 
 	for _, test := range tc {
 		t.Run(test.name, func(t *testing.T) {
-			fetcher := func(path string, tableName string) ([]*btree.Row, []*btree.Field, error) {
+			fetcher := func(path string, tableName string) ([]*storage.Row, []*storage.Field, error) {
 				return test.givenRows[tableName], test.givenFields[tableName], nil
 			}
 			var actualDeleted []int32
