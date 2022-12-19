@@ -3,8 +3,8 @@ package engine
 import (
 	"os"
 
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func EvaluateCreateDatabase(q sql.CreateDatabase) error {
@@ -23,21 +23,21 @@ func EvaluateCreateDatabase(q sql.CreateDatabase) error {
 
 	defer file.Close()
 
-	return btree.CreateDB(path)
+	return storage.CreateDB(path)
 }
 
 func EvaluateCreateTable(q sql.CreateTable, db string) error {
-	r := &btree.Relation{}
+	r := &storage.Relation{}
 
 	for _, elem := range q.Elements {
-		fd := btree.FieldDef{
+		fd := storage.FieldDef{
 			Name: elem.ColumnDefinition.Name,
 		}
 		switch t := elem.ColumnDefinition.DataType.(type) {
 		case sql.NumericType:
-			fd.DataType = btree.TypeInt
+			fd.DataType = storage.TypeInt
 		case sql.CharacterStringType:
-			fd.DataType = btree.TypeVarchar
+			fd.DataType = storage.TypeVarchar
 			fd.Len = t.Len
 		default:
 			panic("unsupported column definition type")
@@ -50,5 +50,5 @@ func EvaluateCreateTable(q sql.CreateTable, db string) error {
 		return err
 	}
 
-	return btree.CreateTable(path, r, q.Name)
+	return storage.CreateTable(path, r, q.Name)
 }

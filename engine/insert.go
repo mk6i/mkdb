@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func EvaluateInsert(q sql.InsertStatement, db string) (int, error) {
@@ -17,7 +17,7 @@ func EvaluateInsert(q sql.InsertStatement, db string) (int, error) {
 
 	count := 0
 	for _, tvc := range vals {
-		if err := btree.Insert(path, tbl, cols, tvc.RowValueConstructorList); err != nil {
+		if err := storage.Insert(path, tbl, cols, tvc.RowValueConstructorList); err != nil {
 			return 0, err
 		}
 		count++

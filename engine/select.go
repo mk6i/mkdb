@@ -8,15 +8,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/mkaminski/bkdb/btree"
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 var (
 	ErrSortFieldNotFound = errors.New("sort field is not in select list")
 )
 
-func EvaluateSelect(q sql.Select, path string, fetch Fetcher) ([]*btree.Row, []*btree.Field, error) {
+func EvaluateSelect(q sql.Select, path string, fetch Fetcher) ([]*storage.Row, []*storage.Field, error) {
 
 	table := q.TableExpression.FromClause[0]
 
@@ -53,7 +53,7 @@ func EvaluateSelect(q sql.Select, path string, fetch Fetcher) ([]*btree.Row, []*
 	return rows, fields, nil
 }
 
-func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree.Row, btree.Fields, error) {
+func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*storage.Row, storage.Fields, error) {
 
 	switch v := tf.(type) {
 	case sql.TableName:
@@ -81,9 +81,9 @@ func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree
 				return nil, nil, err
 			}
 
-			var tmpRows []*btree.Row
+			var tmpRows []*storage.Row
 
-			tmpFields := btree.Fields{}
+			tmpFields := storage.Fields{}
 			tmpFields = append(tmpFields, lFields...)
 			tmpFields = append(tmpFields, rFields...)
 
@@ -102,7 +102,7 @@ func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree
 					}
 				}
 			case sql.LEFT_JOIN:
-				rPadded := &btree.Row{Vals: make([]interface{}, len(rFields))}
+				rPadded := &storage.Row{Vals: make([]interface{}, len(rFields))}
 				for _, lRow := range lRows {
 					hasMatch := false
 					for _, rRow := range rRows {
@@ -121,7 +121,7 @@ func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree
 					}
 				}
 			case sql.RIGHT_JOIN:
-				lPadded := &btree.Row{Vals: make([]interface{}, len(lFields))}
+				lPadded := &storage.Row{Vals: make([]interface{}, len(lFields))}
 				for _, rRow := range rRows {
 					hasMatch := false
 					for _, lRow := range lRows {
@@ -147,13 +147,13 @@ func nestedLoopJoin(fetch Fetcher, path string, tf sql.TableReference) ([]*btree
 	return nil, nil, nil
 }
 
-func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) (btree.Fields, error) {
+func projectColumns(sl sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
 	if sl[0].ColumnName.Type == sql.ASTRSK {
 		return qfields, nil
 	}
 
 	var idxs []int
-	var projFields btree.Fields
+	var projFields storage.Fields
 	for _, sf := range sl {
 		var idx int
 		var err error
@@ -180,7 +180,7 @@ func projectColumns(sl sql.SelectList, qfields btree.Fields, rows []*btree.Row) 
 	return projFields, nil
 }
 
-func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btree.Row) error {
+func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*storage.Row) error {
 
 	var sortIdxs []int
 	for _, ss := range ssl {
@@ -192,7 +192,7 @@ func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btre
 			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName.Text)
 		}
 		if err != nil {
-			if errors.Is(err, btree.ErrFieldNotFound) {
+			if errors.Is(err, storage.ErrFieldNotFound) {
 				return fmt.Errorf("%w: %s", ErrSortFieldNotFound, err)
 			}
 			return err
@@ -232,8 +232,8 @@ func sortColumns(ssl []sql.SortSpecification, qfields btree.Fields, rows []*btre
 	return nil
 }
 
-func filterRows(q sql.WhereClause, qfields btree.Fields, rows []*btree.Row) ([]*btree.Row, error) {
-	var ans []*btree.Row
+func filterRows(q sql.WhereClause, qfields storage.Fields, rows []*storage.Row) ([]*storage.Row, error) {
+	var ans []*storage.Row
 
 	for _, row := range rows {
 		ok, err := evaluate(q.SearchCondition, qfields, row)
@@ -248,7 +248,7 @@ func filterRows(q sql.WhereClause, qfields btree.Fields, rows []*btree.Row) ([]*
 	return ans, nil
 }
 
-func evaluate(q interface{}, qfields btree.Fields, row *btree.Row) (bool, error) {
+func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (bool, error) {
 	switch v := q.(type) {
 	case sql.SearchCondition: // or
 		return evalOr(v, qfields, row)
@@ -260,7 +260,7 @@ func evaluate(q interface{}, qfields btree.Fields, row *btree.Row) (bool, error)
 	return false, fmt.Errorf("nothing to evaluate here")
 }
 
-func evalOr(q sql.SearchCondition, qfields btree.Fields, row *btree.Row) (bool, error) {
+func evalOr(q sql.SearchCondition, qfields storage.Fields, row *storage.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -272,7 +272,7 @@ func evalOr(q sql.SearchCondition, qfields btree.Fields, row *btree.Row) (bool, 
 	return lhs || rhs, nil
 }
 
-func evalAnd(q sql.BooleanTerm, qfields btree.Fields, row *btree.Row) (bool, error) {
+func evalAnd(q sql.BooleanTerm, qfields storage.Fields, row *storage.Row) (bool, error) {
 	lhs, err := evaluate(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -284,7 +284,7 @@ func evalAnd(q sql.BooleanTerm, qfields btree.Fields, row *btree.Row) (bool, err
 	return lhs && rhs, nil
 }
 
-func evalComparisonPredicate(q sql.ComparisonPredicate, qfields btree.Fields, row *btree.Row) (bool, error) {
+func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, row *storage.Row) (bool, error) {
 	lhs, err := evalPrimary(q.LHS, qfields, row)
 	if err != nil {
 		return false, err
@@ -304,7 +304,7 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields btree.Fields, ro
 	return false, fmt.Errorf("nothing to compare here")
 }
 
-func evalPrimary(q interface{}, qfields btree.Fields, row *btree.Row) (interface{}, error) {
+func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (interface{}, error) {
 	switch t := q.(type) {
 	case sql.ValueExpression:
 		switch t.ColumnName.Type {
@@ -327,7 +327,7 @@ func evalPrimary(q interface{}, qfields btree.Fields, row *btree.Row) (interface
 	return nil, fmt.Errorf("nothing to compare here")
 }
 
-func printTable(selectList []string, rows []*btree.Row) {
+func printTable(selectList []string, rows []*storage.Row) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
 	fmt.Print("\n\n")
@@ -356,7 +356,7 @@ func printTable(selectList []string, rows []*btree.Row) {
 	fmt.Printf("\n%d result(s) returned\n", len(rows))
 }
 
-func printableFields(sl sql.SelectList, fields btree.Fields) []string {
+func printableFields(sl sql.SelectList, fields storage.Fields) []string {
 	var ans []string
 	if sl[0].ColumnName.Type == sql.ASTRSK {
 		for _, field := range fields {
@@ -374,16 +374,16 @@ func printableFields(sl sql.SelectList, fields btree.Fields) []string {
 	return ans
 }
 
-func limit(limit int, rows []*btree.Row) []*btree.Row {
+func limit(limit int, rows []*storage.Row) []*storage.Row {
 	if limit > len(rows) {
 		return rows
 	}
 	return rows[0:limit]
 }
 
-func offset(offset int, rows []*btree.Row) []*btree.Row {
+func offset(offset int, rows []*storage.Row) []*storage.Row {
 	if offset >= len(rows) {
-		return []*btree.Row{}
+		return []*storage.Row{}
 	}
 	return rows[offset:]
 }
