@@ -2,18 +2,11 @@ package engine
 
 import (
 	"github.com/mkaminski/bkdb/sql"
-	"github.com/mkaminski/bkdb/storage"
 )
 
-func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetch Fetcher) error {
-
-	path, err := DBPath(db)
-	if err != nil {
-		return err
-	}
-
+func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
 	table := q.TableName
-	rows, fields, err := fetch(path, table)
+	rows, fields, err := rm.Fetch(table)
 	if err != nil {
 		return err
 	}
@@ -38,7 +31,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, db string, fetch Fetcher) err
 	}
 
 	for _, row := range rows {
-		if err := storage.Update(path, q.TableName, row.RowID, cols, updateSrc); err != nil {
+		if err := rm.Update(q.TableName, row.RowID, cols, updateSrc); err != nil {
 			return err
 		}
 	}

@@ -70,16 +70,19 @@ func TestDelete(t *testing.T) {
 
 	for _, test := range tc {
 		t.Run(test.name, func(t *testing.T) {
-			fetcher := func(path string, tableName string) ([]*storage.Row, []*storage.Field, error) {
-				return test.givenRows[tableName], test.givenFields[tableName], nil
-			}
 			var actualDeleted []int32
-			deleter := func(path string, tableName string, rowID uint32) error {
-				actualDeleted = append(actualDeleted, int32(rowID))
-				return nil
+
+			rm := &mockRelationManager{
+				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+					return test.givenRows[tableName], test.givenFields[tableName], nil
+				},
+				markDeleted: func(tableName string, rowID uint32) error {
+					actualDeleted = append(actualDeleted, int32(rowID))
+					return nil
+				},
 			}
 
-			count, err := EvaluateDelete(test.query, "", fetcher, deleter)
+			count, err := EvaluateDelete(test.query, rm)
 
 			if !errors.Is(err, test.expectErr) {
 				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)

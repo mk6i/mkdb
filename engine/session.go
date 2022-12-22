@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/mkaminski/bkdb/sql"
@@ -11,17 +10,17 @@ import (
 )
 
 type Session struct {
-	CurDB string
+	CurDB           string
+	RelationService *storage.RelationService
 }
 
-var (
-	errDBNotSelected = errors.New("database not been selected")
-	errDBNotExist    = errors.New("database does not exist")
-	errDBExists      = errors.New("database already exists")
-)
-
-type Deleter func(path string, tableName string, rowID uint32) error
-type Fetcher func(path string, tableName string) ([]*storage.Row, []*storage.Field, error)
+type relationManager interface {
+	CreateTable(r *storage.Relation, tableName string) error
+	MarkDeleted(tableName string, rowID uint32) error
+	Fetch(tableName string) ([]*storage.Row, []*storage.Field, error)
+	Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error
+	Insert(tableName string, cols []string, vals []interface{}) error
+}
 
 func (s *Session) ExecQuery(q string) error {
 	stmt, err := parseSQL(q)
@@ -30,54 +29,53 @@ func (s *Session) ExecQuery(q string) error {
 	}
 
 	switch stmt := stmt.(type) {
-	case sql.UseStatement:
-		_, err := DBPath(stmt.DBName)
-		if err != nil {
-			return err
-		}
-		s.CurDB = stmt.DBName
-		fmt.Printf("selected database %s\n", stmt.DBName)
 	case sql.CreateDatabase:
-		if err := os.Mkdir("data", 0755); err != nil && !os.IsExist(err) {
-			return fmt.Errorf("error making data dir: %s", err.Error())
-		}
 		if err := EvaluateCreateDatabase(stmt); err != nil {
 			return err
 		}
 		fmt.Printf("created database %s\n", stmt.Name)
+		return nil
+	case sql.UseStatement:
+		var err error
+		s.CurDB = stmt.DBName
+		s.RelationService, err = storage.OpenRelation(stmt.DBName)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("selected database %s\n", stmt.DBName)
+		return nil
+	}
+
+	if s.CurDB == "" {
+		return errors.New("please select a database")
+	}
+
+	switch stmt := stmt.(type) {
 	case sql.CreateTable:
-		if err := EvaluateCreateTable(stmt, s.CurDB); err != nil {
+		if err := EvaluateCreateTable(stmt, s.RelationService); err != nil {
 			return err
 		}
 		fmt.Printf("created table %s\n", stmt.Name)
 	case sql.Select:
-		path, err := DBPath(s.CurDB)
-		if err != nil {
-			return err
-		}
-		rows, fields, err := EvaluateSelect(stmt, path, storage.Fetch)
+		rows, fields, err := EvaluateSelect(stmt, s.RelationService)
 		if err != nil {
 			return err
 		}
 		printableFields := printableFields(stmt.SelectList, fields)
 		printTable(printableFields, rows)
 	case sql.InsertStatement:
-		if count, err := EvaluateInsert(stmt, s.CurDB); err != nil {
+		if count, err := EvaluateInsert(stmt, s.RelationService); err != nil {
 			return err
 		} else {
 			fmt.Printf("inserted %d record(s) into %s\n", count, stmt.TableName)
 		}
 	case sql.UpdateStatementSearched:
-		if err := EvaluateUpdate(stmt, s.CurDB, storage.Fetch); err != nil {
+		if err := EvaluateUpdate(stmt, s.RelationService); err != nil {
 			return err
 		}
 		fmt.Print("update successful\n", 1, stmt.TableName)
 	case sql.DeleteStatementSearched:
-		path, err := DBPath(s.CurDB)
-		if err != nil {
-			return err
-		}
-		if count, err := EvaluateDelete(stmt, path, storage.Fetch, storage.MarkDeleted); err != nil {
+		if count, err := EvaluateDelete(stmt, s.RelationService); err != nil {
 			return err
 		} else {
 			fmt.Printf("deleted %d record(s) into %s\n", count, stmt.TableName)
@@ -100,18 +98,4 @@ func parseSQL(q string) (interface{}, error) {
 	p := sql.Parser{TokenList: tl}
 
 	return p.Parse()
-}
-
-func DBPath(db string) (string, error) {
-	if db == "" {
-		return "", errDBNotSelected
-	}
-
-	path := "data/" + strings.ToLower(db)
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return path, errDBNotExist
-	}
-
-	return path, nil
 }

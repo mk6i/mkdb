@@ -1,32 +1,15 @@
 package engine
 
 import (
-	"os"
-
 	"github.com/mkaminski/bkdb/sql"
 	"github.com/mkaminski/bkdb/storage"
 )
 
 func EvaluateCreateDatabase(q sql.CreateDatabase) error {
-	path, err := DBPath(q.Name)
-	if err == nil {
-		return errDBExists
-	}
-	if err != errDBNotExist {
-		return err
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	return storage.CreateDB(path)
+	return storage.CreateDB(q.Name)
 }
 
-func EvaluateCreateTable(q sql.CreateTable, db string) error {
+func EvaluateCreateTable(q sql.CreateTable, rm relationManager) error {
 	r := &storage.Relation{}
 
 	for _, elem := range q.Elements {
@@ -45,10 +28,5 @@ func EvaluateCreateTable(q sql.CreateTable, db string) error {
 		r.Fields = append(r.Fields, fd)
 	}
 
-	path, err := DBPath(db)
-	if err != nil {
-		return err
-	}
-
-	return storage.CreateTable(path, r, q.Name)
+	return rm.CreateTable(r, q.Name)
 }
