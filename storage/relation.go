@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -24,12 +25,15 @@ const (
 )
 
 var (
-	ErrTypeMismatch      = errors.New("types do not match")
-	ErrTableNotExist     = errors.New("table does not exist")
-	ErrTableAlreadyExist = errors.New("table already exists")
 	ErrColCountMismatch  = errors.New("value list count does not match column list count")
+	ErrDBExists          = errors.New("database already exists")
+	ErrDBNotExist        = errors.New("database does not exist")
+	ErrDBNotSelected     = errors.New("database not been selected")
 	ErrFieldAmbiguous    = errors.New("field is ambiguous")
 	ErrFieldNotFound     = errors.New("field not found")
+	ErrTableAlreadyExist = errors.New("table already exists")
+	ErrTableNotExist     = errors.New("table does not exist")
+	ErrTypeMismatch      = errors.New("types do not match")
 )
 
 type FieldDef struct {
@@ -241,86 +245,126 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 	return nil
 }
 
-func CreateDB(path string) error {
+type RelationService struct {
+	fs *fileStore
+}
+
+func OpenRelation(dbName string) (*RelationService, error) {
+	path, exists, err := dbPath(dbName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrDBNotExist
+	}
+	fs := &fileStore{
+		path: path,
+	}
+	if err := fs.open(); err != nil {
+		return nil, err
+	}
+	return &RelationService{
+		fs: fs,
+	}, nil
+}
+
+func CreateDB(dbName string) error {
+	if err := os.Mkdir("data", 0755); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error making data dir: %s", err.Error())
+	}
+
+	path, exists, err := dbPath(dbName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return ErrDBExists
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
 	fs := &fileStore{
 		path:           path,
 		nextFreeOffset: pageSize,
 	}
+
 	if err := fs.save(); err != nil {
 		return err
 	}
 
+	rs := &RelationService{fs: fs}
+
 	// create page table page
-	pgTblPg, err := createPage(fs)
+	pgTblPg, err := rs.createPage()
 	if err != nil {
 		return err
 	}
 	if pgTblPg.getFileOffset() != initialPageTableOffset {
 		return fmt.Errorf("expected page table to be first page at offset %d, at offset %d instead", initialPageTableOffset, pgTblPg.getFileOffset())
 	}
-	if err := fs.setPageTableRoot(pgTblPg); err != nil {
+	if err := rs.fs.setPageTableRoot(pgTblPg); err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pgTblPg, pageTableName); err != nil {
+	if err := rs.insertPageTable(pgTblPg, pageTableName); err != nil {
 		return err
 	}
 
 	// create schema table page
-	schemaTblPg, err := createPage(fs)
+	schemaTblPg, err := rs.createPage()
 	if err != nil {
 		return err
 	}
 	if schemaTblPg.getFileOffset() != initialSchemaTableOffset {
 		return fmt.Errorf("expected page table to be second page at offset %d, at offset %d instead", initialSchemaTableOffset, schemaTblPg.getFileOffset())
 	}
-	if err := insertPageTable(fs, schemaTblPg, schemaTableName); err != nil {
+	if err := rs.insertPageTable(schemaTblPg, schemaTableName); err != nil {
 		return err
 	}
 
-	if err := insertSchemaTable(fs, &pageTableSchema, pageTableName); err != nil {
+	if err := rs.insertSchemaTable(&pageTableSchema, pageTableName); err != nil {
 		return err
 	}
-	if err := insertSchemaTable(fs, &schemaTableSchema, schemaTableName); err != nil {
+	if err := rs.insertSchemaTable(&schemaTableSchema, schemaTableName); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func CreateTable(path string, r *Relation, tableName string) error {
-	fs := &fileStore{path: path}
-	if err := fs.open(); err != nil {
-		return err
-	}
-
-	_, err := getRelationFileOffset(fs, tableName)
+func (rs *RelationService) CreateTable(r *Relation, tableName string) error {
+	_, err := rs.getRelationFileOffset(tableName)
 	if err != ErrTableNotExist {
 		return ErrTableAlreadyExist
 	}
 
-	pg, err := createPage(fs)
+	pg, err := rs.createPage()
 	if err != nil {
 		return err
 	}
-	if err := insertPageTable(fs, pg, tableName); err != nil {
+	if err := rs.insertPageTable(pg, tableName); err != nil {
 		return err
 	}
-	if err := insertSchemaTable(fs, r, tableName); err != nil {
+	if err := rs.insertSchemaTable(r, tableName); err != nil {
 		return err
 	}
 	return nil
 }
 
-func createPage(fs *fileStore) (btreeNode, error) {
+func (rs *RelationService) createPage() (btreeNode, error) {
 	rootPg := &leafNode{}
 
-	if err := fs.append(rootPg); err != nil {
+	if err := rs.fs.append(rootPg); err != nil {
 		return rootPg, err
 	}
 	return rootPg, nil
 }
 
-func insertPageTable(fs *fileStore, node btreeNode, tableName string) error {
+func (rs *RelationService) insertPageTable(node btreeNode, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
@@ -335,12 +379,12 @@ func insertPageTable(fs *fileStore, node btreeNode, tableName string) error {
 	}
 
 	// insert page table record
-	pgTablePg, err := fs.fetch(fs.pageTableRoot)
+	pgTablePg, err := rs.fs.fetch(rs.fs.pageTableRoot)
 	if err != nil {
 		return err
 	}
 
-	bt := &BTree{store: fs}
+	bt := &BTree{store: rs.fs}
 	bt.setRoot(pgTablePg)
 
 	id, err := bt.insert(buf.Bytes())
@@ -355,7 +399,7 @@ func insertPageTable(fs *fileStore, node btreeNode, tableName string) error {
 
 	rootChanged := curRoot.getFileOffset() != pgTablePg.getFileOffset()
 	if rootChanged {
-		if err := fs.setPageTableRoot(curRoot); err != nil {
+		if err := rs.fs.setPageTableRoot(curRoot); err != nil {
 			return err
 		}
 	}
@@ -365,13 +409,13 @@ func insertPageTable(fs *fileStore, node btreeNode, tableName string) error {
 	return nil
 }
 
-func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
-	pgTablePg, err := fs.fetch(fs.pageTableRoot)
+func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) error {
+	pgTablePg, err := rs.fs.fetch(rs.fs.pageTableRoot)
 	if err != nil {
 		return err
 	}
 
-	bt := &BTree{store: fs}
+	bt := &BTree{store: rs.fs}
 	bt.setRoot(pgTablePg)
 
 	found := false
@@ -393,7 +437,7 @@ func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 			if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 				return StopScanning, err
 			}
-			if err := fs.update(cell.pg); err != nil {
+			if err := rs.fs.update(cell.pg); err != nil {
 				return StopScanning, err
 			}
 			found = true
@@ -413,19 +457,19 @@ func updatePageTable(fs *fileStore, fileOffset uint64, tableName string) error {
 	return nil
 }
 
-func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
+func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) error {
 
-	fileOffset, err := getRelationFileOffset(fs, schemaTableName)
+	fileOffset, err := rs.getRelationFileOffset(schemaTableName)
 	if err != nil {
 		return err
 	}
 
-	schemaTablePg, err := fs.fetch(uint64(fileOffset))
+	schemaTablePg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
 
-	bt := &BTree{store: fs}
+	bt := &BTree{store: rs.fs}
 
 	for _, fd := range r.Fields {
 		tuple := Tuple{
@@ -456,7 +500,7 @@ func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
 
 		rootChanged := newRootPg.getFileOffset() != schemaTablePg.getFileOffset()
 		if rootChanged {
-			if err := updatePageTable(fs, newRootPg.getFileOffset(), schemaTableName); err != nil {
+			if err := rs.updatePageTable(newRootPg.getFileOffset(), schemaTableName); err != nil {
 				return err
 			}
 			schemaTablePg = newRootPg
@@ -465,45 +509,39 @@ func insertSchemaTable(fs *fileStore, r *Relation, tableName string) error {
 	return nil
 }
 
-func Fetch(path string, tableName string) ([]*Row, []*Field, error) {
-
+func (rs *RelationService) Fetch(tableName string) ([]*Row, []*Field, error) {
 	fmt.Printf("Select query. Table: %s\n", tableName)
+	fmt.Printf("page table root offset: %d\n", rs.fs.pageTableRoot)
 
-	fs := &fileStore{path: path}
-	if err := fs.open(); err != nil {
-		return nil, nil, err
-	}
-	fmt.Printf("page table root offset: %d\n", fs.pageTableRoot)
-
-	fileOffset, err := getRelationFileOffset(fs, tableName)
+	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	fmt.Printf("relation %s page id: %d\n", tableName, fileOffset)
 
-	rs, err := getRelationSchema(fs, tableName)
+	schema, err := rs.getRelationSchema(tableName)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var fields []*Field
-	for _, fd := range rs.Fields {
+	for _, fd := range schema.Fields {
 		fields = append(fields, &Field{Column: fd.Name})
 	}
 
-	fmt.Printf("relation %s schema: %v\n", tableName, rs)
+	fmt.Printf("relation %s schema: %v\n", tableName, schema)
 
-	rows, err := scanRelation(fs, uint64(fileOffset), rs, fields)
+	rows, err := rs.scanRelation(uint64(fileOffset), schema, fields)
 
 	return rows, fields, err
 }
 
-func getRelationFileOffset(fs *fileStore, relName string) (int32, error) {
-	bt := BTree{store: fs}
+func (rs *RelationService) getRelationFileOffset(relName string) (int32, error) {
+	bt := BTree{store: rs.fs}
 
 	// retrieve page table
-	pg, err := fs.fetch(fs.pageTableRoot)
+	pg, err := rs.fs.fetch(rs.fs.pageTableRoot)
 	if err != nil {
 		return 0, err
 	}
@@ -538,16 +576,16 @@ func getRelationFileOffset(fs *fileStore, relName string) (int32, error) {
 	return fileOffset, nil
 }
 
-func getRelationSchema(fs *fileStore, relName string) (*Relation, error) {
-	bt := BTree{store: fs}
+func (rs *RelationService) getRelationSchema(relName string) (*Relation, error) {
+	bt := BTree{store: rs.fs}
 
-	schemaTblOffset, err := getRelationFileOffset(fs, schemaTableName)
+	schemaTblOffset, err := rs.getRelationFileOffset(schemaTableName)
 	if err != nil {
 		return nil, err
 	}
 
 	// retrieve page table
-	pg, err := fs.fetch(uint64(schemaTblOffset))
+	pg, err := rs.fs.fetch(uint64(schemaTblOffset))
 	if err != nil {
 		return nil, err
 	}
@@ -647,11 +685,11 @@ func (r *Row) Merge(row *Row) *Row {
 	return newRow
 }
 
-func scanRelation(fs *fileStore, fileOffset uint64, r *Relation, fields Fields) ([]*Row, error) {
-	bt := BTree{store: fs}
+func (rs *RelationService) scanRelation(fileOffset uint64, r *Relation, fields Fields) ([]*Row, error) {
+	bt := BTree{store: rs.fs}
 
 	// retrieve page table
-	pg, err := fs.fetch(fileOffset)
+	pg, err := rs.fs.fetch(fileOffset)
 	if err != nil {
 		return nil, err
 	}
@@ -685,23 +723,18 @@ func scanRelation(fs *fileStore, fileOffset uint64, r *Relation, fields Fields) 
 	return results, nil
 }
 
-func Insert(path string, tableName string, cols []string, vals []interface{}) error {
-	fs := &fileStore{path: path}
-	if err := fs.open(); err != nil {
-		return err
-	}
-
-	fileOffset, err := getRelationFileOffset(fs, tableName)
+func (rs *RelationService) Insert(tableName string, cols []string, vals []interface{}) error {
+	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
 		return err
 	}
 
-	tablePg, err := fs.fetch(uint64(fileOffset))
+	tablePg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
 
-	schema, err := getRelationSchema(fs, tableName)
+	schema, err := rs.getRelationSchema(tableName)
 	if err != nil {
 		return err
 	}
@@ -731,7 +764,7 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 		return err
 	}
 
-	bt := &BTree{store: fs}
+	bt := &BTree{store: rs.fs}
 	bt.setRoot(tablePg)
 	_, err = bt.insert(buf.Bytes())
 	if err != nil {
@@ -746,7 +779,7 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 
 	rootChanged := curPage.getFileOffset() != tablePg.getFileOffset()
 	if rootChanged {
-		if err := updatePageTable(fs, curPage.getFileOffset(), tableName); err != nil {
+		if err := rs.updatePageTable(curPage.getFileOffset(), tableName); err != nil {
 			return err
 		}
 	}
@@ -755,28 +788,24 @@ func Insert(path string, tableName string, cols []string, vals []interface{}) er
 }
 
 // todo combine with update page table code?
-func Update(path string, tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
-	fs := &fileStore{path: path}
-	if err := fs.open(); err != nil {
-		return err
-	}
+func (rs *RelationService) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
 
-	fileOffset, err := getRelationFileOffset(fs, tableName)
+	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
 		return err
 	}
 
-	pg, err := fs.fetch(uint64(fileOffset))
+	pg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
 
-	r, err := getRelationSchema(fs, tableName)
+	r, err := rs.getRelationSchema(tableName)
 	if err != nil {
 		return err
 	}
 
-	bt := BTree{store: fs}
+	bt := BTree{store: rs.fs}
 	bt.setRoot(pg)
 
 	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
@@ -803,7 +832,7 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 		if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 			return StopScanning, err
 		}
-		if err := fs.update(cell.pg); err != nil {
+		if err := rs.fs.update(cell.pg); err != nil {
 			return StopScanning, err
 		}
 		return KeepScanning, nil
@@ -816,23 +845,18 @@ func Update(path string, tableName string, rowID uint32, cols []string, updateSr
 	return nil
 }
 
-func MarkDeleted(path string, tableName string, rowID uint32) error {
-	fs := &fileStore{path: path}
-	if err := fs.open(); err != nil {
-		return err
-	}
-
-	fileOffset, err := getRelationFileOffset(fs, tableName)
+func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) error {
+	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
 		return err
 	}
 
-	pg, err := fs.fetch(uint64(fileOffset))
+	pg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
 		return err
 	}
 
-	bt := BTree{store: fs}
+	bt := BTree{store: rs.fs}
 	bt.setRoot(pg)
 
 	cell, err := bt.findCell(rowID)
@@ -850,4 +874,20 @@ func MarkDeleted(path string, tableName string, rowID uint32) error {
 	}
 
 	return nil
+}
+
+func dbPath(db string) (string, bool, error) {
+	if db == "" {
+		return "", false, ErrDBNotSelected
+	}
+
+	path := "data/" + strings.ToLower(db)
+
+	_, err := os.Stat(path)
+
+	if err != nil && !os.IsNotExist(err) {
+		return path, false, err
+	}
+
+	return path, !os.IsNotExist(err), nil
 }

@@ -9,6 +9,30 @@ import (
 	"github.com/mkaminski/bkdb/storage"
 )
 
+type mockRelationManager struct {
+	createTable func(r *storage.Relation, tableName string) error
+	markDeleted func(tableName string, rowID uint32) error
+	fetch       func(tableName string) ([]*storage.Row, []*storage.Field, error)
+	update      func(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error
+	insert      func(tableName string, cols []string, vals []interface{}) error
+}
+
+func (m *mockRelationManager) CreateTable(r *storage.Relation, tableName string) error {
+	return m.createTable(r, tableName)
+}
+func (m *mockRelationManager) MarkDeleted(tableName string, rowID uint32) error {
+	return m.markDeleted(tableName, rowID)
+}
+func (m *mockRelationManager) Fetch(tableName string) ([]*storage.Row, []*storage.Field, error) {
+	return m.fetch(tableName)
+}
+func (m *mockRelationManager) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
+	return m.update(tableName, rowID, cols, updateSrc)
+}
+func (m *mockRelationManager) Insert(tableName string, cols []string, vals []interface{}) error {
+	return m.insert(tableName, cols, vals)
+}
+
 func TestSelect(t *testing.T) {
 
 	tc := []struct {
@@ -843,11 +867,11 @@ func TestSelect(t *testing.T) {
 
 	for _, test := range tc {
 		t.Run(test.name, func(t *testing.T) {
-			fetcher := func(path string, tableName string) ([]*storage.Row, []*storage.Field, error) {
-				return test.givenRows[tableName], test.givenFields[tableName], nil
-			}
-
-			actualRows, actualFields, err := EvaluateSelect(test.query, "", fetcher)
+			actualRows, actualFields, err := EvaluateSelect(test.query, &mockRelationManager{
+				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+					return test.givenRows[tableName], test.givenFields[tableName], nil
+				},
+			})
 
 			if !errors.Is(err, test.expectErr) {
 				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)
