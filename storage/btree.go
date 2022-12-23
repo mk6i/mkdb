@@ -18,6 +18,15 @@ var (
 
 type BTree struct {
 	store
+	rootOffset uint64
+}
+
+func (b *BTree) getRoot() (btreeNode, error) {
+	return b.store.fetch(b.rootOffset)
+}
+
+func (b *BTree) setRoot(node btreeNode) {
+	b.rootOffset = node.getFileOffset()
 }
 
 func (b *BTree) insert(value []byte) (uint32, error) {
@@ -30,7 +39,7 @@ func (b *BTree) insert(value []byte) (uint32, error) {
 }
 
 func (b *BTree) insertKey(key uint32, value []byte) error {
-	pg, err := b.store.getRoot()
+	pg, err := b.getRoot()
 	if err != nil {
 		return err
 	}
@@ -77,7 +86,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 				if err := b.store.append(parent); err != nil {
 					return err
 				}
-				b.store.setRoot(parent)
+				b.setRoot(parent)
 				parent.setRightMostKey(newPg.fileOffset)
 				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
 					return err
@@ -133,7 +142,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 				if err := b.store.append(parent); err != nil {
 					return err
 				}
-				b.store.setRoot(parent)
+				b.setRoot(parent)
 				parent.setRightMostKey(newPg.fileOffset)
 				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
 					return err
@@ -186,7 +195,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 
 func (b *BTree) findCell(key uint32) (*leafNodeCell, error) {
 
-	pg, err := b.store.getRoot()
+	pg, err := b.getRoot()
 	if err != nil {
 		return nil, err
 	}

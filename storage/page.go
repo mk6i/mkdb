@@ -534,23 +534,12 @@ type store interface {
 	fetch(offset uint64) (btreeNode, error)
 	getLastKey() uint32
 	incrementLastKey() error
-	getRoot() (btreeNode, error)
-	setRoot(pg btreeNode)
 	setPageTableRoot(pg btreeNode) error
 }
 
 type memoryStore struct {
 	pages   []btreeNode
 	lastKey uint32
-	root    btreeNode
-}
-
-func (m *memoryStore) getRoot() (btreeNode, error) {
-	return m.root, nil
-}
-
-func (m *memoryStore) setRoot(pg btreeNode) {
-	m.root = pg
 }
 
 func (m *memoryStore) getLastKey() uint32 {
@@ -710,10 +699,6 @@ func (f *fileStore) save() error {
 	if err != nil {
 		return err
 	}
-	err = binary.Write(writer, binary.LittleEndian, f.rootOffset)
-	if err != nil {
-		return err
-	}
 	err = binary.Write(writer, binary.LittleEndian, f.pageTableRoot)
 	if err != nil {
 		return err
@@ -735,10 +720,6 @@ func (f *fileStore) open() error {
 	defer file.Close()
 
 	err = binary.Read(file, binary.LittleEndian, &f.lastKey)
-	if err != nil {
-		return err
-	}
-	err = binary.Read(file, binary.LittleEndian, &f.rootOffset)
 	if err != nil {
 		return err
 	}
