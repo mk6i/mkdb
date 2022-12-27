@@ -572,12 +572,20 @@ func (m *memoryStore) fetch(offset uint64) (btreeNode, error) {
 	return m.pages[offset], nil
 }
 
+func newFileStore(path string) *fileStore {
+	return &fileStore{
+		cache: NewLRU(1000),
+		path:  path,
+	}
+}
+
 type fileStore struct {
 	path           string
 	lastKey        uint32
 	rootOffset     uint64
 	nextFreeOffset uint64
 	pageTableRoot  uint64
+	cache          *LRUCache
 }
 
 func (f *fileStore) getRoot() (btreeNode, error) {
@@ -620,6 +628,8 @@ func (f *fileStore) update(node btreeNode) error {
 	}
 	_, err = file.Write(buf.Bytes())
 
+	f.cache.set(node.getFileOffset(), node)
+
 	return err
 }
 
@@ -647,12 +657,18 @@ func (f *fileStore) append(node btreeNode) error {
 		return err
 	}
 
+	f.cache.set(f.nextFreeOffset, node)
+
 	f.nextFreeOffset += pageSize
 
 	return nil
 }
 
 func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
+	if node, ok := f.cache.get(offset); ok {
+		return node.(btreeNode), nil
+	}
+
 	file, err := os.Open(f.path)
 	if err != nil {
 		return nil, err
