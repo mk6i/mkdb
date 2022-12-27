@@ -257,9 +257,7 @@ func OpenRelation(dbName string) (*RelationService, error) {
 	if !exists {
 		return nil, ErrDBNotExist
 	}
-	fs := &fileStore{
-		path: path,
-	}
+	fs := newFileStore(path)
 	if err := fs.open(); err != nil {
 		return nil, err
 	}
@@ -288,10 +286,8 @@ func CreateDB(dbName string) error {
 
 	defer file.Close()
 
-	fs := &fileStore{
-		path:           path,
-		nextFreeOffset: pageSize,
-	}
+	fs := newFileStore(path)
+	fs.nextFreeOffset = pageSize
 
 	if err := fs.save(); err != nil {
 		return err
