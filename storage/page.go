@@ -85,6 +85,19 @@ type node struct {
 	fileOffset uint64
 	offsets    []uint16
 	freeSize   uint16
+	dirty      bool
+}
+
+func (n *node) markDirty() {
+	n.dirty = true
+}
+
+func (n *node) markClean() {
+	n.dirty = false
+}
+
+func (n *node) isDirty() bool {
+	return n.dirty
 }
 
 func (n *node) getFileOffset() uint64 {
@@ -100,6 +113,9 @@ type btreeNode interface {
 	setFileOffset(n uint64)
 	encode() (*bytes.Buffer, error)
 	decode(buf *bytes.Buffer) error
+	markDirty()
+	markClean()
+	isDirty() bool
 }
 
 type internalNode struct {
@@ -535,6 +551,7 @@ type store interface {
 	getLastKey() uint32
 	incrementLastKey() error
 	setPageTableRoot(pg btreeNode) error
+	flushPages() error
 }
 
 type memoryStore struct {
@@ -570,6 +587,10 @@ func (m *memoryStore) fetch(offset uint64) (btreeNode, error) {
 		return nil, errors.New("page does not exist in store")
 	}
 	return m.pages[offset], nil
+}
+
+func (m *memoryStore) flushPages() error {
+	return nil
 }
 
 func newFileStore(path string) *fileStore {
@@ -693,6 +714,8 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 		return nil, err
 	}
 
+	f.cache.set(node.getFileOffset(), node)
+
 	return node, nil
 }
 
@@ -748,5 +771,19 @@ func (f *fileStore) open() error {
 		return err
 	}
 
+	return nil
+}
+
+func (f *fileStore) flushPages() error {
+	for _, v := range f.cache.cache {
+		node := v.Value.(*cacheEntry).val.(btreeNode)
+		if !node.isDirty() {
+			continue
+		}
+		if err := f.update(node); err != nil {
+			return err
+		}
+		node.markClean()
+	}
 	return nil
 }

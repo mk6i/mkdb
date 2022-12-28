@@ -348,6 +348,7 @@ func (rs *RelationService) CreateTable(r *Relation, tableName string) error {
 	if err := rs.insertSchemaTable(r, tableName); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -450,6 +451,10 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 		return fmt.Errorf("unable to update page table entry for %d", fileOffset)
 	}
 
+	if err := rs.fs.flushPages(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -502,6 +507,11 @@ func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) erro
 			schemaTablePg = newRootPg
 		}
 	}
+
+	if err := rs.fs.flushPages(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -767,6 +777,10 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 		return err
 	}
 
+	if err := rs.fs.flushPages(); err != nil {
+		return err
+	}
+
 	// update page table with new root if the old root split
 	curPage, err := bt.getRoot()
 	if err != nil {
@@ -834,6 +848,10 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 		return KeepScanning, nil
 	})
 
+	if err := rs.fs.flushPages(); err != nil {
+		return err
+	}
+
 	if err != nil {
 		return err
 	}
@@ -866,6 +884,10 @@ func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) error {
 	cell.deleted = true
 
 	if err := bt.update(cell.pg); err != nil {
+		return err
+	}
+
+	if err := rs.fs.flushPages(); err != nil {
 		return err
 	}
 
