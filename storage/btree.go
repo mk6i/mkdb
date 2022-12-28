@@ -97,17 +97,11 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 				}
 				parent.setRightMostKey(newPg.fileOffset)
 			}
-			if err := b.store.update(newPg); err != nil {
-				return err
-			}
-			if err := b.store.update(parent); err != nil {
-				return err
-			}
+			newPg.markDirty()
+			parent.markDirty()
 		}
 		if parent != nil {
-			if err := b.store.update(parent); err != nil {
-				return err
-			}
+			parent.markDirty()
 		}
 	case *leafNode:
 		offset, found := node.findCellOffsetByKey(key)
@@ -117,9 +111,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 		if err := node.insertCell(uint32(offset), key, value); err != nil {
 			return err
 		}
-		if err := b.store.update(node); err != nil {
-			return err
-		}
+		node.markDirty()
 
 		if node.isFull() {
 			newPg := &leafNode{}
@@ -171,22 +163,14 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 						return err
 					}
 					rightSib.(*leafNode).lSibFileOffset = newPg.fileOffset
-					if err := b.store.update(rightSib); err != nil {
-						return err
-					}
+					rightSib.markDirty()
 				}
 			}
-			if err := b.store.update(newPg); err != nil {
-				return err
-			}
+			newPg.markDirty()
 		}
-		if err := b.store.update(node); err != nil {
-			return err
-		}
+		node.markDirty()
 		if parent != nil {
-			if err := b.store.update(parent); err != nil {
-				return err
-			}
+			parent.markDirty()
 		}
 	}
 
