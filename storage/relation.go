@@ -249,6 +249,10 @@ type RelationService struct {
 	fs *fileStore
 }
 
+func (rs *RelationService) Close() error {
+	return rs.fs.close()
+}
+
 func OpenRelation(dbName string) (*RelationService, error) {
 	path, exists, err := dbPath(dbName)
 	if err != nil {
@@ -257,7 +261,10 @@ func OpenRelation(dbName string) (*RelationService, error) {
 	if !exists {
 		return nil, ErrDBNotExist
 	}
-	fs := newFileStore(path)
+	fs, err := newFileStore(path)
+	if err != nil {
+		return nil, err
+	}
 	if err := fs.open(); err != nil {
 		return nil, err
 	}
@@ -279,14 +286,11 @@ func CreateDB(dbName string) error {
 		return ErrDBExists
 	}
 
-	file, err := os.Create(path)
+	fs, err := newFileStore(path)
 	if err != nil {
 		return err
 	}
 
-	defer file.Close()
-
-	fs := newFileStore(path)
 	fs.nextFreeOffset = pageSize
 
 	if err := fs.save(); err != nil {
@@ -294,6 +298,8 @@ func CreateDB(dbName string) error {
 	}
 
 	rs := &RelationService{fs: fs}
+
+	defer rs.Close()
 
 	// create page table page
 	pgTblPg, err := rs.createPage()

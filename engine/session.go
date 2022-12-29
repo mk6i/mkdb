@@ -22,6 +22,13 @@ type relationManager interface {
 	Insert(tableName string, cols []string, vals []interface{}) error
 }
 
+func (s *Session) Close() error {
+	if s.RelationService != nil {
+		return s.RelationService.Close()
+	}
+	return nil
+}
+
 func (s *Session) ExecQuery(q string) error {
 	stmt, err := parseSQL(q)
 	if err != nil {
