@@ -24,6 +24,8 @@ func main() {
 	`)
 
 	sess := engine.Session{}
+	defer sess.Close()
+
 	for {
 		fmt.Printf("\n%s> ", sess.CurDB)
 		query, _ := reader.ReadString(';')

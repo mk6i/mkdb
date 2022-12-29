@@ -593,20 +593,30 @@ func (m *memoryStore) flushPages() error {
 	return nil
 }
 
-func newFileStore(path string) *fileStore {
+func newFileStore(path string) (*fileStore, error) {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
 	return &fileStore{
 		cache: NewLRU(1000),
+		file:  file,
 		path:  path,
-	}
+	}, nil
 }
 
 type fileStore struct {
+	file           *os.File
 	path           string
 	lastKey        uint32
 	rootOffset     uint64
 	nextFreeOffset uint64
 	pageTableRoot  uint64
 	cache          *LRUCache
+}
+
+func (f *fileStore) close() error {
+	return f.file.Close()
 }
 
 func (f *fileStore) getRoot() (btreeNode, error) {
@@ -632,13 +642,7 @@ func (f *fileStore) incrementLastKey() error {
 }
 
 func (f *fileStore) update(node btreeNode) error {
-	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Seek(int64(node.getFileOffset()), 0)
+	_, err := f.file.Seek(int64(node.getFileOffset()), 0)
 	if err != nil {
 		return err
 	}
@@ -647,7 +651,7 @@ func (f *fileStore) update(node btreeNode) error {
 	if err != nil {
 		return err
 	}
-	_, err = file.Write(buf.Bytes())
+	_, err = f.file.Write(buf.Bytes())
 
 	f.cache.set(node.getFileOffset(), node)
 
@@ -657,13 +661,7 @@ func (f *fileStore) update(node btreeNode) error {
 func (f *fileStore) append(node btreeNode) error {
 	node.setFileOffset(f.nextFreeOffset)
 
-	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Seek(int64(f.nextFreeOffset), 0)
+	_, err := f.file.Seek(int64(f.nextFreeOffset), 0)
 	if err != nil {
 		return err
 	}
@@ -673,7 +671,7 @@ func (f *fileStore) append(node btreeNode) error {
 		return err
 	}
 
-	_, err = file.Write(buf.Bytes())
+	_, err = f.file.Write(buf.Bytes())
 	if err != nil {
 		return err
 	}
@@ -720,19 +718,12 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 }
 
 func (f *fileStore) save() error {
-
-	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Seek(0, 0)
+	_, err := f.file.Seek(0, 0)
 	if err != nil {
 		return err
 	}
 
-	writer := bufio.NewWriter(file)
+	writer := bufio.NewWriter(f.file)
 
 	err = binary.Write(writer, binary.LittleEndian, f.lastKey)
 	if err != nil {
@@ -751,22 +742,15 @@ func (f *fileStore) save() error {
 }
 
 func (f *fileStore) open() error {
-
-	file, err := os.Open(f.path)
+	err := binary.Read(f.file, binary.LittleEndian, &f.lastKey)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
-	err = binary.Read(file, binary.LittleEndian, &f.lastKey)
+	err = binary.Read(f.file, binary.LittleEndian, &f.pageTableRoot)
 	if err != nil {
 		return err
 	}
-	err = binary.Read(file, binary.LittleEndian, &f.pageTableRoot)
-	if err != nil {
-		return err
-	}
-	err = binary.Read(file, binary.LittleEndian, &f.nextFreeOffset)
+	err = binary.Read(f.file, binary.LittleEndian, &f.nextFreeOffset)
 	if err != nil {
 		return err
 	}

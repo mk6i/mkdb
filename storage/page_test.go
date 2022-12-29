@@ -131,17 +131,28 @@ func TestMemoryStore(t *testing.T) {
 
 func TestFileStore(t *testing.T) {
 
-	fs1 := newFileStore("/tmp/page_file")
+	fs1, err := newFileStore("/tmp/page_file")
+	if err != nil {
+		t.Errorf("error creating file store: %s", err.Error())
+	}
+
+	defer fs1.close()
+
 	fs1.nextFreeOffset = pageSize
 
 	defer os.Remove(fs1.path)
 
-	err := fs1.save()
+	err = fs1.save()
 	if err != nil {
 		t.Errorf("unable to save file store: %s", err.Error())
 	}
 
-	fs2 := newFileStore("/tmp/page_file")
+	fs2, err := newFileStore("/tmp/page_file")
+	if err != nil {
+		t.Errorf("error creating file store: %s", err.Error())
+	}
+
+	defer fs2.close()
 
 	err = fs2.open()
 	if err != nil {
