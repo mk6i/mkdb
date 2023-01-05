@@ -6,7 +6,14 @@ import (
 	"os"
 
 	"github.com/mkaminski/bkdb/engine"
+	"github.com/mkaminski/bkdb/storage"
 )
+
+func init() {
+	if err := storage.InitStorage(); err != nil {
+		panic(fmt.Sprintf("storage init error: %s", err.Error()))
+	}
+}
 
 func main() {
 

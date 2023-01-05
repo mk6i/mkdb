@@ -2,6 +2,7 @@ package engine
 
 import (
 	"github.com/mkaminski/bkdb/sql"
+	"github.com/mkaminski/bkdb/storage"
 )
 
 func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
@@ -30,10 +31,17 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
 		updateSrc = append(updateSrc, val)
 	}
 
+	var batch storage.WALBatch
 	for _, row := range rows {
-		if err := rm.Update(q.TableName, row.RowID, cols, updateSrc); err != nil {
+		walEntries, err := rm.Update(q.TableName, row.RowID, cols, updateSrc)
+		if err != nil {
 			return err
 		}
+		batch = append(batch, walEntries...)
+	}
+
+	if err := rm.FlushWALBatch(batch); err != nil {
+		return err
 	}
 
 	return nil

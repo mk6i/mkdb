@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 )
@@ -246,15 +245,19 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 }
 
 type RelationService struct {
-	fs *fileStore
+	fs  *fileStore
+	wal *wal
 }
 
 func (rs *RelationService) Close() error {
+	if err := rs.wal.close(); err != nil {
+		return err
+	}
 	return rs.fs.close()
 }
 
 func OpenRelation(dbName string) (*RelationService, error) {
-	path, exists, err := dbPath(dbName)
+	path, exists, err := dbFilePath(dbName)
 	if err != nil {
 		return nil, err
 	}
@@ -268,17 +271,22 @@ func OpenRelation(dbName string) (*RelationService, error) {
 	if err := fs.open(); err != nil {
 		return nil, err
 	}
+	wal, err := newWal(dbName)
+	if err != nil {
+		return nil, err
+	}
 	return &RelationService{
-		fs: fs,
+		fs:  fs,
+		wal: wal,
 	}, nil
 }
 
 func CreateDB(dbName string) error {
-	if err := os.Mkdir("data", 0755); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error making data dir: %s", err.Error())
+	if err := makeDBDir(dbName); err != nil {
+		panic(fmt.Sprintf("error making db dir: %s", err.Error()))
 	}
 
-	path, exists, err := dbPath(dbName)
+	path, exists, err := dbFilePath(dbName)
 	if err != nil {
 		return err
 	}
@@ -297,7 +305,16 @@ func CreateDB(dbName string) error {
 		return err
 	}
 
-	rs := &RelationService{fs: fs}
+	wal, err := newWal(dbName)
+	if err != nil {
+		return err
+	}
+
+	// todo make this more dry, this logic is duped in OpenRelation
+	rs := &RelationService{
+		fs:  fs,
+		wal: wal,
+	}
 
 	defer rs.Close()
 
@@ -735,20 +752,22 @@ func (rs *RelationService) scanRelation(fileOffset uint64, r *Relation, fields F
 	return results, nil
 }
 
-func (rs *RelationService) Insert(tableName string, cols []string, vals []interface{}) error {
+func (rs *RelationService) Insert(tableName string, cols []string, vals []interface{}) (WALBatch, error) {
+	var walLogs WALBatch
+
 	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	tablePg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	schema, err := rs.getRelationSchema(tableName)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	tuple := Tuple{
@@ -764,7 +783,7 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 	}
 
 	if len(cols) != len(vals) {
-		return ErrColCountMismatch
+		return walLogs, ErrColCountMismatch
 	}
 
 	for i, col := range cols {
@@ -773,52 +792,60 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 
 	buf, err := tuple.Encode()
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	bt := &BTree{store: rs.fs}
 	bt.setRoot(tablePg)
-	_, err = bt.insert(buf.Bytes())
+	id, err := bt.insert(buf.Bytes())
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
+	walLogs = append(walLogs, &WALEntry{
+		pageID: uint64(fileOffset),
+		WALOp:  OP_INSERT,
+		cellID: id,
+		val:    buf.Bytes(),
+	})
+
 	if err := rs.fs.flushPages(); err != nil {
-		return err
+		return walLogs, err
 	}
 
 	// update page table with new root if the old root split
 	curPage, err := bt.getRoot()
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	rootChanged := curPage.getFileOffset() != tablePg.getFileOffset()
 	if rootChanged {
 		if err := rs.updatePageTable(curPage.getFileOffset(), tableName); err != nil {
-			return err
+			return walLogs, err
 		}
 	}
 
-	return nil
+	return walLogs, nil
 }
 
 // todo combine with update page table code?
-func (rs *RelationService) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
+func (rs *RelationService) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) (WALBatch, error) {
+	var walLogs WALBatch
 
 	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	pg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	r, err := rs.getRelationSchema(tableName)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	bt := BTree{store: rs.fs}
@@ -828,6 +855,7 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 		if cell.key != rowID {
 			return KeepScanning, nil
 		}
+
 		tuple := Tuple{
 			Relation: r,
 			Vals:     make(map[string]interface{}),
@@ -848,32 +876,40 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 		if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 			return StopScanning, err
 		}
-		if err := rs.fs.update(cell.pg); err != nil {
-			return StopScanning, err
-		}
+
+		cell.pg.markDirty()
+
+		walLogs = append(walLogs, &WALEntry{
+			WALOp:  OP_UPDATE,
+			pageID: cell.pg.getFileOffset(),
+			cellID: cell.key,
+			val:    buf.Bytes(),
+		})
+
 		return KeepScanning, nil
 	})
+	if err != nil {
+		return walLogs, err
+	}
 
 	if err := rs.fs.flushPages(); err != nil {
-		return err
+		return walLogs, err
 	}
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return walLogs, nil
 }
 
-func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) error {
+func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) (WALBatch, error) {
+	var walLogs WALBatch
+
 	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	pg, err := rs.fs.fetch(uint64(fileOffset))
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	bt := BTree{store: rs.fs}
@@ -881,37 +917,28 @@ func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) error {
 
 	cell, err := bt.findCell(rowID)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 	if cell == nil {
-		return fmt.Errorf("unable to find cell for rowID %d", rowID)
+		return walLogs, fmt.Errorf("unable to find cell for rowID %d", rowID)
 	}
 
 	cell.deleted = true
+	cell.pg.markDirty()
 
-	if err := bt.update(cell.pg); err != nil {
-		return err
-	}
+	walLogs = append(walLogs, &WALEntry{
+		WALOp:  OP_DELETE,
+		pageID: cell.pg.getFileOffset(),
+		cellID: cell.key,
+	})
 
 	if err := rs.fs.flushPages(); err != nil {
-		return err
+		return walLogs, err
 	}
 
-	return nil
+	return walLogs, nil
 }
 
-func dbPath(db string) (string, bool, error) {
-	if db == "" {
-		return "", false, ErrDBNotSelected
-	}
-
-	path := "data/" + strings.ToLower(db)
-
-	_, err := os.Stat(path)
-
-	if err != nil && !os.IsNotExist(err) {
-		return path, false, err
-	}
-
-	return path, !os.IsNotExist(err), nil
+func (rs *RelationService) FlushWALBatch(batch WALBatch) error {
+	return rs.wal.flush(batch)
 }
