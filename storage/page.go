@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -601,13 +600,11 @@ func newFileStore(path string) (*fileStore, error) {
 	return &fileStore{
 		cache: NewLRU(1000),
 		file:  file,
-		path:  path,
 	}, nil
 }
 
 type fileStore struct {
 	file           *os.File
-	path           string
 	lastKey        uint32
 	rootOffset     uint64
 	nextFreeOffset uint64
@@ -642,16 +639,11 @@ func (f *fileStore) incrementLastKey() error {
 }
 
 func (f *fileStore) update(node btreeNode) error {
-	_, err := f.file.Seek(int64(node.getFileOffset()), 0)
-	if err != nil {
-		return err
-	}
-
 	buf, err := node.encode()
 	if err != nil {
 		return err
 	}
-	_, err = f.file.Write(buf.Bytes())
+	_, err = f.file.WriteAt(buf.Bytes(), int64(node.getFileOffset()))
 
 	f.cache.set(node.getFileOffset(), node)
 
@@ -661,17 +653,12 @@ func (f *fileStore) update(node btreeNode) error {
 func (f *fileStore) append(node btreeNode) error {
 	node.setFileOffset(f.nextFreeOffset)
 
-	_, err := f.file.Seek(int64(f.nextFreeOffset), 0)
-	if err != nil {
-		return err
-	}
-
 	buf, err := node.encode()
 	if err != nil {
 		return err
 	}
 
-	_, err = f.file.Write(buf.Bytes())
+	_, err = f.file.WriteAt(buf.Bytes(), int64(f.nextFreeOffset))
 	if err != nil {
 		return err
 	}
@@ -688,14 +675,8 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 		return node.(btreeNode), nil
 	}
 
-	file, err := os.Open(f.path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
 	buf := make([]byte, pageSize)
-	_, err = file.ReadAt(buf, int64(offset))
+	_, err := f.file.ReadAt(buf, int64(offset))
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
@@ -720,14 +701,9 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 }
 
 func (f *fileStore) save() error {
-	_, err := f.file.Seek(0, 0)
-	if err != nil {
-		return err
-	}
+	writer := bytes.NewBuffer(make([]byte, 0, 20))
 
-	writer := bufio.NewWriter(f.file)
-
-	err = binary.Write(writer, binary.LittleEndian, f.lastKey)
+	err := binary.Write(writer, binary.LittleEndian, f.lastKey)
 	if err != nil {
 		return err
 	}
@@ -740,7 +716,9 @@ func (f *fileStore) save() error {
 		return err
 	}
 
-	return writer.Flush()
+	_, err = f.file.WriteAt(writer.Bytes(), 0)
+
+	return err
 }
 
 func (f *fileStore) open() error {
