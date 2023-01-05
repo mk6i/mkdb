@@ -140,7 +140,7 @@ func TestFileStore(t *testing.T) {
 
 	fs1.nextFreeOffset = pageSize
 
-	defer os.Remove(fs1.path)
+	defer os.Remove(fs1.file.Name())
 
 	err = fs1.save()
 	if err != nil {
