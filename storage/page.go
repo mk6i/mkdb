@@ -706,6 +706,8 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 		node = &internalNode{}
 	case LeafNode:
 		node = &leafNode{}
+	default:
+		panic("no node here?")
 	}
 
 	if err := node.decode(bytes.NewBuffer(buf)); err != nil {

@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"os"
 	"testing"
 
 	"github.com/mkaminski/bkdb/storage"
@@ -9,11 +8,7 @@ import (
 
 func TestIntegration(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	queries := []string{
 		`CREATE DATABASE testdb`,
@@ -87,11 +82,7 @@ func TestIntegration(t *testing.T) {
 
 func TestInsertNonExistentTable(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	s := Session{}
 
@@ -115,11 +106,7 @@ func TestInsertNonExistentTable(t *testing.T) {
 
 func TestInsertColCountMismatch(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	s := Session{}
 
@@ -148,11 +135,7 @@ func TestInsertColCountMismatch(t *testing.T) {
 
 func TestInsertSansColListColCountMismatch(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	s := Session{}
 
@@ -181,11 +164,7 @@ func TestInsertSansColListColCountMismatch(t *testing.T) {
 
 func TestSelectNonExistentTable(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	s := Session{}
 
@@ -209,11 +188,7 @@ func TestSelectNonExistentTable(t *testing.T) {
 
 func TestCreateDuplicateTable(t *testing.T) {
 
-	defer func() {
-		if err := os.Remove("data/testdb"); err != nil {
-			t.Logf("error removing db: %s", err.Error())
-		}
-	}()
+	defer storage.ClearDataDir()
 
 	s := Session{}
 

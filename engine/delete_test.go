@@ -76,8 +76,11 @@ func TestDelete(t *testing.T) {
 				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
 					return test.givenRows[tableName], test.givenFields[tableName], nil
 				},
-				markDeleted: func(tableName string, rowID uint32) error {
+				markDeleted: func(tableName string, rowID uint32) (storage.WALBatch, error) {
 					actualDeleted = append(actualDeleted, int32(rowID))
+					return nil, nil
+				},
+				flushWALBatch: func(batch storage.WALBatch) error {
 					return nil
 				},
 			}

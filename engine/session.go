@@ -16,10 +16,11 @@ type Session struct {
 
 type relationManager interface {
 	CreateTable(r *storage.Relation, tableName string) error
-	MarkDeleted(tableName string, rowID uint32) error
+	MarkDeleted(tableName string, rowID uint32) (storage.WALBatch, error)
 	Fetch(tableName string) ([]*storage.Row, []*storage.Field, error)
-	Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error
-	Insert(tableName string, cols []string, vals []interface{}) error
+	Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) (storage.WALBatch, error)
+	Insert(tableName string, cols []string, vals []interface{}) (storage.WALBatch, error)
+	FlushWALBatch(batch storage.WALBatch) error
 }
 
 func (s *Session) Close() error {

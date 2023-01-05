@@ -10,27 +10,31 @@ import (
 )
 
 type mockRelationManager struct {
-	createTable func(r *storage.Relation, tableName string) error
-	markDeleted func(tableName string, rowID uint32) error
-	fetch       func(tableName string) ([]*storage.Row, []*storage.Field, error)
-	update      func(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error
-	insert      func(tableName string, cols []string, vals []interface{}) error
+	createTable   func(r *storage.Relation, tableName string) error
+	markDeleted   func(tableName string, rowID uint32) (storage.WALBatch, error)
+	fetch         func(tableName string) ([]*storage.Row, []*storage.Field, error)
+	update        func(tableName string, rowID uint32, cols []string, updateSrc []interface{}) (storage.WALBatch, error)
+	insert        func(tableName string, cols []string, vals []interface{}) (storage.WALBatch, error)
+	flushWALBatch func(batch storage.WALBatch) error
 }
 
 func (m *mockRelationManager) CreateTable(r *storage.Relation, tableName string) error {
 	return m.createTable(r, tableName)
 }
-func (m *mockRelationManager) MarkDeleted(tableName string, rowID uint32) error {
+func (m *mockRelationManager) MarkDeleted(tableName string, rowID uint32) (storage.WALBatch, error) {
 	return m.markDeleted(tableName, rowID)
 }
 func (m *mockRelationManager) Fetch(tableName string) ([]*storage.Row, []*storage.Field, error) {
 	return m.fetch(tableName)
 }
-func (m *mockRelationManager) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) error {
+func (m *mockRelationManager) Update(tableName string, rowID uint32, cols []string, updateSrc []interface{}) (storage.WALBatch, error) {
 	return m.update(tableName, rowID, cols, updateSrc)
 }
-func (m *mockRelationManager) Insert(tableName string, cols []string, vals []interface{}) error {
+func (m *mockRelationManager) Insert(tableName string, cols []string, vals []interface{}) (storage.WALBatch, error) {
 	return m.insert(tableName, cols, vals)
+}
+func (m *mockRelationManager) FlushWALBatch(batch storage.WALBatch) error {
+	return m.flushWALBatch(batch)
 }
 
 func TestSelect(t *testing.T) {
