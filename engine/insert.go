@@ -6,6 +6,9 @@ import (
 )
 
 func EvaluateInsert(q sql.InsertStatement, rm relationManager) (int, error) {
+	rm.StartTxn()
+	defer rm.EndTxn()
+
 	tbl := q.TableName
 	cols := q.InsertColumnsAndSource.InsertColumnList.ColumnNames
 	vals := q.InsertColumnsAndSource.QueryExpression.(sql.TableValueConstructor).TableValueConstructorList

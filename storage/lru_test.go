@@ -8,20 +8,19 @@ func TestLRUGet_Found(t *testing.T) {
 
 	lru := NewLRU(3)
 
-	lru.set("A", "red")
-	lru.set("B", "blue")
-	lru.set("C", "green")
+	lru.set("A", &leafNode{node: node{fileOffset: 1}})
+	lru.set("B", &leafNode{node: node{fileOffset: 2}})
+	lru.set("C", &leafNode{node: node{fileOffset: 3}})
 
 	key := "A"
-	var expect any
-	expect = "red"
+	expect := &leafNode{node: node{fileOffset: 1}}
 
 	val, found := lru.get(key)
 	if !found {
 		t.Fatalf("did not find entry for key %v", key)
 	}
 
-	if expect != val {
+	if expect.getFileOffset() != val.getFileOffset() {
 		t.Fatalf("expected value %v, got %v", expect, val)
 	}
 }
@@ -30,9 +29,9 @@ func TestLRUGet_NotFound(t *testing.T) {
 
 	lru := NewLRU(3)
 
-	lru.set("A", "red")
-	lru.set("B", "blue")
-	lru.set("C", "green")
+	lru.set("A", &leafNode{node: node{fileOffset: 1}})
+	lru.set("B", &leafNode{node: node{fileOffset: 2}})
+	lru.set("C", &leafNode{node: node{fileOffset: 3}})
 
 	key := "D"
 	val, found := lru.get(key)
@@ -56,12 +55,12 @@ func TestLRUState(t *testing.T) {
 			maxEntries:  5,
 			expectCount: 5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", "red")
-				lru.set("B", "blue")
-				lru.set("C", "green")
-				lru.set("D", "orange")
-				lru.set("E", "yellow")
-				lru.set("F", "brown") // this should evict element A
+				lru.set("A", &leafNode{node: node{fileOffset: 1}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("D", &leafNode{node: node{fileOffset: 4}})
+				lru.set("E", &leafNode{node: node{fileOffset: 5}})
+				lru.set("F", &leafNode{node: node{fileOffset: 6}}) // this should evict element A
 			},
 			expectFront: "F",
 			expectBack:  "B",
@@ -71,10 +70,10 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", "red")
-				lru.set("B", "blue")
-				lru.set("C", "green")
-				lru.set("A", "red") // this should be moved to beginning of list
+				lru.set("A", &leafNode{node: node{fileOffset: 1}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("A", &leafNode{node: node{fileOffset: 1}}) // this should be moved to beginning of list
 			},
 			expectFront: "A",
 			expectBack:  "B",
@@ -84,9 +83,9 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", "red")
-				lru.set("B", "blue")
-				lru.set("C", "green")
+				lru.set("A", &leafNode{node: node{fileOffset: 1}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
 				lru.get("A") // this should be moved to beginning of list
 			},
 			expectFront: "A",
@@ -97,9 +96,9 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", "red")
-				lru.set("B", "blue")
-				lru.set("C", "green")
+				lru.set("A", &leafNode{node: node{fileOffset: 1}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
 				lru.get("X") // this element should not exist
 			},
 			expectFront: "C",
@@ -121,6 +120,87 @@ func TestLRUState(t *testing.T) {
 
 			if lru.list.Back().Value.(*cacheEntry).key != test.expectBack {
 				t.Fatalf("back of list is expected to be %v, got %v", test.expectBack, lru.list.Back().Value.(*cacheEntry).key)
+			}
+		})
+	}
+}
+
+func TestLRUEviction(t *testing.T) {
+
+	tests := []struct {
+		name        string
+		expectCount int
+		maxEntries  int
+		setState    func(*LRUCache)
+		expectKeys  []string
+	}{
+		{
+			name:        "adding new element to full cache should evict oldest element",
+			maxEntries:  3,
+			expectCount: 3,
+			setState: func(lru *LRUCache) {
+				lru.set("A", &leafNode{node: node{fileOffset: 1}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element A
+			},
+			expectKeys: []string{"D", "C", "B"},
+		},
+		{
+			name:        "adding new element to full cache should evict 2nd-oldest element",
+			maxEntries:  3,
+			expectCount: 3,
+			setState: func(lru *LRUCache) {
+				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element B
+			},
+			expectKeys: []string{"D", "C", "A"},
+		},
+		{
+			name:        "adding new element to full cache should evict 3rd-oldest element",
+			maxEntries:  3,
+			expectCount: 3,
+			setState: func(lru *LRUCache) {
+				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2, dirty: true}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element C
+			},
+			expectKeys: []string{"D", "B", "A"},
+		},
+		{
+			name:        "adding new element to full cache should fail",
+			maxEntries:  3,
+			expectCount: 3,
+			setState: func(lru *LRUCache) {
+				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
+				lru.set("B", &leafNode{node: node{fileOffset: 2, dirty: true}})
+				lru.set("C", &leafNode{node: node{fileOffset: 3, dirty: true}})
+				if lru.set("D", &leafNode{node: node{fileOffset: 4}}) {
+					t.Fatalf("expected set on cache full of dirty pages to fail, but it succeeded")
+				}
+			},
+			expectKeys: []string{"C", "B", "A"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lru := NewLRU(test.maxEntries)
+			test.setState(lru)
+			if test.expectCount != len(lru.cache) {
+				t.Fatalf("cache element count is unexpected. expected: %v actual: %v \ncache:\n\t%v", test.expectCount, len(lru.cache), lru.cache)
+			}
+
+			cur := lru.list.Front()
+			for i, expectK := range test.expectKeys {
+				actualK := cur.Value.(*cacheEntry).key
+				if expectK != actualK {
+					t.Fatalf("cache key is not the same at position %d. expected: %v got: %v", i, expectK, actualK)
+				}
+				cur = cur.Next()
 			}
 		})
 	}

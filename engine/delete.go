@@ -6,6 +6,9 @@ import (
 )
 
 func EvaluateDelete(q sql.DeleteStatementSearched, rm relationManager) (int, error) {
+	rm.StartTxn()
+	defer rm.EndTxn()
+
 	table := q.TableName
 	rows, fields, err := rm.Fetch(table)
 	if err != nil {

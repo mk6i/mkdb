@@ -51,6 +51,10 @@ func InitStorage() error {
 			return err
 		}
 
+		if err := fs.open(); err != nil {
+			return err
+		}
+
 		defer fs.close()
 
 		batch, err := wal.read()
@@ -68,6 +72,7 @@ func InitStorage() error {
 
 type WALEntry struct {
 	WALOp
+	LSN    uint64
 	pageID uint64
 	cellID uint32
 	val    []byte
@@ -77,6 +82,9 @@ func (w *WALEntry) encode() (*bytes.Buffer, error) {
 	buf := &bytes.Buffer{}
 
 	if err := binary.Write(buf, binary.LittleEndian, w.WALOp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.LittleEndian, w.LSN); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(buf, binary.LittleEndian, w.pageID); err != nil {
@@ -97,6 +105,9 @@ func (w *WALEntry) encode() (*bytes.Buffer, error) {
 
 func (w *WALEntry) decode(buf *bytes.Buffer) error {
 	if err := binary.Read(buf, binary.LittleEndian, &w.WALOp); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &w.LSN); err != nil {
 		return err
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &w.pageID); err != nil {
@@ -155,7 +166,7 @@ func (w *wal) read() (WALBatch, error) {
 	tupleLenBuf := make([]byte, 4)
 
 	for {
-		if n, err := reader.Read(tupleLenBuf); err == io.EOF || n == 0 {
+		if n, err := io.ReadFull(reader, tupleLenBuf); err == io.EOF {
 			break
 		} else if err != nil {
 			return ret, err
@@ -169,7 +180,7 @@ func (w *wal) read() (WALBatch, error) {
 		}
 
 		tupleBuf := make([]byte, tupleLen)
-		if n, err := reader.Read(tupleBuf); err != nil {
+		if n, err := io.ReadFull(reader, tupleBuf); err != nil {
 			return ret, err
 		} else if n != tupleLen {
 			panic("bytes read differs from expected buffer length")
@@ -210,49 +221,55 @@ func (w *wal) flush(batch WALBatch) error {
 		}
 	}
 
-	if err := w.reader.Sync(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (w WALBatch) replay(fs *fileStore) error {
 	for _, row := range w {
+		fs._nextLSN = row.LSN
+		node, err := fs.fetch(row.pageID)
+		if err != nil {
+			return err
+		}
+		if row.LSN <= node.getLastLSN() {
+			// this update has already been committed to disk
+			continue
+		}
 		switch row.WALOp {
 		case OP_INSERT:
-			tablePg, err := fs.fetch(row.pageID)
-			if err != nil {
-				return err
-			}
 			bt := &BTree{store: fs}
-			bt.setRoot(tablePg)
-			err = bt.insertKey(row.cellID, row.val)
+			bt.setRoot(node)
+			err = bt.insertKey(row.cellID, row.LSN, row.val)
 			if err != nil && !errors.Is(err, errKeyAlreadyExists) {
 				return err
 			}
+			if err := fs.incrementLastKey(); err != nil {
+				return err
+			}
+
 		case OP_UPDATE:
-			node, err := fs.fetch(row.pageID)
-			if err != nil {
+			tuple := Tuple{
+				Relation: &pageTableSchema,
+				Vals:     make(map[string]interface{}),
+			}
+			if err := tuple.Decode(bytes.NewBuffer(row.val)); err != nil {
 				return err
 			}
 			err = node.(*leafNode).updateCell(row.cellID, row.val)
 			if err != nil {
 				return nil
 			}
-			node.markDirty()
+			node.markDirty(row.LSN)
 		case OP_DELETE:
-			node, err := fs.fetch(row.pageID)
-			if err != nil {
-				return err
-			}
 			offset, found := node.(*leafNode).findCellOffsetByKey(row.cellID)
 			if !found {
 				return fmt.Errorf("unable to find cell for rowID %d", row.cellID)
 			}
 			node.(*leafNode).cells[offset].deleted = true
-			node.markDirty()
+			node.markDirty(row.LSN)
 		}
 	}
+
+	fs._nextLSN++
 	return fs.flushPages()
 }

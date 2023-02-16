@@ -6,6 +6,9 @@ import (
 )
 
 func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
+	rm.StartTxn()
+	defer rm.EndTxn()
+
 	table := q.TableName
 	rows, fields, err := rm.Fetch(table)
 	if err != nil {

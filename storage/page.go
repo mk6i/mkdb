@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
+	"time"
 )
 
 const (
@@ -21,6 +23,7 @@ const (
 	// size (in bytes) of fixed space used to store page metadata
 	internalNodeHeaderSize = 1 + // field: cellType
 		8 + // field: fileOffset
+		8 + // field: lastLSN
 		8 + // field: rightOffset
 		4 + // field: cellCount
 		2 // field: freeSize
@@ -28,6 +31,7 @@ const (
 	// size (in bytes) of fixed space used to store page metadata
 	leafNodeHeaderSize = 1 + // field: cellType
 		8 + // field: fileOffset
+		8 + // field: lastLSN
 		1 + // field: hasLSib
 		1 + // field: hasRSib
 		8 + // field: lSibFileOffset
@@ -58,7 +62,13 @@ const (
 	maxLeafNodeCells = (pageSize - leafNodeHeaderSize) / (offsetElemSize + leafNodeCellSize)
 )
 
-var ErrRowTooLarge = fmt.Errorf("row exceeds %d bytes", maxValueSize)
+// pageFlushInterval is how often to flush dirty pages to disk
+const pageFlushInterval = 1 * time.Second
+
+var (
+	ErrRowTooLarge  = fmt.Errorf("row exceeds %d bytes", maxValueSize)
+	ErrLRUCacheFull = errors.New("cache is full and contains no evictable pages, try increasing page flush frequency")
+)
 
 func checkRowSizeLimit(value []byte) error {
 	if len(value) > maxValueSize {
@@ -85,9 +95,11 @@ type node struct {
 	offsets    []uint16
 	freeSize   uint16
 	dirty      bool
+	lastLSN    uint64
 }
 
-func (n *node) markDirty() {
+func (n *node) markDirty(lsn uint64) {
+	n.lastLSN = lsn
 	n.dirty = true
 }
 
@@ -107,14 +119,19 @@ func (n *node) setFileOffset(offset uint64) {
 	n.fileOffset = offset
 }
 
+func (n *node) getLastLSN() uint64 {
+	return n.lastLSN
+}
+
 type btreeNode interface {
 	getFileOffset() uint64
 	setFileOffset(n uint64)
 	encode() (*bytes.Buffer, error)
 	decode(buf *bytes.Buffer) error
-	markDirty()
+	markDirty(uint64)
 	markClean()
 	isDirty() bool
+	getLastLSN() uint64
 }
 
 type internalNode struct {
@@ -213,6 +230,9 @@ func (p *internalNode) encode() (*bytes.Buffer, error) {
 	if err := binary.Write(buf, binary.LittleEndian, p.fileOffset); err != nil {
 		return nil, err
 	}
+	if err := binary.Write(buf, binary.LittleEndian, p.lastLSN); err != nil {
+		return nil, err
+	}
 	if err := binary.Write(buf, binary.LittleEndian, p.rightOffset); err != nil {
 		return nil, err
 	}
@@ -269,6 +289,9 @@ func (p *internalNode) decode(buf *bytes.Buffer) error {
 		return fmt.Errorf("decoding error: expected node type %d, got %d", InternalNode, cellType)
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &p.fileOffset); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.lastLSN); err != nil {
 		return err
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &p.rightOffset); err != nil {
@@ -416,6 +439,9 @@ func (p *leafNode) encode() (*bytes.Buffer, error) {
 	if err := binary.Write(buf, binary.LittleEndian, p.fileOffset); err != nil {
 		return nil, err
 	}
+	if err := binary.Write(buf, binary.LittleEndian, p.lastLSN); err != nil {
+		return nil, err
+	}
 	if err := binary.Write(buf, binary.LittleEndian, p.hasLSib); err != nil {
 		return nil, err
 	}
@@ -489,6 +515,9 @@ func (p *leafNode) decode(buf *bytes.Buffer) error {
 	if err := binary.Read(buf, binary.LittleEndian, &p.fileOffset); err != nil {
 		return err
 	}
+	if err := binary.Read(buf, binary.LittleEndian, &p.lastLSN); err != nil {
+		return err
+	}
 	if err := binary.Read(buf, binary.LittleEndian, &p.hasLSib); err != nil {
 		return err
 	}
@@ -548,6 +577,8 @@ type store interface {
 	update(p btreeNode) error
 	fetch(offset uint64) (btreeNode, error)
 	getLastKey() uint32
+	nextLSN() uint64
+	incrLSN()
 	incrementLastKey() error
 	setPageTableRoot(pg btreeNode) error
 	flushPages() error
@@ -592,15 +623,39 @@ func (m *memoryStore) flushPages() error {
 	return nil
 }
 
+func (m *memoryStore) nextLSN() uint64 {
+	return 0
+}
+
+func (m *memoryStore) incrLSN() {
+
+}
+
 func newFileStore(path string) (*fileStore, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
-	return &fileStore{
-		cache: NewLRU(1000),
-		file:  file,
-	}, nil
+	fs := &fileStore{
+		cache:      NewLRU(10000),
+		file:       file,
+		ticker:     time.NewTicker(pageFlushInterval),
+		tickerDone: make(chan bool),
+		mtx:        sync.RWMutex{},
+	}
+	go func() {
+		for {
+			select {
+			case <-fs.tickerDone:
+				return
+			case <-fs.ticker.C:
+				if err := fs.flushPages(); err != nil {
+					fmt.Printf("error flushing pages: %s", err.Error())
+				}
+			}
+		}
+	}()
+	return fs, nil
 }
 
 type fileStore struct {
@@ -610,10 +665,31 @@ type fileStore struct {
 	nextFreeOffset uint64
 	pageTableRoot  uint64
 	cache          *LRUCache
+	ticker         *time.Ticker
+	tickerDone     chan bool
+	mtx            sync.RWMutex
+	_nextLSN       uint64
+}
+
+func (f *fileStore) lockShared() {
+	f.mtx.RLock()
+}
+func (f *fileStore) unlockShared() {
+	f.mtx.RUnlock()
+}
+
+func (f *fileStore) lockExclusive() {
+	f.mtx.Lock()
+}
+func (f *fileStore) unlockExclusive() {
+	f.mtx.Unlock()
 }
 
 func (f *fileStore) close() error {
-	return f.file.Close()
+	defer f.file.Close()
+	f.ticker.Stop()
+	f.tickerDone <- true
+	return f.flushPages()
 }
 
 func (f *fileStore) getRoot() (btreeNode, error) {
@@ -626,7 +702,7 @@ func (f *fileStore) setRoot(node btreeNode) {
 
 func (f *fileStore) setPageTableRoot(node btreeNode) error {
 	f.pageTableRoot = node.getFileOffset()
-	return f.save()
+	return nil
 }
 
 func (f *fileStore) getLastKey() uint32 {
@@ -635,7 +711,7 @@ func (f *fileStore) getLastKey() uint32 {
 
 func (f *fileStore) incrementLastKey() error {
 	f.lastKey++
-	return f.save()
+	return nil
 }
 
 func (f *fileStore) update(node btreeNode) error {
@@ -645,7 +721,9 @@ func (f *fileStore) update(node btreeNode) error {
 	}
 	_, err = f.file.WriteAt(buf.Bytes(), int64(node.getFileOffset()))
 
-	f.cache.set(node.getFileOffset(), node)
+	if err := f.setCache(node.getFileOffset(), node); err != nil {
+		return err
+	}
 
 	return err
 }
@@ -653,17 +731,9 @@ func (f *fileStore) update(node btreeNode) error {
 func (f *fileStore) append(node btreeNode) error {
 	node.setFileOffset(f.nextFreeOffset)
 
-	buf, err := node.encode()
-	if err != nil {
+	if err := f.setCache(node.getFileOffset(), node); err != nil {
 		return err
 	}
-
-	_, err = f.file.WriteAt(buf.Bytes(), int64(f.nextFreeOffset))
-	if err != nil {
-		return err
-	}
-
-	f.cache.set(f.nextFreeOffset, node)
 
 	f.nextFreeOffset += pageSize
 
@@ -672,7 +742,7 @@ func (f *fileStore) append(node btreeNode) error {
 
 func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 	if node, ok := f.cache.get(offset); ok {
-		return node.(btreeNode), nil
+		return node, nil
 	}
 
 	buf := make([]byte, pageSize)
@@ -695,7 +765,9 @@ func (f *fileStore) fetch(offset uint64) (btreeNode, error) {
 		return nil, err
 	}
 
-	f.cache.set(node.getFileOffset(), node)
+	if err := f.setCache(node.getFileOffset(), node); err != nil {
+		return nil, err
+	}
 
 	return node, nil
 }
@@ -712,6 +784,10 @@ func (f *fileStore) save() error {
 		return err
 	}
 	err = binary.Write(writer, binary.LittleEndian, f.nextFreeOffset)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(writer, binary.LittleEndian, f._nextLSN)
 	if err != nil {
 		return err
 	}
@@ -734,13 +810,19 @@ func (f *fileStore) open() error {
 	if err != nil {
 		return err
 	}
+	err = binary.Read(f.file, binary.LittleEndian, &f._nextLSN)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (f *fileStore) flushPages() error {
+	f.lockExclusive()
+	defer f.unlockExclusive()
 	for _, v := range f.cache.cache {
-		node := v.Value.(*cacheEntry).val.(btreeNode)
+		node := v.Value.(*cacheEntry).val
 		if !node.isDirty() {
 			continue
 		}
@@ -749,5 +831,20 @@ func (f *fileStore) flushPages() error {
 		}
 		node.markClean()
 	}
+	return f.save()
+}
+
+func (f *fileStore) setCache(key any, val btreeNode) error {
+	if !f.cache.set(key, val) {
+		return ErrLRUCacheFull
+	}
 	return nil
+}
+
+func (f *fileStore) nextLSN() uint64 {
+	return f._nextLSN
+}
+
+func (f *fileStore) incrLSN() {
+	f._nextLSN++
 }

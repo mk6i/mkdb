@@ -249,6 +249,14 @@ type RelationService struct {
 	wal *wal
 }
 
+func (rs *RelationService) StartTxn() {
+	rs.fs.lockShared()
+}
+
+func (rs *RelationService) EndTxn() {
+	rs.fs.unlockShared()
+}
+
 func (rs *RelationService) Close() error {
 	if err := rs.wal.close(); err != nil {
 		return err
@@ -352,7 +360,7 @@ func CreateDB(dbName string) error {
 		return err
 	}
 
-	return nil
+	return rs.fs.flushPages()
 }
 
 func (rs *RelationService) CreateTable(r *Relation, tableName string) error {
@@ -372,11 +380,12 @@ func (rs *RelationService) CreateTable(r *Relation, tableName string) error {
 		return err
 	}
 
-	return nil
+	return rs.fs.flushPages()
 }
 
 func (rs *RelationService) createPage() (btreeNode, error) {
 	rootPg := &leafNode{}
+	rootPg.markDirty(0)
 
 	if err := rs.fs.append(rootPg); err != nil {
 		return rootPg, err
@@ -407,7 +416,7 @@ func (rs *RelationService) insertPageTable(node btreeNode, tableName string) err
 	bt := &BTree{store: rs.fs}
 	bt.setRoot(pgTablePg)
 
-	id, err := bt.insert(buf.Bytes())
+	id, _, err := bt.insert(buf.Bytes())
 	if err != nil {
 		return err
 	}
@@ -429,10 +438,12 @@ func (rs *RelationService) insertPageTable(node btreeNode, tableName string) err
 	return nil
 }
 
-func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) error {
+func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) (WALBatch, error) {
+	var walLogs WALBatch
+
 	pgTablePg, err := rs.fs.fetch(rs.fs.pageTableRoot)
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	bt := &BTree{store: rs.fs}
@@ -457,9 +468,16 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 			if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
 				return StopScanning, err
 			}
-			if err := rs.fs.update(cell.pg); err != nil {
-				return StopScanning, err
-			}
+			cell.pg.markDirty(rs.fs.nextLSN())
+
+			walLogs = append(walLogs, &WALEntry{
+				LSN:    rs.fs.nextLSN(),
+				WALOp:  OP_UPDATE,
+				pageID: cell.pg.getFileOffset(),
+				cellID: cell.key,
+				val:    buf.Bytes(),
+			})
+			rs.fs.incrLSN()
 			found = true
 			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, fileOffset, tableName)
 			return StopScanning, nil
@@ -467,18 +485,14 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 		return KeepScanning, nil
 	})
 	if err != nil {
-		return err
+		return walLogs, err
 	}
 
 	if !found {
-		return fmt.Errorf("unable to update page table entry for %d", fileOffset)
+		return walLogs, fmt.Errorf("unable to update page table entry for %d", fileOffset)
 	}
 
-	if err := rs.fs.flushPages(); err != nil {
-		return err
-	}
-
-	return nil
+	return walLogs, nil
 }
 
 func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) error {
@@ -512,7 +526,7 @@ func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) erro
 		}
 
 		bt.setRoot(schemaTablePg)
-		_, err = bt.insert(buf.Bytes())
+		_, _, err = bt.insert(buf.Bytes())
 		if err != nil {
 			return err
 		}
@@ -524,15 +538,11 @@ func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) erro
 
 		rootChanged := newRootPg.getFileOffset() != schemaTablePg.getFileOffset()
 		if rootChanged {
-			if err := rs.updatePageTable(newRootPg.getFileOffset(), schemaTableName); err != nil {
+			if _, err := rs.updatePageTable(newRootPg.getFileOffset(), schemaTableName); err != nil {
 				return err
 			}
 			schemaTablePg = newRootPg
 		}
-	}
-
-	if err := rs.fs.flushPages(); err != nil {
-		return err
 	}
 
 	return nil
@@ -797,21 +807,18 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 
 	bt := &BTree{store: rs.fs}
 	bt.setRoot(tablePg)
-	id, err := bt.insert(buf.Bytes())
+	id, lsn, err := bt.insert(buf.Bytes())
 	if err != nil {
 		return walLogs, err
 	}
 
 	walLogs = append(walLogs, &WALEntry{
+		LSN:    lsn,
 		pageID: uint64(fileOffset),
 		WALOp:  OP_INSERT,
 		cellID: id,
 		val:    buf.Bytes(),
 	})
-
-	if err := rs.fs.flushPages(); err != nil {
-		return walLogs, err
-	}
 
 	// update page table with new root if the old root split
 	curPage, err := bt.getRoot()
@@ -821,9 +828,11 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 
 	rootChanged := curPage.getFileOffset() != tablePg.getFileOffset()
 	if rootChanged {
-		if err := rs.updatePageTable(curPage.getFileOffset(), tableName); err != nil {
+		var logs WALBatch
+		if logs, err = rs.updatePageTable(curPage.getFileOffset(), tableName); err != nil {
 			return walLogs, err
 		}
+		walLogs = append(walLogs, logs...)
 	}
 
 	return walLogs, nil
@@ -877,22 +886,21 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 			return StopScanning, err
 		}
 
-		cell.pg.markDirty()
+		cell.pg.markDirty(rs.fs.nextLSN())
 
 		walLogs = append(walLogs, &WALEntry{
+			LSN:    rs.fs.nextLSN(),
 			WALOp:  OP_UPDATE,
 			pageID: cell.pg.getFileOffset(),
 			cellID: cell.key,
 			val:    buf.Bytes(),
 		})
 
+		rs.fs.incrLSN()
+
 		return KeepScanning, nil
 	})
 	if err != nil {
-		return walLogs, err
-	}
-
-	if err := rs.fs.flushPages(); err != nil {
 		return walLogs, err
 	}
 
@@ -924,17 +932,14 @@ func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) (WALBatch
 	}
 
 	cell.deleted = true
-	cell.pg.markDirty()
+	cell.pg.markDirty(rs.fs.nextLSN())
 
 	walLogs = append(walLogs, &WALEntry{
+		LSN:    rs.fs.nextLSN(),
 		WALOp:  OP_DELETE,
 		pageID: cell.pg.getFileOffset(),
 		cellID: cell.key,
 	})
-
-	if err := rs.fs.flushPages(); err != nil {
-		return walLogs, err
-	}
 
 	return walLogs, nil
 }
