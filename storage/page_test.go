@@ -13,7 +13,8 @@ func TestEncodeDecodeInternalNode(t *testing.T) {
 		node: node{
 			fileOffset: 10,
 			offsets:    []uint16{2, 1, 0, 3},
-			freeSize:   4017,
+			freeSize:   4009,
+			lastLSN:    1234,
 		},
 		cells: []*internalNodeCell{
 			{
@@ -60,8 +61,9 @@ func TestEncodeDecodeLeafNode(t *testing.T) {
 	pg := &leafNode{
 		node: node{
 			fileOffset: 10,
-			freeSize:   3953,
+			freeSize:   3945,
 			offsets:    []uint16{2, 1, 0, 3},
+			lastLSN:    1234,
 		},
 		cells: []*leafNodeCell{
 			{

@@ -29,25 +29,27 @@ func (b *BTree) setRoot(node btreeNode) {
 	b.rootOffset = node.getFileOffset()
 }
 
-func (b *BTree) insert(value []byte) (uint32, error) {
+func (b *BTree) insert(value []byte) (uint32, uint64, error) {
 	nextKey := b.store.getLastKey() + 1
-	err := b.insertKey(nextKey, value)
+	nextLSN := b.store.nextLSN()
+	err := b.insertKey(nextKey, nextLSN, value)
 	if err := b.store.incrementLastKey(); err != nil {
-		return 0, err
+		return 0, nextLSN, err
 	}
-	return nextKey, err
+	b.store.incrLSN()
+	return nextKey, nextLSN, err
 }
 
-func (b *BTree) insertKey(key uint32, value []byte) error {
+func (b *BTree) insertKey(key uint32, nextLSN uint64, value []byte) error {
 	pg, err := b.getRoot()
 	if err != nil {
 		return err
 	}
-	err = b.insertHelper(nil, pg, key, value)
+	err = b.insertHelper(nil, pg, key, nextLSN, value)
 	return err
 }
 
-func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, value []byte) error {
+func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, nextLSN uint64, value []byte) error {
 
 	switch node := node.(type) {
 	case *internalNode:
@@ -68,7 +70,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 			return err
 		}
 
-		if err := b.insertHelper(node, childPg, key, value); err != nil {
+		if err := b.insertHelper(node, childPg, key, nextLSN, value); err != nil {
 			return err
 		}
 
@@ -97,11 +99,11 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 				}
 				parent.setRightMostKey(newPg.fileOffset)
 			}
-			newPg.markDirty()
-			parent.markDirty()
+			newPg.markDirty(nextLSN)
+			parent.markDirty(nextLSN)
 		}
 		if parent != nil {
-			parent.markDirty()
+			parent.markDirty(nextLSN)
 		}
 	case *leafNode:
 		offset, found := node.findCellOffsetByKey(key)
@@ -111,7 +113,7 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 		if err := node.insertCell(uint32(offset), key, value); err != nil {
 			return err
 		}
-		node.markDirty()
+		node.markDirty(nextLSN)
 
 		if node.isFull() {
 			newPg := &leafNode{}
@@ -163,14 +165,14 @@ func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, v
 						return err
 					}
 					rightSib.(*leafNode).lSibFileOffset = newPg.fileOffset
-					rightSib.markDirty()
+					rightSib.markDirty(nextLSN)
 				}
 			}
-			newPg.markDirty()
+			newPg.markDirty(nextLSN)
 		}
-		node.markDirty()
+		node.markDirty(nextLSN)
 		if parent != nil {
-			parent.markDirty()
+			parent.markDirty(nextLSN)
 		}
 	}
 

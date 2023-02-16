@@ -17,6 +17,8 @@ var (
 )
 
 func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storage.Field, error) {
+	rm.StartTxn()
+	defer rm.EndTxn()
 
 	table := q.TableExpression.FromClause[0]
 

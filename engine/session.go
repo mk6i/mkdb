@@ -15,6 +15,8 @@ type Session struct {
 }
 
 type relationManager interface {
+	StartTxn()
+	EndTxn()
 	CreateTable(r *storage.Relation, tableName string) error
 	MarkDeleted(tableName string, rowID uint32) (storage.WALBatch, error)
 	Fetch(tableName string) ([]*storage.Row, []*storage.Field, error)

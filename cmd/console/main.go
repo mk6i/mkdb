@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mkaminski/bkdb/engine"
 	"github.com/mkaminski/bkdb/storage"
@@ -31,7 +33,10 @@ func main() {
 	`)
 
 	sess := engine.Session{}
-	defer sess.Close()
+
+	shutdownHandler(func() {
+		sess.Close()
+	})
 
 	for {
 		fmt.Printf("\n%s> ", sess.CurDB)
@@ -40,4 +45,29 @@ func main() {
 			fmt.Printf("error: %s\n", err.Error())
 		}
 	}
+}
+
+func shutdownHandler(fn func()) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	go func() {
+		for {
+			s := <-ch
+			switch s {
+			case syscall.SIGHUP:
+				fallthrough
+			case syscall.SIGINT:
+				fallthrough
+			case syscall.SIGTERM:
+				fallthrough
+			case syscall.SIGQUIT:
+				fn()
+				os.Exit(0)
+			}
+		}
+	}()
 }

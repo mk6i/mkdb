@@ -37,6 +37,12 @@ func (m *mockRelationManager) FlushWALBatch(batch storage.WALBatch) error {
 	return m.flushWALBatch(batch)
 }
 
+func (m *mockRelationManager) StartTxn() {
+}
+
+func (m *mockRelationManager) EndTxn() {
+}
+
 func TestSelect(t *testing.T) {
 
 	tc := []struct {

@@ -73,6 +73,11 @@ func TestWalReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating file store: %s", err.Error())
 	}
+	fs.nextFreeOffset = pageSize
+
+	if err := fs.save(); err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
 	var pg btreeNode
 	pg = &leafNode{}
@@ -86,20 +91,23 @@ func TestWalReplay(t *testing.T) {
 	batch := WALBatch{
 		{
 			WALOp:  OP_UPDATE,
-			pageID: 0,
+			pageID: pg.getFileOffset(),
 			cellID: 0,
 			val:    []byte{1, 2, 3, 4},
+			LSN:    1,
 		},
 		{
 			WALOp:  OP_DELETE,
-			pageID: 0,
+			pageID: pg.getFileOffset(),
 			cellID: 1,
+			LSN:    2,
 		},
 		{
 			WALOp:  OP_INSERT,
-			pageID: 0,
+			pageID: pg.getFileOffset(),
 			cellID: 2,
 			val:    []byte{5, 6, 7, 8},
+			LSN:    3,
 		},
 	}
 
@@ -115,7 +123,7 @@ func TestWalReplay(t *testing.T) {
 		t.Fatalf("error creating file store: %s", err.Error())
 	}
 
-	pg, err = fs.fetch(0)
+	pg, err = fs.fetch(pg.getFileOffset())
 	if err != nil {
 		t.Fatalf("failed to fetch page: %s", err)
 	}

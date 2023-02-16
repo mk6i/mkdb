@@ -37,7 +37,7 @@ func TestBTree(t *testing.T) {
 	}
 
 	for _, expect := range tbl {
-		err := bt.insertKey(expect.key, expect.val)
+		err := bt.insertKey(expect.key, 0, expect.val)
 		if err != nil {
 			t.Fatalf("got insertion error for %s: %s", expect.val, err.Error())
 		}
