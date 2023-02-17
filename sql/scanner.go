@@ -292,10 +292,17 @@ func (ts *tokenScanner) Cur() Token {
 	default:
 		tok.Text = ts.s.TokenText()
 		if kw, isKw := keywords[strings.ToUpper(ts.s.TokenText())]; isKw {
-			if kw == BANG && ts.s.Peek() == '=' {
+			switch {
+			case kw == BANG && ts.s.Peek() == '=':
 				tok.Type = NEQ
 				ts.Next()
-			} else {
+			case kw == GT && ts.s.Peek() == '=':
+				tok.Type = GTE
+				ts.Next()
+			case kw == LT && ts.s.Peek() == '=':
+				tok.Type = LTE
+				ts.Next()
+			default:
 				tok.Type = kw
 			}
 		} else {

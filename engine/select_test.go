@@ -897,3 +897,295 @@ func TestSelect(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectComparisonOperators(t *testing.T) {
+	buildSQL := func(compOp sql.TokenType, rhs sql.Token) sql.Select {
+		return sql.Select{
+			SelectList: sql.SelectList{
+				sql.ValueExpression{
+					ColumnName: sql.Token{
+						Type: sql.ASTRSK,
+					},
+				},
+			},
+			TableExpression: sql.TableExpression{
+				FromClause: sql.FromClause{
+					sql.TableName{
+						Name: "tbl1",
+					},
+				},
+				WhereClause: sql.WhereClause{
+					SearchCondition: sql.Predicate{
+						ComparisonPredicate: sql.ComparisonPredicate{
+							LHS: sql.ValueExpression{
+								ColumnName: sql.Token{
+									Type: sql.IDENT,
+									Text: "col1",
+								},
+							},
+							CompOp: compOp,
+							RHS: sql.ValueExpression{
+								ColumnName: rhs,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	intRows := map[string][]*storage.Row{
+		"tbl1": {
+			{Vals: []interface{}{int32(4)}},
+			{Vals: []interface{}{int32(5)}},
+			{Vals: []interface{}{int32(6)}},
+			{Vals: []interface{}{int32(1)}},
+			{Vals: []interface{}{int32(2)}},
+			{Vals: []interface{}{int32(3)}},
+		},
+	}
+	strRows := map[string][]*storage.Row{
+		"tbl1": {
+			{Vals: []interface{}{"dog"}},
+			{Vals: []interface{}{"egg"}},
+			{Vals: []interface{}{"farm"}},
+			{Vals: []interface{}{"apple"}},
+			{Vals: []interface{}{"bail"}},
+			{Vals: []interface{}{"cow"}},
+		},
+	}
+
+	givenFields := map[string]storage.Fields{
+		"tbl1": {
+			&storage.Field{Column: "col1"},
+		},
+	}
+	expectFields := []*storage.Field{
+		{Column: "col1", TableID: "tbl1"},
+	}
+
+	tc := []struct {
+		name         string
+		query        sql.Select
+		givenRows    map[string][]*storage.Row
+		expectFields []*storage.Field
+		expectRows   []*storage.Row
+		expectErr    error
+	}{
+		{
+			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 4",
+			query: buildSQL(sql.GT, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    intRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(5)}},
+				{Vals: []interface{}{int32(6)}},
+			},
+		},
+		{
+			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 4",
+			query: buildSQL(sql.GTE, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    intRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(4)}},
+				{Vals: []interface{}{int32(5)}},
+				{Vals: []interface{}{int32(6)}},
+			},
+		},
+		{
+			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 < 4",
+			query: buildSQL(sql.LT, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    intRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(1)}},
+				{Vals: []interface{}{int32(2)}},
+				{Vals: []interface{}{int32(3)}},
+			},
+		},
+		{
+			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 <= 4",
+			query: buildSQL(sql.LTE, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    intRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(4)}},
+				{Vals: []interface{}{int32(1)}},
+				{Vals: []interface{}{int32(2)}},
+				{Vals: []interface{}{int32(3)}},
+			},
+		},
+		{
+			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 'cow'",
+			query: buildSQL(sql.GT, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    strRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"dog"}},
+				{Vals: []interface{}{"egg"}},
+				{Vals: []interface{}{"farm"}},
+			},
+		},
+		{
+			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
+			query: buildSQL(sql.GTE, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    strRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"dog"}},
+				{Vals: []interface{}{"egg"}},
+				{Vals: []interface{}{"farm"}},
+				{Vals: []interface{}{"cow"}},
+			},
+		},
+		{
+			name: "SELECT with < operator: SELECT * FROM tbl1 WHERE col1 < 'cow'",
+			query: buildSQL(sql.LT, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    strRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"apple"}},
+				{Vals: []interface{}{"bail"}},
+			},
+		},
+		{
+			name: "SELECT with <= operator: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
+			query: buildSQL(sql.LTE, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    strRows,
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"apple"}},
+				{Vals: []interface{}{"bail"}},
+				{Vals: []interface{}{"cow"}},
+			},
+		},
+
+		{
+			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 4",
+			query: buildSQL(sql.GT, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    strRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 4",
+			query: buildSQL(sql.GTE, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    strRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 4",
+			query: buildSQL(sql.LT, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    strRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 4",
+			query: buildSQL(sql.LTE, sql.Token{
+				Type: sql.INT,
+				Text: "4",
+			}),
+			givenRows:    strRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 'cow'",
+			query: buildSQL(sql.GT, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    intRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
+			query: buildSQL(sql.GTE, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    intRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with < operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 'cow'",
+			query: buildSQL(sql.LT, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    intRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+		{
+			name: "SELECT with <= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
+			query: buildSQL(sql.LTE, sql.Token{
+				Type: sql.STR,
+				Text: "cow",
+			}),
+			givenRows:    intRows,
+			expectFields: nil,
+			expectErr:    ErrIncompatTypeCompare,
+		},
+	}
+
+	for _, test := range tc {
+		t.Run(test.name, func(t *testing.T) {
+			actualRows, actualFields, err := EvaluateSelect(test.query, &mockRelationManager{
+				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+					return test.givenRows[tableName], givenFields[tableName], nil
+				},
+			})
+
+			if !errors.Is(err, test.expectErr) {
+				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)
+			}
+
+			if !reflect.DeepEqual(test.expectRows, actualRows) {
+				t.Fatalf("rows do not match. expected: %s actual: %s", test.expectRows, actualRows)
+			}
+
+			if !reflect.DeepEqual(test.expectFields, actualFields) {
+				t.Fatalf("fields do not match. expected: %s actual: %s", test.expectFields, actualFields)
+			}
+		})
+	}
+}

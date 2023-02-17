@@ -3,6 +3,7 @@ package sql
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -52,6 +53,23 @@ type LimitOffsetClause struct {
 type ValueExpression struct {
 	Qualifier  interface{}
 	ColumnName Token
+}
+
+func (v ValueExpression) String() string {
+	switch v.ColumnName.Type {
+	case IDENT:
+		if v.Qualifier != nil {
+			return fmt.Sprintf("%v.%v", v.Qualifier.(Token).Text, v.ColumnName.Text)
+		} else {
+			return v.ColumnName.Text
+		}
+	default:
+		val, err := v.ColumnName.Val()
+		if err != nil {
+			return err.Error()
+		}
+		return fmt.Sprintf("%v (%v)", reflect.TypeOf(val), val)
+	}
 }
 
 type TableName struct {
