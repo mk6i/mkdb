@@ -219,6 +219,10 @@ func (w *wal) flush(batch WALBatch) error {
 		} else if n != tupleLen {
 			panic("bytes written differs from expected buffer length")
 		}
+
+		if w.reader.Sync(); err != nil {
+			return err
+		}
 	}
 
 	return nil
