@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	ErrSortFieldNotFound = errors.New("sort field is not in select list")
+	ErrSortFieldNotFound   = errors.New("sort field is not in select list")
+	ErrIncompatTypeCompare = errors.New("incompatible type comparison")
 )
 
 func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storage.Field, error) {
@@ -286,6 +287,10 @@ func evalAnd(q sql.BooleanTerm, qfields storage.Fields, row *storage.Row) (bool,
 	return lhs && rhs, nil
 }
 
+func newErrIncompatTypeCompare(LHS any, RHS any) error {
+	return fmt.Errorf("%w: cannot compare %v with %v", ErrIncompatTypeCompare, LHS, RHS)
+}
+
 func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, row *storage.Row) (bool, error) {
 	lhs, err := evalPrimary(q.LHS, qfields, row)
 	if err != nil {
@@ -301,6 +306,70 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 		return lhs == rhs, nil
 	case sql.NEQ:
 		return lhs != rhs, nil
+	case sql.GT:
+		switch lhs := lhs.(type) {
+		case int32:
+			if _rhs, ok := rhs.(int32); ok {
+				return lhs > _rhs, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		case string:
+			if rhs, ok := rhs.(string); ok {
+				return strings.Compare(lhs, rhs) > 0, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		}
+	case sql.GTE:
+		switch lhs := lhs.(type) {
+		case int32:
+			if rhs, ok := rhs.(int32); ok {
+				return lhs >= rhs, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		case string:
+			if rhs, ok := rhs.(string); ok {
+				return strings.Compare(lhs, rhs) >= 0, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		default:
+			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+		}
+	case sql.LT:
+		switch lhs := lhs.(type) {
+		case int32:
+			if rhs, ok := rhs.(int32); ok {
+				return lhs < rhs, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		case string:
+			if rhs, ok := rhs.(string); ok {
+				return strings.Compare(lhs, rhs) < 0, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		}
+	case sql.LTE:
+		switch lhs := lhs.(type) {
+		case int32:
+			if rhs, ok := rhs.(int32); ok {
+				return lhs <= rhs, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		case string:
+			if rhs, ok := rhs.(string); ok {
+				return strings.Compare(lhs, rhs) <= 0, nil
+			} else {
+				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+			}
+		default:
+			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
+		}
 	}
 
 	return false, fmt.Errorf("nothing to compare here")
