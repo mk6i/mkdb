@@ -401,30 +401,30 @@ func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (inter
 func printTable(selectList []string, rows []*storage.Row) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
-	fmt.Print("\n\n")
+	fmt.Print("\n\r\n\r")
 
 	for _, field := range selectList {
 		fmt.Fprintf(w, "| [%s]\t", field)
 	}
 
-	fmt.Fprint(w, "|\n")
+	fmt.Fprint(w, "|\n\r")
 
 	for range selectList {
 		fmt.Fprint(w, "| --------------------\t")
 	}
 
-	fmt.Fprint(w, "|\n")
+	fmt.Fprint(w, "|\n\r")
 
 	for _, row := range rows {
 		for _, elem := range row.Vals {
 			fmt.Fprintf(w, "| %v\t", elem)
 		}
-		fmt.Fprint(w, "|\n")
+		fmt.Fprint(w, "|\n\r")
 	}
 
 	w.Flush()
 
-	fmt.Printf("\n%d result(s) returned\n", len(rows))
+	fmt.Printf("\n\r%d result(s) returned\n\r", len(rows))
 }
 
 func printableFields(sl sql.SelectList, fields storage.Fields) []string {
