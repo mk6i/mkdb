@@ -433,7 +433,7 @@ func (rs *RelationService) insertPageTable(node btreeNode, tableName string) err
 		}
 	}
 
-	fmt.Printf("inserted new page table record for %s, page id: %d\n", tableName, id)
+	fmt.Printf("inserted new page table record for %s, page id: %d\n\r", tableName, id)
 
 	return nil
 }
@@ -479,7 +479,7 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 			})
 			rs.fs.incrLSN()
 			found = true
-			fmt.Printf("updated page table root from %d to %d, triggered by %s\n", oldVal, fileOffset, tableName)
+			fmt.Printf("updated page table root from %d to %d, triggered by %s\n\r", oldVal, fileOffset, tableName)
 			return StopScanning, nil
 		}
 		return KeepScanning, nil
@@ -549,15 +549,15 @@ func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) erro
 }
 
 func (rs *RelationService) Fetch(tableName string) ([]*Row, []*Field, error) {
-	fmt.Printf("Select query. Table: %s\n", tableName)
-	fmt.Printf("page table root offset: %d\n", rs.fs.pageTableRoot)
+	fmt.Printf("Select query. Table: %s\n\r", tableName)
+	fmt.Printf("page table root offset: %d\n\r", rs.fs.pageTableRoot)
 
 	fileOffset, err := rs.getRelationFileOffset(tableName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	fmt.Printf("relation %s page id: %d\n", tableName, fileOffset)
+	fmt.Printf("relation %s page id: %d\n\r", tableName, fileOffset)
 
 	schema, err := rs.getRelationSchema(tableName)
 	if err != nil {
@@ -569,7 +569,7 @@ func (rs *RelationService) Fetch(tableName string) ([]*Row, []*Field, error) {
 		fields = append(fields, &Field{Column: fd.Name})
 	}
 
-	fmt.Printf("relation %s schema: %v\n", tableName, schema)
+	fmt.Printf("relation %s schema: %v\n\r", tableName, schema)
 
 	rows, err := rs.scanRelation(uint64(fileOffset), schema, fields)
 
@@ -714,6 +714,7 @@ func (r *Row) String() string {
 	}
 	sb.WriteByte(']')
 	sb.WriteByte('\n')
+	sb.WriteByte('\r')
 	return sb.String()
 }
 

@@ -43,7 +43,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err := EvaluateCreateDatabase(stmt); err != nil {
 			return err
 		}
-		fmt.Printf("created database %s\n", stmt.Name)
+		fmt.Printf("created database %s\n\r", stmt.Name)
 		return nil
 	case sql.UseStatement:
 		var err error
@@ -52,7 +52,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("selected database %s\n", stmt.DBName)
+		fmt.Printf("selected database %s\n\r", stmt.DBName)
 		return nil
 	}
 
@@ -65,7 +65,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err := EvaluateCreateTable(stmt, s.RelationService); err != nil {
 			return err
 		}
-		fmt.Printf("created table %s\n", stmt.Name)
+		fmt.Printf("created table %s\n\r", stmt.Name)
 	case sql.Select:
 		rows, fields, err := EvaluateSelect(stmt, s.RelationService)
 		if err != nil {
@@ -77,18 +77,18 @@ func (s *Session) ExecQuery(q string) error {
 		if count, err := EvaluateInsert(stmt, s.RelationService); err != nil {
 			return err
 		} else {
-			fmt.Printf("inserted %d record(s) into %s\n", count, stmt.TableName)
+			fmt.Printf("inserted %d record(s) into %s\n\r", count, stmt.TableName)
 		}
 	case sql.UpdateStatementSearched:
 		if err := EvaluateUpdate(stmt, s.RelationService); err != nil {
 			return err
 		}
-		fmt.Print("update successful\n", 1, stmt.TableName)
+		fmt.Print("update successful\n\r", 1, stmt.TableName)
 	case sql.DeleteStatementSearched:
 		if count, err := EvaluateDelete(stmt, s.RelationService); err != nil {
 			return err
 		} else {
-			fmt.Printf("deleted %d record(s) into %s\n", count, stmt.TableName)
+			fmt.Printf("deleted %d record(s) into %s\n\r", count, stmt.TableName)
 		}
 	default:
 		return fmt.Errorf("unsupported statement type")
