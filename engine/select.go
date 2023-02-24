@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	ErrSortFieldNotFound   = errors.New("sort field is not in select list")
-	ErrIncompatTypeCompare = errors.New("incompatible type comparison")
+	ErrSortFieldNotFound    = errors.New("sort field is not in select list")
+	ErrIncompatTypeCompare  = errors.New("incompatible type comparison")
+	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
 )
 
 func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storage.Field, error) {
@@ -51,6 +52,16 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 
 	if q.LimitOffsetClause.LimitActive {
 		rows = limit(int(q.LimitOffsetClause.Limit), rows)
+	}
+
+	// if select count(*), replace rows with row count
+	if _, ok := q.SelectList[0].(sql.Count); ok {
+		count := int32(len(rows))
+		rows = []*storage.Row{
+			{
+				Vals: []interface{}{count},
+			},
+		}
 	}
 
 	return rows, fields, nil
@@ -150,28 +161,37 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 	return nil, nil, nil
 }
 
-func projectColumns(sl sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
-	if sl[0].ColumnName.Type == sql.ASTRSK {
-		return qfields, nil
-	}
-
+func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
 	var idxs []int
 	var projFields storage.Fields
-	for _, sf := range sl {
-		var idx int
-		var err error
-		if sf.Qualifier != nil {
-			idx, err = qfields.LookupColIdxByID(sf.Qualifier.(sql.Token).Text, sf.ColumnName.Text)
-		} else {
-			idx, err = qfields.LookupFieldIdx(sf.ColumnName.Text)
+
+	for _, elem := range selectList {
+		switch elem := elem.(type) {
+		case sql.Asterisk:
+			return qfields, nil
+		case sql.Count:
+			projFields = append(projFields, &storage.Field{
+				Column: "count(*)",
+			})
+		case int32, string:
+			return nil, fmt.Errorf("%w: can't select scalar values", ErrTmpUnsupportedSyntax)
+		case sql.ColumnReference:
+			var idx int
+			var err error
+			if elem.Qualifier != nil {
+				idx, err = qfields.LookupColIdxByID(elem.Qualifier.(sql.Token).Text, elem.ColumnName)
+			} else {
+				idx, err = qfields.LookupFieldIdx(elem.ColumnName)
+			}
+			if err != nil {
+				return nil, err
+			}
+			idxs = append(idxs, idx)
+			projFields = append(projFields, qfields[idx])
 		}
-		if err != nil {
-			return nil, err
-		}
-		idxs = append(idxs, idx)
-		projFields = append(projFields, qfields[idx])
 	}
 
+	// rearrange columns according to order imposed by selectList
 	for _, row := range rows {
 		var tmp []interface{}
 		for _, idx := range idxs {
@@ -190,9 +210,9 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 		var idx int
 		var err error
 		if ss.SortKey.Qualifier != nil {
-			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier.(sql.Token).Text, ss.SortKey.ColumnName.Text)
+			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier.(sql.Token).Text, ss.SortKey.ColumnName)
 		} else {
-			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName.Text)
+			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName)
 		}
 		if err != nil {
 			if errors.Is(err, storage.ErrFieldNotFound) {
@@ -376,26 +396,20 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 }
 
 func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (interface{}, error) {
-	switch t := q.(type) {
-	case sql.ValueExpression:
-		switch t.ColumnName.Type {
-		case sql.IDENT:
-			var idx int
-			var err error
-			if t.Qualifier != nil {
-				idx, err = qfields.LookupColIdxByID(t.Qualifier.(sql.Token).Text, t.ColumnName.Text)
-			} else {
-				idx, err = qfields.LookupFieldIdx(t.ColumnName.Text)
-			}
-			if err != nil {
-				return nil, err
-			}
-			return row.Vals[idx], nil
-		default:
-			return t.ColumnName.Val()
+	if t, ok := q.(sql.ColumnReference); ok {
+		var idx int
+		var err error
+		if t.Qualifier != nil {
+			idx, err = qfields.LookupColIdxByID(t.Qualifier.(sql.Token).Text, t.ColumnName)
+		} else {
+			idx, err = qfields.LookupFieldIdx(t.ColumnName)
 		}
+		if err != nil {
+			return nil, err
+		}
+		return row.Vals[idx], nil
 	}
-	return nil, fmt.Errorf("nothing to compare here")
+	return q, nil
 }
 
 func printTable(selectList []string, rows []*storage.Row) {
@@ -427,18 +441,23 @@ func printTable(selectList []string, rows []*storage.Row) {
 	fmt.Printf("\n\r%d result(s) returned\n\r", len(rows))
 }
 
-func printableFields(sl sql.SelectList, fields storage.Fields) []string {
+func printableFields(selectList sql.SelectList, fields storage.Fields) []string {
 	var ans []string
-	if sl[0].ColumnName.Type == sql.ASTRSK {
-		for _, field := range fields {
-			ans = append(ans, field.Column.(string))
-		}
-	} else {
-		for _, field := range sl {
-			if field.Qualifier != nil {
-				ans = append(ans, fmt.Sprintf("%s.%s", field.Qualifier.(sql.Token).Text, field.ColumnName.Text))
+	for _, elem := range selectList {
+		switch elem := elem.(type) {
+		case sql.Asterisk:
+			for _, field := range fields {
+				ans = append(ans, field.Column.(string))
+			}
+		case sql.Count:
+			ans = append(ans, "count(*)")
+		case int32, string:
+			ans = append(ans, "?")
+		case sql.ColumnReference:
+			if elem.Qualifier != nil {
+				ans = append(ans, fmt.Sprintf("%s.%s", elem.Qualifier.(sql.Token).Text, elem.ColumnName))
 			} else {
-				ans = append(ans, field.ColumnName.Text)
+				ans = append(ans, elem.ColumnName)
 			}
 		}
 	}
