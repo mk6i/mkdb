@@ -58,11 +58,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -73,32 +69,23 @@ func TestSelect(t *testing.T) {
 				},
 				SortSpecificationList: []sql.SortSpecification{
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col1",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col1",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col2",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col2",
 						},
 						OrderingSpecification: sql.Token{Type: sql.ASC},
 					},
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col3",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col3",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
@@ -145,11 +132,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY, 2nd col has identical values: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -160,32 +143,23 @@ func TestSelect(t *testing.T) {
 				},
 				SortSpecificationList: []sql.SortSpecification{
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col1",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col1",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col2",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col2",
 						},
 						OrderingSpecification: sql.Token{Type: sql.ASC},
 					},
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "col3",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "col3",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
@@ -226,11 +200,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY on non-existent field: SELECT * FROM tbl1 ORDER BY non_existent_col DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -241,12 +211,9 @@ func TestSelect(t *testing.T) {
 				},
 				SortSpecificationList: []sql.SortSpecification{
 					{
-						SortKey: sql.ValueExpression{
-							Qualifier: nil,
-							ColumnName: sql.Token{
-								Type: sql.IDENT,
-								Text: "non_existent_col",
-							},
+						SortKey: sql.ColumnReference{
+							Qualifier:  nil,
+							ColumnName: "non_existent_col",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
@@ -273,11 +240,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value that exceeds result set size: SELECT * FROM tbl1 LIMIT 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -318,11 +281,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value within size of result set: SELECT * FROM tbl1 LIMIT 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -361,11 +320,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value 0: SELECT * FROM tbl1 LIMIT 0",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -401,11 +356,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value 0: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -438,11 +389,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value within size of result set: SELECT * FROM tbl1 OFFSET 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -473,11 +420,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value equal to result set size: SELECT * FROM tbl1 OFFSET 4",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -505,11 +448,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value that exceeds result set size: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -537,11 +476,7 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT and OFFSET: SELECT * FROM tbl1 LIMIT 2 OFFSET 1",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
-						ColumnName: sql.Token{
-							Type: sql.ASTRSK,
-						},
-					},
+					sql.Asterisk{},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -574,25 +509,19 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with INNER JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl1",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col1",
-						},
+						ColumnName: "col1",
 					},
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl2",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col3",
-						},
+						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -603,26 +532,20 @@ func TestSelect(t *testing.T) {
 							JoinType: sql.INNER_JOIN,
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
-									LHS: sql.ValueExpression{
+									LHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl1",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
-									RHS: sql.ValueExpression{
+									RHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl2",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 								},
 							},
@@ -677,25 +600,19 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with LEFT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 LEFT JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl1",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col1",
-						},
+						ColumnName: "col1",
 					},
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl2",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col3",
-						},
+						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -706,26 +623,20 @@ func TestSelect(t *testing.T) {
 							JoinType: sql.LEFT_JOIN,
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
-									LHS: sql.ValueExpression{
+									LHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl1",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
-									RHS: sql.ValueExpression{
+									RHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl2",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 								},
 							},
@@ -777,25 +688,19 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with RIGHT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 RIGHT JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl1",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col1",
-						},
+						ColumnName: "col1",
 					},
-					sql.ValueExpression{
+					sql.ColumnReference{
 						Qualifier: sql.Token{
 							Type: sql.IDENT,
 							Text: "tbl2",
 						},
-						ColumnName: sql.Token{
-							Type: sql.IDENT,
-							Text: "col3",
-						},
+						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -806,26 +711,20 @@ func TestSelect(t *testing.T) {
 							JoinType: sql.RIGHT_JOIN,
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
-									LHS: sql.ValueExpression{
+									LHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl1",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
-									RHS: sql.ValueExpression{
+									RHS: sql.ColumnReference{
 										Qualifier: sql.Token{
 											Type: sql.IDENT,
 											Text: "tbl2",
 										},
-										ColumnName: sql.Token{
-											Type: sql.IDENT,
-											Text: "id",
-										},
+										ColumnName: "id",
 									},
 								},
 							},
@@ -899,14 +798,10 @@ func TestSelect(t *testing.T) {
 }
 
 func TestSelectComparisonOperators(t *testing.T) {
-	buildSQL := func(compOp sql.TokenType, rhs sql.Token) sql.Select {
+	buildSQL := func(compOp sql.TokenType, rhs any) sql.Select {
 		return sql.Select{
 			SelectList: sql.SelectList{
-				sql.ValueExpression{
-					ColumnName: sql.Token{
-						Type: sql.ASTRSK,
-					},
-				},
+				sql.Asterisk{},
 			},
 			TableExpression: sql.TableExpression{
 				FromClause: sql.FromClause{
@@ -917,16 +812,11 @@ func TestSelectComparisonOperators(t *testing.T) {
 				WhereClause: sql.WhereClause{
 					SearchCondition: sql.Predicate{
 						ComparisonPredicate: sql.ComparisonPredicate{
-							LHS: sql.ValueExpression{
-								ColumnName: sql.Token{
-									Type: sql.IDENT,
-									Text: "col1",
-								},
+							LHS: sql.ColumnReference{
+								ColumnName: "col1",
 							},
 							CompOp: compOp,
-							RHS: sql.ValueExpression{
-								ColumnName: rhs,
-							},
+							RHS:    rhs,
 						},
 					},
 				},
@@ -973,11 +863,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 		expectErr    error
 	}{
 		{
-			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 4",
-			query: buildSQL(sql.GT, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 4",
+			query:        buildSQL(sql.GT, int32(4)),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -986,11 +873,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 4",
-			query: buildSQL(sql.GTE, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 4",
+			query:        buildSQL(sql.GTE, int32(4)),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1000,11 +884,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 < 4",
-			query: buildSQL(sql.LT, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 < 4",
+			query:        buildSQL(sql.LT, int32(4)),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1014,11 +895,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 <= 4",
-			query: buildSQL(sql.LTE, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 <= 4",
+			query:        buildSQL(sql.LTE, int32(4)),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1029,11 +907,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 'cow'",
-			query: buildSQL(sql.GT, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 'cow'",
+			query:        buildSQL(sql.GT, "cow"),
 			givenRows:    strRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1043,11 +918,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
-			query: buildSQL(sql.GTE, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
+			query:        buildSQL(sql.GTE, "cow"),
 			givenRows:    strRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1058,11 +930,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with < operator: SELECT * FROM tbl1 WHERE col1 < 'cow'",
-			query: buildSQL(sql.LT, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with < operator: SELECT * FROM tbl1 WHERE col1 < 'cow'",
+			query:        buildSQL(sql.LT, "cow"),
 			givenRows:    strRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1071,11 +940,8 @@ func TestSelectComparisonOperators(t *testing.T) {
 			},
 		},
 		{
-			name: "SELECT with <= operator: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
-			query: buildSQL(sql.LTE, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with <= operator: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
+			query:        buildSQL(sql.LTE, "cow"),
 			givenRows:    strRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
@@ -1086,84 +952,145 @@ func TestSelectComparisonOperators(t *testing.T) {
 		},
 
 		{
-			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 4",
-			query: buildSQL(sql.GT, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 4",
+			query:        buildSQL(sql.GT, int32(4)),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 4",
-			query: buildSQL(sql.GTE, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 4",
+			query:        buildSQL(sql.GTE, int32(4)),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 4",
-			query: buildSQL(sql.LT, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 4",
+			query:        buildSQL(sql.LT, int32(4)),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 4",
-			query: buildSQL(sql.LTE, sql.Token{
-				Type: sql.INT,
-				Text: "4",
-			}),
+			name:         "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 4",
+			query:        buildSQL(sql.LTE, int32(4)),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 'cow'",
-			query: buildSQL(sql.GT, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 'cow'",
+			query:        buildSQL(sql.GT, "cow"),
 			givenRows:    intRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
-			query: buildSQL(sql.GTE, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 'cow'",
+			query:        buildSQL(sql.GTE, "cow"),
 			givenRows:    intRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with < operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 'cow'",
-			query: buildSQL(sql.LT, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with < operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 'cow'",
+			query:        buildSQL(sql.LT, "cow"),
 			givenRows:    intRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
-			name: "SELECT with <= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
-			query: buildSQL(sql.LTE, sql.Token{
-				Type: sql.STR,
-				Text: "cow",
-			}),
+			name:         "SELECT with <= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 'cow'",
+			query:        buildSQL(sql.LTE, "cow"),
 			givenRows:    intRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
+		},
+	}
+
+	for _, test := range tc {
+		t.Run(test.name, func(t *testing.T) {
+			actualRows, actualFields, err := EvaluateSelect(test.query, &mockRelationManager{
+				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+					return test.givenRows[tableName], givenFields[tableName], nil
+				},
+			})
+
+			if !errors.Is(err, test.expectErr) {
+				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)
+			}
+
+			if !reflect.DeepEqual(test.expectRows, actualRows) {
+				t.Fatalf("rows do not match. expected: %s actual: %s", test.expectRows, actualRows)
+			}
+
+			if !reflect.DeepEqual(test.expectFields, actualFields) {
+				t.Fatalf("fields do not match. expected: %s actual: %s", test.expectFields, actualFields)
+			}
+		})
+	}
+}
+
+func TestSelectCount(t *testing.T) {
+	buildSQL := func(compOp sql.TokenType, rhs any) sql.Select {
+		return sql.Select{
+			SelectList: sql.SelectList{
+				sql.Count{},
+			},
+			TableExpression: sql.TableExpression{
+				FromClause: sql.FromClause{
+					sql.TableName{
+						Name: "tbl1",
+					},
+				},
+			},
+		}
+	}
+
+	givenFields := map[string]storage.Fields{
+		"tbl1": {
+			&storage.Field{Column: "col1"},
+		},
+	}
+	expectFields := []*storage.Field{
+		{Column: "count(*)"},
+	}
+
+	tc := []struct {
+		name         string
+		query        sql.Select
+		givenRows    map[string][]*storage.Row
+		expectFields []*storage.Field
+		expectRows   []*storage.Row
+		expectErr    error
+	}{
+		{
+			name:  "count(*) with non-empty result set: SELECT count(*) FROM tbl1",
+			query: buildSQL(sql.GT, int32(4)),
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{int32(1)}},
+					{Vals: []interface{}{int32(2)}},
+					{Vals: []interface{}{int32(3)}},
+					{Vals: []interface{}{int32(4)}},
+				},
+			},
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(4)}},
+			},
+		},
+		{
+			name:  "count(*) with empty result set: SELECT count(*) FROM tbl1",
+			query: buildSQL(sql.GT, int32(4)),
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {},
+			},
+			expectFields: expectFields,
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(0)}},
+			},
 		},
 	}
 

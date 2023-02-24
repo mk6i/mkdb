@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/mkaminski/bkdb/sql"
 	"github.com/mkaminski/bkdb/storage"
 )
@@ -8,6 +10,12 @@ import (
 func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
 	rm.StartTxn()
 	defer rm.EndTxn()
+
+	for _, set := range q.Set {
+		if _, ok := set.UpdateSource.(sql.ColumnReference); ok {
+			return fmt.Errorf("%w: can't set field value from another field", ErrTmpUnsupportedSyntax)
+		}
+	}
 
 	table := q.TableName
 	rows, fields, err := rm.Fetch(table)
@@ -27,11 +35,7 @@ func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
 
 	for _, set := range q.Set {
 		cols = append(cols, set.ObjectColumn)
-		val, err := set.UpdateSource.ColumnName.Val()
-		if err != nil {
-			return err
-		}
-		updateSrc = append(updateSrc, val)
+		updateSrc = append(updateSrc, set.UpdateSource)
 	}
 
 	var batch storage.WALBatch

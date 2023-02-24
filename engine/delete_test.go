@@ -26,23 +26,11 @@ func TestDelete(t *testing.T) {
 				WhereClause: sql.WhereClause{
 					SearchCondition: sql.Predicate{
 						ComparisonPredicate: sql.ComparisonPredicate{
-							LHS: sql.ValueExpression{
-								ColumnName: sql.Token{
-									Type:   sql.IDENT,
-									Line:   0,
-									Column: 0,
-									Text:   "val",
-								},
+							LHS: sql.ColumnReference{
+								ColumnName: "val",
 							},
 							CompOp: sql.EQ,
-							RHS: sql.ValueExpression{
-								ColumnName: sql.Token{
-									Type:   sql.STR,
-									Line:   0,
-									Column: 0,
-									Text:   "c",
-								},
-							},
+							RHS:    "c",
 						},
 					},
 				},

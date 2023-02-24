@@ -3,7 +3,6 @@ package sql
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -17,9 +16,10 @@ const (
 )
 
 var (
-	ErrNegativeLimit  = errors.New("LIMIT clause can not be negative")
-	ErrNegativeOffset = errors.New("OFFSET clause can not be negative")
-	ErrSyntax         = errors.New("syntax error")
+	ErrNegativeLimit        = errors.New("LIMIT clause can not be negative")
+	ErrNegativeOffset       = errors.New("OFFSET clause can not be negative")
+	ErrSyntax               = errors.New("syntax error")
+	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
 )
 
 func syntaxErr(t Token) error {
@@ -39,7 +39,7 @@ type TableExpression struct {
 }
 
 type SortSpecification struct {
-	SortKey               ValueExpression
+	SortKey               ColumnReference
 	OrderingSpecification Token
 }
 
@@ -50,26 +50,16 @@ type LimitOffsetClause struct {
 	Offset       int32
 }
 
-type ValueExpression struct {
+type ColumnReference struct {
 	Qualifier  interface{}
-	ColumnName Token
+	ColumnName string
 }
 
-func (v ValueExpression) String() string {
-	switch v.ColumnName.Type {
-	case IDENT:
-		if v.Qualifier != nil {
-			return fmt.Sprintf("%v.%v", v.Qualifier.(Token).Text, v.ColumnName.Text)
-		} else {
-			return v.ColumnName.Text
-		}
-	default:
-		val, err := v.ColumnName.Val()
-		if err != nil {
-			return err.Error()
-		}
-		return fmt.Sprintf("%v (%v)", reflect.TypeOf(val), val)
+func (v ColumnReference) String() string {
+	if v.Qualifier != nil {
+		return fmt.Sprintf("%v.%v", v.Qualifier.(Token).Text, v.ColumnName)
 	}
+	return v.ColumnName
 }
 
 type TableName struct {
@@ -77,8 +67,11 @@ type TableName struct {
 	Name            string
 }
 
+// ValueExpressionPrimary is one of ColumnReference or Count
+type ValueExpressionPrimary any
+
 type Pattern string
-type SelectList []ValueExpression
+type SelectList []ValueExpressionPrimary
 type FromClause []TableReference
 
 // SimpleTable is one of QuerySpecification, TableValueConstructor,
@@ -193,6 +186,11 @@ type DeleteStatementSearched struct {
 	TableName   string
 	WhereClause interface{}
 }
+
+type Count struct {
+}
+
+type Asterisk struct{}
 
 func (p *Parser) Parse() (interface{}, error) {
 	cur := p.Cur()
@@ -346,16 +344,20 @@ func (p *Parser) SortSpecificationList() ([]SortSpecification, error) {
 		return ss, err
 	}
 
-	for p.match(IDENT) {
+	for {
+		ok, cr, err := p.ColumnReference()
+		if err != nil {
+			return ss, err
+		}
+		if !ok {
+			return ss, p.unexpectedTypeErr(IDENT)
+		}
+
 		s := SortSpecification{
 			OrderingSpecification: Token{
 				Type: ASC,
 			},
-		}
-		var err error
-		s.SortKey, err = p.ValueExpression()
-		if err != nil {
-			return ss, err
+			SortKey: cr,
 		}
 
 		if p.match(ASC, DESC) {
@@ -546,10 +548,6 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	cp := ComparisonPredicate{}
 	var err error
 
-	if err := p.requireMatch(STR, ASTRSK, IDENT, INT); err != nil {
-		return cp, err
-	}
-
 	cp.LHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
@@ -561,10 +559,6 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 
 	cp.CompOp = p.Prev().Type
 
-	if err := p.requireMatch(STR, ASTRSK, IDENT, INT); err != nil {
-		return cp, err
-	}
-
 	cp.RHS, err = p.ValueExpression()
 	if err != nil {
 		return cp, err
@@ -573,41 +567,99 @@ func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
 	return cp, nil
 }
 
-func (p *Parser) ValueExpression() (ValueExpression, error) {
-	ve := ValueExpression{}
+// ValueExpression is one of ColumnReference, integer literal, or string literal
+type ValueExpression any
 
-	if p.Prev().Type == IDENT && p.curType(DOT) {
+func (p *Parser) ValueExpression() (ValueExpression, error) {
+	if p.match(STR, INT) {
+		return p.Prev().Val()
+	}
+
+	if ok, cr, err := p.ColumnReference(); err != nil {
+		return nil, err
+	} else if ok {
+		return cr, nil
+	}
+
+	return nil, p.unexpectedTypeErr(INT, STR, IDENT)
+}
+
+func (p *Parser) ColumnReference() (bool, ColumnReference, error) {
+	ve := ColumnReference{}
+
+	if !p.match(IDENT) {
+		return false, ve, nil
+	}
+
+	if p.curType(DOT) {
 		ve.Qualifier = p.Prev()
-		if !p.match(DOT) {
-			panic("should have matched a DOT")
-		}
+		p.Advance()
 		if err := p.requireMatch(IDENT); err != nil {
-			return ve, err
+			return false, ve, err
 		}
 	}
 
-	ve.ColumnName = p.Prev()
+	ve.ColumnName = p.Prev().Text
 
-	return ve, nil
+	return true, ve, nil
 }
 
 func (p *Parser) SelectList() (SelectList, error) {
 	sl := SelectList{}
 
-	for p.match(STR, ASTRSK, IDENT, INT) {
-		ve, err := p.ValueExpression()
+	if p.match(ASTRSK) {
+		sl = append(sl, Asterisk{})
+		return sl, nil
+	}
+
+	for {
+		subList, err := p.SelectSubList()
 		if err != nil {
 			return sl, err
 		}
-
-		sl = append(sl, ve)
-
-		if !p.match(COMMA, WHERE) {
+		sl = append(sl, subList)
+		if !p.match(COMMA) {
 			break
 		}
 	}
 
 	return sl, nil
+}
+
+func (p *Parser) SelectSubList() (any, error) {
+	ok, setFunc, err := p.SetFunctionSpecification()
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return setFunc, nil
+	}
+
+	return p.ValueExpression()
+}
+
+func (p *Parser) SetFunctionSpecification() (bool, any, error) {
+	var setFunc any
+
+	if p.match(COUNT) {
+		if err := p.requireMatch(LPAREN); err != nil {
+			return false, setFunc, err
+		}
+		if p.match(ASTRSK) {
+			setFunc = Count{}
+		} else {
+			return false, setFunc, fmt.Errorf("%w: only count(*) is valid", ErrTmpUnsupportedSyntax)
+		}
+		if err := p.requireMatch(RPAREN); err != nil {
+			return false, setFunc, err
+		}
+		if p.match(COMMA) {
+			return false, setFunc, fmt.Errorf("%w: count(*) must be the only select field", ErrTmpUnsupportedSyntax)
+		}
+		return true, setFunc, nil
+	}
+
+	return false, setFunc, nil
 }
 
 func (p *Parser) TableName() (TableName, error) {
@@ -705,10 +757,6 @@ func (p *Parser) Update() (UpdateStatementSearched, error) {
 		sc.ObjectColumn = p.Prev().Text
 
 		if err := p.requireMatch(EQ); err != nil {
-			return us, err
-		}
-
-		if err := p.requireMatch(STR, INT); err != nil {
 			return us, err
 		}
 
