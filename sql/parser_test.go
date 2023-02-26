@@ -1991,3 +1991,60 @@ func TestParseSelectCountErrTmpUnsupportedSyntax(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSelectScalar(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: INT,
+			Text: "123",
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: STR,
+			Text: "Test",
+		},
+		{
+			Type: FROM,
+		},
+		{
+			Type: IDENT,
+			Text: "the_table",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			int32(123),
+			"Test",
+		},
+		TableExpression: TableExpression{
+			FromClause: FromClause{
+				TableName{
+					Name: "the_table",
+				},
+			},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
