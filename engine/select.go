@@ -162,7 +162,7 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 }
 
 func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
-	var idxs []int
+	var idxOrder []int
 	var projFields storage.Fields
 
 	for _, elem := range selectList {
@@ -174,7 +174,14 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				Column: "count(*)",
 			})
 		case int32, string:
-			return nil, fmt.Errorf("%w: can't select scalar values", ErrTmpUnsupportedSyntax)
+			// append scalar as a new column to the result rows
+			projFields = append(projFields, &storage.Field{
+				Column: "?",
+			})
+			idxOrder = append(idxOrder, len(rows[0].Vals))
+			for _, r := range rows {
+				r.Vals = append(r.Vals, elem)
+			}
 		case sql.ColumnReference:
 			var idx int
 			var err error
@@ -186,7 +193,7 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 			if err != nil {
 				return nil, err
 			}
-			idxs = append(idxs, idx)
+			idxOrder = append(idxOrder, idx)
 			projFields = append(projFields, qfields[idx])
 		}
 	}
@@ -194,7 +201,7 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	// rearrange columns according to order imposed by selectList
 	for _, row := range rows {
 		var tmp []interface{}
-		for _, idx := range idxs {
+		for _, idx := range idxOrder {
 			tmp = append(tmp, row.Vals[idx])
 		}
 		row.Vals = tmp

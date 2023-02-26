@@ -1116,3 +1116,58 @@ func TestSelectCount(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectScalar(t *testing.T) {
+	givenFields := map[string]storage.Fields{
+		"tbl1": {
+			&storage.Field{Column: "col1"},
+		},
+	}
+	query := sql.Select{
+		SelectList: sql.SelectList{
+			int32(123),
+			sql.ColumnReference{
+				ColumnName: "col1",
+			},
+			"Test",
+		},
+		TableExpression: sql.TableExpression{
+			FromClause: sql.FromClause{
+				sql.TableName{
+					Name: "tbl1",
+				},
+			},
+		},
+	}
+	givenRows := map[string][]*storage.Row{
+		"tbl1": {
+			{Vals: []interface{}{int32(1)}},
+			{Vals: []interface{}{int32(2)}},
+			{Vals: []interface{}{int32(3)}},
+			{Vals: []interface{}{int32(4)}},
+		},
+	}
+	expectFields := []*storage.Field{
+		{Column: "?"},
+		{TableID: "tbl1", Column: "col1"},
+		{Column: "?"},
+	}
+	expectRows := []*storage.Row{
+		{Vals: []interface{}{int32(123), int32(1), "Test"}},
+		{Vals: []interface{}{int32(123), int32(2), "Test"}},
+		{Vals: []interface{}{int32(123), int32(3), "Test"}},
+		{Vals: []interface{}{int32(123), int32(4), "Test"}},
+	}
+	actualRows, actualFields, _ := EvaluateSelect(query, &mockRelationManager{
+		fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+			return givenRows[tableName], givenFields[tableName], nil
+		},
+	})
+
+	if !reflect.DeepEqual(expectRows, actualRows) {
+		t.Fatalf("rows do not match. expected: %s actual: %s", expectRows, actualRows)
+	}
+	if !reflect.DeepEqual(expectFields, actualFields) {
+		t.Fatalf("fields do not match. expected: %s actual: %s", expectFields, actualFields)
+	}
+}
