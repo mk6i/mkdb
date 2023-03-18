@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	ErrSortFieldNotFound    = errors.New("sort field is not in select list")
 	ErrIncompatTypeCompare  = errors.New("incompatible type comparison")
+	ErrNonBoolJoinCond      = errors.New("non-boolean join condition")
+	ErrSortFieldNotFound    = errors.New("sort field is not in select list")
 	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
 )
 
@@ -22,9 +23,17 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 	rm.StartTxn()
 	defer rm.EndTxn()
 
-	table := q.TableExpression.FromClause[0]
+	// handle case where no FROM clause is specified
+	if len(q.TableExpression.FromClause) == 0 {
+		var fields storage.Fields
+		// create a placeholder row to populate
+		rows := []*storage.Row{{}}
+		var err error
+		fields, err = projectColumns(q.SelectList, fields, rows)
+		return rows, fields, err
+	}
 
-	rows, fields, err := nestedLoopJoin(rm, table)
+	rows, fields, err := nestedLoopJoin(rm, q.TableExpression.FromClause[0])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,6 +64,7 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 	}
 
 	// if select count(*), replace rows with row count
+	// todo: move logic into projectColumns()
 	if _, ok := q.SelectList[0].(sql.Count); ok {
 		count := int32(len(rows))
 		rows = []*storage.Row{
@@ -106,11 +116,13 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 				for _, lRow := range lRows {
 					for _, rRow := range rRows {
 						tmpRow := lRow.Merge(rRow)
-						ok, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
+						result, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
 						if err != nil {
 							return nil, nil, err
 						}
-						if ok {
+						if doJoin, ok := result.(bool); !ok {
+							return nil, nil, ErrNonBoolJoinCond
+						} else if doJoin {
 							tmpRows = append(tmpRows, tmpRow)
 						}
 					}
@@ -121,11 +133,13 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 					hasMatch := false
 					for _, rRow := range rRows {
 						tmpRow := lRow.Merge(rRow)
-						ok, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
+						result, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
 						if err != nil {
 							return nil, nil, err
 						}
-						if ok {
+						if doJoin, ok := result.(bool); !ok {
+							return nil, nil, ErrNonBoolJoinCond
+						} else if doJoin {
 							hasMatch = true
 							tmpRows = append(tmpRows, tmpRow)
 						}
@@ -140,11 +154,13 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 					hasMatch := false
 					for _, lRow := range lRows {
 						tmpRow := lRow.Merge(rRow)
-						ok, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
+						result, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
 						if err != nil {
 							return nil, nil, err
 						}
-						if ok {
+						if doJoin, ok := result.(bool); !ok {
+							return nil, nil, ErrNonBoolJoinCond
+						} else if doJoin {
 							hasMatch = true
 							tmpRows = append(tmpRows, tmpRow)
 						}
@@ -162,8 +178,11 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 }
 
 func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
-	var idxOrder []int
 	var projFields storage.Fields
+
+	var prototype []any
+
+	lookup := map[sql.ColumnReference]int{}
 
 	for _, elem := range selectList {
 		switch elem := elem.(type) {
@@ -173,15 +192,6 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 			projFields = append(projFields, &storage.Field{
 				Column: "count(*)",
 			})
-		case int32, string:
-			// append scalar as a new column to the result rows
-			projFields = append(projFields, &storage.Field{
-				Column: "?",
-			})
-			idxOrder = append(idxOrder, len(rows[0].Vals))
-			for _, r := range rows {
-				r.Vals = append(r.Vals, elem)
-			}
 		case sql.ColumnReference:
 			var idx int
 			var err error
@@ -193,18 +203,36 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 			if err != nil {
 				return nil, err
 			}
-			idxOrder = append(idxOrder, idx)
+			lookup[elem] = idx
+			prototype = append(prototype, elem)
 			projFields = append(projFields, qfields[idx])
+		default:
+			projFields = append(projFields, &storage.Field{
+				Column: "?",
+			})
+			prototype = append(prototype, elem)
 		}
 	}
 
 	// rearrange columns according to order imposed by selectList
+	// todo use copy to make more efficient?
 	for _, row := range rows {
-		var tmp []interface{}
-		for _, idx := range idxOrder {
-			tmp = append(tmp, row.Vals[idx])
+		var newVals []interface{}
+		for _, elem := range prototype {
+			switch elem := elem.(type) {
+			case sql.ColumnReference:
+				idx := lookup[elem]
+				newVals = append(newVals, row.Vals[idx])
+			default:
+				result, err := evaluate(elem, qfields, row)
+				if err != nil {
+					return nil, err
+				}
+				newVals = append(newVals, result)
+			}
+
 		}
-		row.Vals = tmp
+		row.Vals = newVals
 	}
 
 	return projFields, nil
@@ -270,7 +298,7 @@ func filterRows(q sql.WhereClause, qfields storage.Fields, rows []*storage.Row) 
 		if err != nil {
 			return nil, err
 		}
-		if ok {
+		if val, ok := ok.(bool); val && ok {
 			ans = append(ans, row)
 		}
 	}
@@ -278,7 +306,7 @@ func filterRows(q sql.WhereClause, qfields storage.Fields, rows []*storage.Row) 
 	return ans, nil
 }
 
-func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (bool, error) {
+func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (any, error) {
 	switch v := q.(type) {
 	case sql.SearchCondition: // or
 		return evalOr(v, qfields, row)
@@ -286,6 +314,12 @@ func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (bool, er
 		return evalAnd(v, qfields, row)
 	case sql.Predicate:
 		return evalComparisonPredicate(v.ComparisonPredicate, qfields, row)
+	case int32:
+		return q, nil
+	case string:
+		return q, nil
+	case bool:
+		return q, nil
 	}
 	return false, fmt.Errorf("nothing to evaluate here")
 }
@@ -299,7 +333,13 @@ func evalOr(q sql.SearchCondition, qfields storage.Fields, row *storage.Row) (bo
 	if err != nil {
 		return false, err
 	}
-	return lhs || rhs, nil
+	if lhs, ok := lhs.(bool); !ok {
+		return false, newErrIncompatTypeCompare(lhs, rhs)
+	} else if rhs, ok := rhs.(bool); !ok {
+		return false, newErrIncompatTypeCompare(lhs, rhs)
+	} else {
+		return lhs || rhs, nil
+	}
 }
 
 func evalAnd(q sql.BooleanTerm, qfields storage.Fields, row *storage.Row) (bool, error) {
@@ -311,7 +351,13 @@ func evalAnd(q sql.BooleanTerm, qfields storage.Fields, row *storage.Row) (bool,
 	if err != nil {
 		return false, err
 	}
-	return lhs && rhs, nil
+	if lhs, ok := lhs.(bool); !ok {
+		return false, newErrIncompatTypeCompare(lhs, rhs)
+	} else if rhs, ok := rhs.(bool); !ok {
+		return false, newErrIncompatTypeCompare(lhs, rhs)
+	} else {
+		return lhs && rhs, nil
+	}
 }
 
 func newErrIncompatTypeCompare(LHS any, RHS any) error {
@@ -458,14 +504,14 @@ func printableFields(selectList sql.SelectList, fields storage.Fields) []string 
 			}
 		case sql.Count:
 			ans = append(ans, "count(*)")
-		case int32, string:
-			ans = append(ans, "?")
 		case sql.ColumnReference:
 			if elem.Qualifier != nil {
 				ans = append(ans, fmt.Sprintf("%s.%s", elem.Qualifier.(sql.Token).Text, elem.ColumnName))
 			} else {
 				ans = append(ans, elem.ColumnName)
 			}
+		default:
+			ans = append(ans, "?")
 		}
 	}
 	return ans
