@@ -20,6 +20,7 @@ var (
 	ErrNegativeOffset       = errors.New("OFFSET clause can not be negative")
 	ErrSyntax               = errors.New("syntax error")
 	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
+	ErrUnexpectedToken      = errors.New("unexpected token")
 )
 
 func syntaxErr(t Token) error {
@@ -316,9 +317,16 @@ func (p *Parser) Select() (Select, error) {
 		return sel, err
 	}
 
-	sel.TableExpression, err = p.TableExpression()
+	var hasFromClause bool
+	sel.TableExpression, hasFromClause, err = p.TableExpression()
 	if err != nil {
 		return sel, err
+	}
+
+	// check for missing FROM clause. FROM is not required if query ends with
+	// select list.
+	if !hasFromClause && p.HasNext() {
+		return sel, p.requireMatch(FROM)
 	}
 
 	sel.SortSpecificationList, err = p.SortSpecificationList()
@@ -403,33 +411,34 @@ func (p *Parser) LimitOffsetClause() (LimitOffsetClause, error) {
 	return lc, err
 }
 
-func (p *Parser) TableExpression() (TableExpression, error) {
+func (p *Parser) TableExpression() (TableExpression, bool, error) {
 	te := TableExpression{}
 	var err error
+	var found bool
 
-	te.FromClause, err = p.FromClause()
-	if err != nil {
-		return te, err
+	te.FromClause, found, err = p.FromClause()
+	if err != nil || !found {
+		return te, found, err
 	}
 
 	te.WhereClause, err = p.WhereClause()
 	if err != nil {
-		return te, err
+		return te, found, err
 	}
 
-	return te, err
+	return te, found, err
 }
 
-func (p *Parser) FromClause() (FromClause, error) {
+func (p *Parser) FromClause() (FromClause, bool, error) {
 	fc := FromClause{}
 
-	if err := p.requireMatch(FROM); err != nil {
-		return fc, err
+	if !p.match(FROM) {
+		return fc, false, nil
 	}
 
 	tn, err := p.TableName()
 	if err != nil {
-		return fc, err
+		return fc, true, err
 	}
 
 	tblRef := TableReference(tn)
@@ -448,13 +457,13 @@ func (p *Parser) FromClause() (FromClause, error) {
 		}
 
 		if err := p.requireMatch(JOIN); err != nil {
-			return fc, err
+			return fc, true, err
 		}
 
 		var rhs TableReference
 		rhs, err = p.TableName()
 		if err != nil {
-			return fc, err
+			return fc, true, err
 		}
 
 		qj := QualifiedJoin{
@@ -464,13 +473,13 @@ func (p *Parser) FromClause() (FromClause, error) {
 		}
 
 		if err := p.requireMatch(ON); err != nil {
-			return fc, err
+			return fc, true, err
 		}
 
 		var err error
 		qj.JoinCondition, err = p.OrCondition()
 		if err != nil {
-			return fc, err
+			return fc, true, err
 		}
 
 		tblRef = qj
@@ -478,7 +487,7 @@ func (p *Parser) FromClause() (FromClause, error) {
 
 	fc = append(fc, tblRef)
 
-	return fc, nil
+	return fc, true, nil
 }
 
 func (p *Parser) WhereClause() (interface{}, error) {
@@ -539,25 +548,32 @@ func (p *Parser) Predicate() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Predicate{
-		pred,
-	}, nil
+
+	if pred, ok := pred.(ComparisonPredicate); ok {
+		return Predicate{
+			pred,
+		}, nil
+	}
+
+	return pred, err
 }
 
-func (p *Parser) ComparisonPredicate() (ComparisonPredicate, error) {
-	cp := ComparisonPredicate{}
+func (p *Parser) ComparisonPredicate() (interface{}, error) {
 	var err error
 
-	cp.LHS, err = p.ValueExpression()
+	lhs, err := p.ValueExpression()
 	if err != nil {
-		return cp, err
+		return lhs, err
 	}
 
-	if err := p.requireMatch(EQ, NEQ, LT, GT, LTE, GTE); err != nil {
-		return cp, err
+	if !p.match(EQ, NEQ, LT, GT, LTE, GTE) {
+		return lhs, nil
 	}
 
-	cp.CompOp = p.Prev().Type
+	cp := ComparisonPredicate{
+		LHS:    lhs,
+		CompOp: p.Prev().Type,
+	}
 
 	cp.RHS, err = p.ValueExpression()
 	if err != nil {
@@ -635,7 +651,7 @@ func (p *Parser) SelectSubList() (any, error) {
 		return setFunc, nil
 	}
 
-	return p.ValueExpression()
+	return p.OrCondition()
 }
 
 func (p *Parser) SetFunctionSpecification() (bool, any, error) {
@@ -845,15 +861,18 @@ func hasType(targetType TokenType, types ...TokenType) bool {
 }
 
 func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
-	unex := Tokens[p.Cur().Type]
-	if p.Cur().Text != "" {
-		unex = p.Cur().Text
+	var unex string
+	switch p.Cur().Type {
+	case IDENT, INT, STR:
+		unex = fmt.Sprintf("`%s`", p.Cur().Text)
+	default:
+		unex = Tokens[p.Cur().Type]
 	}
 	var typeNames []string
 	for _, tipe := range types {
 		typeNames = append(typeNames, Tokens[tipe])
 	}
-	return fmt.Errorf("unexpected token `%s`. expected %s", unex, strings.Join(typeNames, ", "))
+	return fmt.Errorf("%w %s, expected %s", ErrUnexpectedToken, unex, strings.Join(typeNames, ", "))
 }
 
 func (p *Parser) requireInt() (int32, error) {

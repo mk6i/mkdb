@@ -2048,3 +2048,93 @@ func TestParseSelectScalar(t *testing.T) {
 		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
 	}
 }
+
+func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: INT,
+			Text: "1",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "2",
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			Predicate{
+				ComparisonPredicate{
+					LHS:    int32(1),
+					CompOp: EQ,
+					RHS:    int32(2),
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: []TableReference{},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
+func TestParseSelectExpressionWithMissingFrom(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: INT,
+			Text: "1",
+		},
+		{
+			Type: WHERE,
+		},
+		{
+			Type: IDENT,
+			Text: "id",
+		},
+		{
+			Type: EQ,
+		},
+		{
+			Type: INT,
+			Text: "4",
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	_, err := p.Parse()
+
+	if !errors.Is(err, ErrUnexpectedToken) {
+		t.Errorf("expected ErrUnexpectedToken, got %v", err)
+	}
+}

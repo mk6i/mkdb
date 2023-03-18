@@ -772,6 +772,126 @@ func TestSelect(t *testing.T) {
 				{Vals: []interface{}{int32(5), int32(17)}},
 			},
 		},
+		{
+			name: `SELECT expression with FROM clause: SELECT col1, col1=id_2' FROM tbl1`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.ColumnReference{
+						ColumnName: "col1",
+					},
+					sql.Predicate{
+						ComparisonPredicate: sql.ComparisonPredicate{
+							LHS: sql.ColumnReference{
+								ColumnName: "col1",
+							},
+							CompOp: sql.EQ,
+							RHS:    "id_2",
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{Name: "tbl1"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "col1"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "col1", TableID: "tbl1"},
+				{Column: "?"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{"id_1"}},
+					{Vals: []interface{}{"id_2"}},
+					{Vals: []interface{}{"id_3"}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"id_1", false}},
+				{Vals: []interface{}{"id_2", true}},
+				{Vals: []interface{}{"id_3", false}},
+			},
+		},
+		{
+			name: `SELECT comparison predicate without FROM clause: SELECT 1=1, 1=2`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.Predicate{
+						ComparisonPredicate: sql.ComparisonPredicate{
+							LHS:    int32(1),
+							CompOp: sql.EQ,
+							RHS:    int32(1),
+						},
+					},
+					sql.Predicate{
+						ComparisonPredicate: sql.ComparisonPredicate{
+							LHS:    int32(1),
+							CompOp: sql.EQ,
+							RHS:    int32(2),
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: []sql.TableReference{},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "col1"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "?"},
+				{Column: "?"},
+			},
+			givenRows: map[string][]*storage.Row{},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{true, false}},
+			},
+		},
+		{
+			name: `SELECT boolean term without FROM clause: SELECT 1=1 AND 2=2`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.BooleanTerm{
+						LHS: sql.Predicate{
+							ComparisonPredicate: sql.ComparisonPredicate{
+								LHS:    int32(1),
+								CompOp: sql.EQ,
+								RHS:    int32(1),
+							},
+						},
+						RHS: sql.Predicate{
+							ComparisonPredicate: sql.ComparisonPredicate{
+								LHS:    int32(2),
+								CompOp: sql.EQ,
+								RHS:    int32(2),
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: []sql.TableReference{},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "col1"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "?"},
+			},
+			givenRows: map[string][]*storage.Row{},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{true}},
+			},
+		},
 	}
 
 	for _, test := range tc {
