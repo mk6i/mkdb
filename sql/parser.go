@@ -68,11 +68,16 @@ type TableName struct {
 	Name            string
 }
 
+type DerivedColumn struct {
+	ValueExpressionPrimary
+	AsClause string
+}
+
 // ValueExpressionPrimary is one of ColumnReference or Count
 type ValueExpressionPrimary any
 
 type Pattern string
-type SelectList []ValueExpressionPrimary
+type SelectList []DerivedColumn
 type FromClause []TableReference
 
 // SimpleTable is one of QuerySpecification, TableValueConstructor,
@@ -624,7 +629,9 @@ func (p *Parser) SelectList() (SelectList, error) {
 	sl := SelectList{}
 
 	if p.match(ASTRSK) {
-		sl = append(sl, Asterisk{})
+		sl = append(sl, DerivedColumn{
+			ValueExpressionPrimary: Asterisk{},
+		})
 		return sl, nil
 	}
 
@@ -642,16 +649,33 @@ func (p *Parser) SelectList() (SelectList, error) {
 	return sl, nil
 }
 
-func (p *Parser) SelectSubList() (any, error) {
-	ok, setFunc, err := p.SetFunctionSpecification()
+func (p *Parser) SelectSubList() (DerivedColumn, error) {
+	dc := DerivedColumn{}
+
+	found, setFunc, err := p.SetFunctionSpecification()
 	if err != nil {
-		return nil, err
+		return dc, err
 	}
-	if ok {
-		return setFunc, nil
+	if found {
+		dc.ValueExpressionPrimary = setFunc
+		return dc, err
 	}
 
-	return p.OrCondition()
+	dc.ValueExpressionPrimary, err = p.OrCondition()
+	if err != nil {
+		return dc, err
+	}
+
+	if p.match(AS) {
+		if p.Cur().Type != IDENT {
+			return dc, p.requireMatch(IDENT)
+		}
+	}
+	if p.match(IDENT) {
+		dc.AsClause = p.Prev().Text
+	}
+
+	return dc, err
 }
 
 func (p *Parser) SetFunctionSpecification() (bool, any, error) {

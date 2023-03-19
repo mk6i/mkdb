@@ -24,6 +24,14 @@ func TestParseSelect(t *testing.T) {
 			Text: "field_1",
 		},
 		{
+			Type: AS,
+			Text: "AS",
+		},
+		{
+			Type: IDENT,
+			Text: "field_1_alias",
+		},
+		{
 			Type: COMMA,
 		},
 		{
@@ -36,6 +44,10 @@ func TestParseSelect(t *testing.T) {
 		{
 			Type: IDENT,
 			Text: "field_2",
+		},
+		{
+			Type: IDENT,
+			Text: "field_2_alias",
 		},
 		{
 			Type: FROM,
@@ -145,19 +157,25 @@ func TestParseSelect(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "tt",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "tt",
+					},
+					ColumnName: "field_1",
 				},
-				ColumnName: "field_1",
+				AsClause: "field_1_alias",
 			},
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "tt",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "tt",
+					},
+					ColumnName: "field_2",
 				},
-				ColumnName: "field_2",
+				AsClause: "field_2_alias",
 			},
 		},
 		TableExpression: TableExpression{
@@ -283,7 +301,9 @@ func TestParseSelectLimitOffset(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Asterisk{},
+			DerivedColumn{
+				ValueExpressionPrimary: Asterisk{},
+			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
@@ -351,7 +371,9 @@ func TestParseSelectOffsetLimit(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Asterisk{},
+			DerivedColumn{
+				ValueExpressionPrimary: Asterisk{},
+			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
@@ -573,19 +595,23 @@ func TestParseSelectInnerJoinSansInnerKeyword(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_1",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_1",
+					},
+					ColumnName: "field_1",
 				},
-				ColumnName: "field_1",
 			},
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_2",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_2",
+					},
+					ColumnName: "field_2",
 				},
-				ColumnName: "field_2",
 			},
 		},
 		TableExpression: TableExpression{
@@ -773,19 +799,23 @@ func TestParseSelectInnerJoinWithInnerKeyword(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_1",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_1",
+					},
+					ColumnName: "field_1",
 				},
-				ColumnName: "field_1",
 			},
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_2",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_2",
+					},
+					ColumnName: "field_2",
 				},
-				ColumnName: "field_2",
 			},
 		},
 		TableExpression: TableExpression{
@@ -973,19 +1003,23 @@ func TestParseSelectLeftJoin(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_1",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_1",
+					},
+					ColumnName: "field_1",
 				},
-				ColumnName: "field_1",
 			},
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_2",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_2",
+					},
+					ColumnName: "field_2",
 				},
-				ColumnName: "field_2",
 			},
 		},
 		TableExpression: TableExpression{
@@ -1173,19 +1207,23 @@ func TestParseSelectRightJoin(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_1",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_1",
+					},
+					ColumnName: "field_1",
 				},
-				ColumnName: "field_1",
 			},
-			ColumnReference{
-				Qualifier: Token{
-					Type: IDENT,
-					Text: "table_2",
+			DerivedColumn{
+				ValueExpressionPrimary: ColumnReference{
+					Qualifier: Token{
+						Type: IDENT,
+						Text: "table_2",
+					},
+					ColumnName: "field_2",
 				},
-				ColumnName: "field_2",
 			},
 		},
 		TableExpression: TableExpression{
@@ -1278,7 +1316,9 @@ func TestParseSelectStar(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Asterisk{},
+			DerivedColumn{
+				ValueExpressionPrimary: Asterisk{},
+			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
@@ -1891,7 +1931,9 @@ func TestParseSelectCount(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Count{},
+			DerivedColumn{
+				ValueExpressionPrimary: Count{},
+			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
@@ -2020,8 +2062,12 @@ func TestParseSelectScalar(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			int32(123),
-			"Test",
+			DerivedColumn{
+				ValueExpressionPrimary: int32(123),
+			},
+			DerivedColumn{
+				ValueExpressionPrimary: "Test",
+			},
 		},
 		TableExpression: TableExpression{
 			FromClause: FromClause{
@@ -2070,11 +2116,13 @@ func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
 
 	expected := Select{
 		SelectList: SelectList{
-			Predicate{
-				ComparisonPredicate{
-					LHS:    int32(1),
-					CompOp: EQ,
-					RHS:    int32(2),
+			DerivedColumn{
+				ValueExpressionPrimary: Predicate{
+					ComparisonPredicate{
+						LHS:    int32(1),
+						CompOp: EQ,
+						RHS:    int32(2),
+					},
 				},
 			},
 		},

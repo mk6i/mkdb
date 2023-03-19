@@ -65,7 +65,7 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 
 	// if select count(*), replace rows with row count
 	// todo: move logic into projectColumns()
-	if _, ok := q.SelectList[0].(sql.Count); ok {
+	if _, ok := q.SelectList[0].ValueExpressionPrimary.(sql.Count); ok {
 		count := int32(len(rows))
 		rows = []*storage.Row{
 			{
@@ -185,7 +185,7 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	lookup := map[sql.ColumnReference]int{}
 
 	for _, elem := range selectList {
-		switch elem := elem.(type) {
+		switch elem := elem.ValueExpressionPrimary.(type) {
 		case sql.Asterisk:
 			return qfields, nil
 		case sql.Count:
@@ -211,6 +211,11 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				Column: "?",
 			})
 			prototype = append(prototype, elem)
+		}
+
+		// replace field name with alias
+		if elem.AsClause != "" {
+			projFields[len(projFields)-1].Column = elem.AsClause
 		}
 	}
 
@@ -465,18 +470,18 @@ func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (inter
 	return q, nil
 }
 
-func printTable(selectList []string, rows []*storage.Row) {
+func printTable(rows []*storage.Row, fields []*storage.Field) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
 	fmt.Print("\n\r\n\r")
 
-	for _, field := range selectList {
-		fmt.Fprintf(w, "| [%s]\t", field)
+	for _, field := range fields {
+		fmt.Fprintf(w, "| [%s]\t", field.Column)
 	}
 
 	fmt.Fprint(w, "|\n\r")
 
-	for range selectList {
+	for range fields {
 		fmt.Fprint(w, "| --------------------\t")
 	}
 
@@ -492,29 +497,6 @@ func printTable(selectList []string, rows []*storage.Row) {
 	w.Flush()
 
 	fmt.Printf("\n\r%d result(s) returned\n\r", len(rows))
-}
-
-func printableFields(selectList sql.SelectList, fields storage.Fields) []string {
-	var ans []string
-	for _, elem := range selectList {
-		switch elem := elem.(type) {
-		case sql.Asterisk:
-			for _, field := range fields {
-				ans = append(ans, field.Column.(string))
-			}
-		case sql.Count:
-			ans = append(ans, "count(*)")
-		case sql.ColumnReference:
-			if elem.Qualifier != nil {
-				ans = append(ans, fmt.Sprintf("%s.%s", elem.Qualifier.(sql.Token).Text, elem.ColumnName))
-			} else {
-				ans = append(ans, elem.ColumnName)
-			}
-		default:
-			ans = append(ans, "?")
-		}
-	}
-	return ans
 }
 
 func limit(limit int, rows []*storage.Row) []*storage.Row {

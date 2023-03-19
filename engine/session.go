@@ -71,8 +71,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err != nil {
 			return err
 		}
-		printableFields := printableFields(stmt.SelectList, fields)
-		printTable(printableFields, rows)
+		printTable(rows, fields)
 	case sql.InsertStatement:
 		if count, err := EvaluateInsert(stmt, s.RelationService); err != nil {
 			return err
