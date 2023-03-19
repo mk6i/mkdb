@@ -9,7 +9,7 @@ import (
 func TestScanSelect(t *testing.T) {
 
 	const src = `
-		SELECT "tt"."field_1", tt.field_2
+		SELECT "tt"."field_1" AS field_1_alias, tt.field_2
 		FROM the_table tt
 		WHERE tt.ident = 'some literal'
 			OR tt.ident2 = 12
@@ -36,6 +36,14 @@ func TestScanSelect(t *testing.T) {
 		{
 			Type: IDENT,
 			Text: "field_1",
+		},
+		{
+			Type: AS,
+			Text: "AS",
+		},
+		{
+			Type: IDENT,
+			Text: "field_1_alias",
 		},
 		{
 			Type: COMMA,

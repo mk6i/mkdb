@@ -58,7 +58,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -132,7 +134,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY, 2nd col has identical values: SELECT * FROM tbl1 ORDER BY col1 DESC, col2 ASC, col3 DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -200,7 +204,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with ORDER BY on non-existent field: SELECT * FROM tbl1 ORDER BY non_existent_col DESC",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -240,7 +246,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value that exceeds result set size: SELECT * FROM tbl1 LIMIT 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -281,7 +289,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value within size of result set: SELECT * FROM tbl1 LIMIT 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -320,7 +330,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT value 0: SELECT * FROM tbl1 LIMIT 0",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -356,7 +368,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value 0: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -389,7 +403,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value within size of result set: SELECT * FROM tbl1 OFFSET 2",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -420,7 +436,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value equal to result set size: SELECT * FROM tbl1 OFFSET 4",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -448,7 +466,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with OFFSET value that exceeds result set size: SELECT * FROM tbl1 OFFSET 100",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -476,7 +496,9 @@ func TestSelect(t *testing.T) {
 			name: "SELECT with LIMIT and OFFSET: SELECT * FROM tbl1 LIMIT 2 OFFSET 1",
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Asterisk{},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Asterisk{},
+					},
 				},
 				TableExpression: sql.TableExpression{
 					FromClause: sql.FromClause{
@@ -509,19 +531,23 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with INNER JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl1",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl1",
+							},
+							ColumnName: "col1",
 						},
-						ColumnName: "col1",
 					},
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl2",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl2",
+							},
+							ColumnName: "col3",
 						},
-						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -600,19 +626,23 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with LEFT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 LEFT JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl1",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl1",
+							},
+							ColumnName: "col1",
 						},
-						ColumnName: "col1",
 					},
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl2",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl2",
+							},
+							ColumnName: "col3",
 						},
-						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -688,19 +718,23 @@ func TestSelect(t *testing.T) {
 			name: `SELECT with RIGHT JOIN: SELECT tbl1.col1, tbl2.col3 FROM tbl1 RIGHT JOIN tbl2 ON tbl1.id = tbl2.id`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl1",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl1",
+							},
+							ColumnName: "col1",
 						},
-						ColumnName: "col1",
 					},
-					sql.ColumnReference{
-						Qualifier: sql.Token{
-							Type: sql.IDENT,
-							Text: "tbl2",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl2",
+							},
+							ColumnName: "col3",
 						},
-						ColumnName: "col3",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -773,19 +807,23 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: `SELECT expression with FROM clause: SELECT col1, col1=id_2' FROM tbl1`,
+			name: `SELECT expression with FROM clause: SELECT col1, col1=id_2 FROM tbl1`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.ColumnReference{
-						ColumnName: "col1",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "col1",
+						},
 					},
-					sql.Predicate{
-						ComparisonPredicate: sql.ComparisonPredicate{
-							LHS: sql.ColumnReference{
-								ColumnName: "col1",
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Predicate{
+							ComparisonPredicate: sql.ComparisonPredicate{
+								LHS: sql.ColumnReference{
+									ColumnName: "col1",
+								},
+								CompOp: sql.EQ,
+								RHS:    "id_2",
 							},
-							CompOp: sql.EQ,
-							RHS:    "id_2",
 						},
 					},
 				},
@@ -821,18 +859,22 @@ func TestSelect(t *testing.T) {
 			name: `SELECT comparison predicate without FROM clause: SELECT 1=1, 1=2`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.Predicate{
-						ComparisonPredicate: sql.ComparisonPredicate{
-							LHS:    int32(1),
-							CompOp: sql.EQ,
-							RHS:    int32(1),
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Predicate{
+							ComparisonPredicate: sql.ComparisonPredicate{
+								LHS:    int32(1),
+								CompOp: sql.EQ,
+								RHS:    int32(1),
+							},
 						},
 					},
-					sql.Predicate{
-						ComparisonPredicate: sql.ComparisonPredicate{
-							LHS:    int32(1),
-							CompOp: sql.EQ,
-							RHS:    int32(2),
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Predicate{
+							ComparisonPredicate: sql.ComparisonPredicate{
+								LHS:    int32(1),
+								CompOp: sql.EQ,
+								RHS:    int32(2),
+							},
 						},
 					},
 				},
@@ -858,19 +900,21 @@ func TestSelect(t *testing.T) {
 			name: `SELECT boolean term without FROM clause: SELECT 1=1 AND 2=2`,
 			query: sql.Select{
 				SelectList: sql.SelectList{
-					sql.BooleanTerm{
-						LHS: sql.Predicate{
-							ComparisonPredicate: sql.ComparisonPredicate{
-								LHS:    int32(1),
-								CompOp: sql.EQ,
-								RHS:    int32(1),
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.BooleanTerm{
+							LHS: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS:    int32(1),
+									CompOp: sql.EQ,
+									RHS:    int32(1),
+								},
 							},
-						},
-						RHS: sql.Predicate{
-							ComparisonPredicate: sql.ComparisonPredicate{
-								LHS:    int32(2),
-								CompOp: sql.EQ,
-								RHS:    int32(2),
+							RHS: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS:    int32(2),
+									CompOp: sql.EQ,
+									RHS:    int32(2),
+								},
 							},
 						},
 					},
@@ -890,6 +934,53 @@ func TestSelect(t *testing.T) {
 			givenRows: map[string][]*storage.Row{},
 			expectRows: []*storage.Row{
 				{Vals: []interface{}{true}},
+			},
+		},
+
+		{
+			name: `SELECT expression with FROM clause: SELECT field_1 as field_1_alias, field_2 field_2_alias FROM tbl1`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "field_1",
+						},
+						AsClause: "field_1_alias",
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "field_2",
+						},
+						AsClause: "field_2_alias",
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{Name: "tbl1"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "field_1"},
+					&storage.Field{Column: "field_2"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "field_1_alias", TableID: "tbl1"},
+				{Column: "field_2_alias", TableID: "tbl1"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{"id_1", "id_2"}},
+					{Vals: []interface{}{"id_3", "id_4"}},
+					{Vals: []interface{}{"id_5", "id_6"}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"id_1", "id_2"}},
+				{Vals: []interface{}{"id_3", "id_4"}},
+				{Vals: []interface{}{"id_5", "id_6"}},
 			},
 		},
 	}
@@ -921,7 +1012,9 @@ func TestSelectComparisonOperators(t *testing.T) {
 	buildSQL := func(compOp sql.TokenType, rhs any) sql.Select {
 		return sql.Select{
 			SelectList: sql.SelectList{
-				sql.Asterisk{},
+				sql.DerivedColumn{
+					ValueExpressionPrimary: sql.Asterisk{},
+				},
 			},
 			TableExpression: sql.TableExpression{
 				FromClause: sql.FromClause{
@@ -1156,7 +1249,9 @@ func TestSelectCount(t *testing.T) {
 	buildSQL := func(compOp sql.TokenType, rhs any) sql.Select {
 		return sql.Select{
 			SelectList: sql.SelectList{
-				sql.Count{},
+				sql.DerivedColumn{
+					ValueExpressionPrimary: sql.Count{},
+				},
 			},
 			TableExpression: sql.TableExpression{
 				FromClause: sql.FromClause{
@@ -1245,11 +1340,17 @@ func TestSelectScalar(t *testing.T) {
 	}
 	query := sql.Select{
 		SelectList: sql.SelectList{
-			int32(123),
-			sql.ColumnReference{
-				ColumnName: "col1",
+			sql.DerivedColumn{
+				ValueExpressionPrimary: int32(123),
 			},
-			"Test",
+			sql.DerivedColumn{
+				ValueExpressionPrimary: sql.ColumnReference{
+					ColumnName: "col1",
+				},
+			},
+			sql.DerivedColumn{
+				ValueExpressionPrimary: "Test",
+			},
 		},
 		TableExpression: sql.TableExpression{
 			FromClause: sql.FromClause{
