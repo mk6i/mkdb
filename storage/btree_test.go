@@ -7,7 +7,7 @@ import (
 
 func TestBTree(t *testing.T) {
 
-	rootPg := &leafNode{}
+	rootPg := &btreeNode{isLeaf: true}
 
 	bt := &BTree{
 		store: &memoryStore{},
@@ -72,7 +72,7 @@ func TestBTree(t *testing.T) {
 
 	idx := 0
 
-	err := bt.scanRight(func(val *leafNodeCell) (ScanAction, error) {
+	err := bt.scanRight(func(val *leafCell) (ScanAction, error) {
 		expect := tblSorted[idx]
 		if !bytes.Equal(val.valueBytes, expect.val) {
 			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)
@@ -86,7 +86,7 @@ func TestBTree(t *testing.T) {
 	}
 
 	idx = len(tblSorted) - 1
-	err = bt.scanLeft(func(val *leafNodeCell) (ScanAction, error) {
+	err = bt.scanLeft(func(val *leafCell) (ScanAction, error) {
 		expect := tblSorted[idx]
 		if !bytes.Equal(val.valueBytes, expect.val) {
 			t.Errorf("value mismatch for key %d. got %s, expected %s", expect.key, val.valueBytes, expect.val)

@@ -8,12 +8,12 @@ func TestLRUGet_Found(t *testing.T) {
 
 	lru := NewLRU(3)
 
-	lru.set("A", &leafNode{node: node{fileOffset: 1}})
-	lru.set("B", &leafNode{node: node{fileOffset: 2}})
-	lru.set("C", &leafNode{node: node{fileOffset: 3}})
+	lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+	lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+	lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
 
 	key := "A"
-	expect := &leafNode{node: node{fileOffset: 1}}
+	expect := &btreeNode{isLeaf: true, fileOffset: 1}
 
 	val, found := lru.get(key)
 	if !found {
@@ -29,9 +29,9 @@ func TestLRUGet_NotFound(t *testing.T) {
 
 	lru := NewLRU(3)
 
-	lru.set("A", &leafNode{node: node{fileOffset: 1}})
-	lru.set("B", &leafNode{node: node{fileOffset: 2}})
-	lru.set("C", &leafNode{node: node{fileOffset: 3}})
+	lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+	lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+	lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
 
 	key := "D"
 	val, found := lru.get(key)
@@ -55,12 +55,12 @@ func TestLRUState(t *testing.T) {
 			maxEntries:  5,
 			expectCount: 5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
-				lru.set("D", &leafNode{node: node{fileOffset: 4}})
-				lru.set("E", &leafNode{node: node{fileOffset: 5}})
-				lru.set("F", &leafNode{node: node{fileOffset: 6}}) // this should evict element A
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
+				lru.set("D", &btreeNode{isLeaf: true, fileOffset: 4})
+				lru.set("E", &btreeNode{isLeaf: true, fileOffset: 5})
+				lru.set("F", &btreeNode{isLeaf: true, fileOffset: 6}) // this should evict element A
 			},
 			expectFront: "F",
 			expectBack:  "B",
@@ -70,10 +70,10 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
-				lru.set("A", &leafNode{node: node{fileOffset: 1}}) // this should be moved to beginning of list
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1}) // this should be moved to beginning of list
 			},
 			expectFront: "A",
 			expectBack:  "B",
@@ -83,9 +83,9 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
 				lru.get("A") // this should be moved to beginning of list
 			},
 			expectFront: "A",
@@ -96,9 +96,9 @@ func TestLRUState(t *testing.T) {
 			expectCount: 3,
 			maxEntries:  5,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
 				lru.get("X") // this element should not exist
 			},
 			expectFront: "C",
@@ -139,10 +139,10 @@ func TestLRUEviction(t *testing.T) {
 			maxEntries:  3,
 			expectCount: 3,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
-				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element A
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
+				lru.set("D", &btreeNode{isLeaf: true, fileOffset: 4}) // this should evict element A
 			},
 			expectKeys: []string{"D", "C", "B"},
 		},
@@ -151,10 +151,10 @@ func TestLRUEviction(t *testing.T) {
 			maxEntries:  3,
 			expectCount: 3,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
-				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element B
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1, dirty: true})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
+				lru.set("D", &btreeNode{isLeaf: true, fileOffset: 4}) // this should evict element B
 			},
 			expectKeys: []string{"D", "C", "A"},
 		},
@@ -163,10 +163,10 @@ func TestLRUEviction(t *testing.T) {
 			maxEntries:  3,
 			expectCount: 3,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2, dirty: true}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3}})
-				lru.set("D", &leafNode{node: node{fileOffset: 4}}) // this should evict element C
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1, dirty: true})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2, dirty: true})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3})
+				lru.set("D", &btreeNode{isLeaf: true, fileOffset: 4}) // this should evict element C
 			},
 			expectKeys: []string{"D", "B", "A"},
 		},
@@ -175,10 +175,10 @@ func TestLRUEviction(t *testing.T) {
 			maxEntries:  3,
 			expectCount: 3,
 			setState: func(lru *LRUCache) {
-				lru.set("A", &leafNode{node: node{fileOffset: 1, dirty: true}})
-				lru.set("B", &leafNode{node: node{fileOffset: 2, dirty: true}})
-				lru.set("C", &leafNode{node: node{fileOffset: 3, dirty: true}})
-				if lru.set("D", &leafNode{node: node{fileOffset: 4}}) {
+				lru.set("A", &btreeNode{isLeaf: true, fileOffset: 1, dirty: true})
+				lru.set("B", &btreeNode{isLeaf: true, fileOffset: 2, dirty: true})
+				lru.set("C", &btreeNode{isLeaf: true, fileOffset: 3, dirty: true})
+				if lru.set("D", &btreeNode{isLeaf: true, fileOffset: 4}) {
 					t.Fatalf("expected set on cache full of dirty pages to fail, but it succeeded")
 				}
 			},

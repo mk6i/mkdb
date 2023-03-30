@@ -10,7 +10,7 @@ type LRUCache struct {
 
 type cacheEntry struct {
 	key any
-	val btreeNode
+	val *btreeNode
 }
 
 func NewLRU(maxNodes int) *LRUCache {
@@ -21,7 +21,7 @@ func NewLRU(maxNodes int) *LRUCache {
 	}
 }
 
-func (lru *LRUCache) set(key any, val btreeNode) bool {
+func (lru *LRUCache) set(key any, val *btreeNode) bool {
 	entry, found := lru.cache[key]
 	if found {
 		entry.Value.(*cacheEntry).val = val
@@ -54,7 +54,7 @@ func (lru *LRUCache) set(key any, val btreeNode) bool {
 	return true
 }
 
-func (lru *LRUCache) get(key any) (btreeNode, bool) {
+func (lru *LRUCache) get(key any) (*btreeNode, bool) {
 	entry, found := lru.cache[key]
 	if found {
 		lru.list.MoveToFront(entry)
