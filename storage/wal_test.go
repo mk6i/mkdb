@@ -29,19 +29,19 @@ func TestWal(t *testing.T) {
 
 	expBatch := WALBatch{
 		{
-			WALOp:  OP_UPDATE,
+			WALOp:  OpUpdate,
 			pageID: 1234,
 			cellID: 5678,
 			val:    []byte{1, 2, 3, 4},
 		},
 		{
-			WALOp:  OP_INSERT,
+			WALOp:  OpInsert,
 			pageID: 9101112,
 			cellID: 13141516,
 			val:    []byte{1, 2, 3, 4},
 		},
 		{
-			WALOp:  OP_DELETE,
+			WALOp:  OpDelete,
 			pageID: 17181920,
 			cellID: 21222324,
 		},
@@ -79,10 +79,13 @@ func TestWalReplay(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	var pg btreeNode
-	pg = &leafNode{}
-	pg.(*leafNode).appendCell(0, []byte{0, 0, 0, 0})
-	pg.(*leafNode).appendCell(1, []byte{5, 6, 7, 8})
+	pg := &btreeNode{isLeaf: true}
+	if err := pg.appendLeafCell(0, []byte{0, 0, 0, 0}); err != nil {
+		return
+	}
+	if err := pg.appendLeafCell(1, []byte{5, 6, 7, 8}); err != nil {
+		return
+	}
 
 	if err := fs.append(pg); err != nil {
 		t.Fatalf("failed to append page: %s", err.Error())
@@ -90,20 +93,20 @@ func TestWalReplay(t *testing.T) {
 
 	batch := WALBatch{
 		{
-			WALOp:  OP_UPDATE,
+			WALOp:  OpUpdate,
 			pageID: pg.getFileOffset(),
 			cellID: 0,
 			val:    []byte{1, 2, 3, 4},
 			LSN:    1,
 		},
 		{
-			WALOp:  OP_DELETE,
+			WALOp:  OpDelete,
 			pageID: pg.getFileOffset(),
 			cellID: 1,
 			LSN:    2,
 		},
 		{
-			WALOp:  OP_INSERT,
+			WALOp:  OpInsert,
 			pageID: pg.getFileOffset(),
 			cellID: 2,
 			val:    []byte{5, 6, 7, 8},
@@ -115,7 +118,9 @@ func TestWalReplay(t *testing.T) {
 		t.Fatalf("failed to replay WAL batch: %s", err.Error())
 	}
 
-	fs.close()
+	if err := fs.close(); err != nil {
+		t.Fatal(err)
+	}
 
 	// new file store in order to start with fresh cache
 	fs, err = newFileStore(file.Name())
@@ -129,19 +134,19 @@ func TestWalReplay(t *testing.T) {
 	}
 
 	// verify UPDATE
-	actual := pg.(*leafNode).cells[0].valueBytes
+	actual := pg.leafCells[0].valueBytes
 	expected := []byte{1, 2, 3, 4}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("cell payload is not the same. expected: %v actual: %v", expected, actual)
 	}
 
 	// verify DELETE
-	if !pg.(*leafNode).cells[1].deleted {
+	if !pg.leafCells[1].deleted {
 		t.Fatal("expected cell 1 to be deleted, but it is not")
 	}
 
 	// verify INSERT
-	actual = pg.(*leafNode).cells[2].valueBytes
+	actual = pg.leafCells[2].valueBytes
 	expected = []byte{5, 6, 7, 8}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("cell payload is not the same. expected: %v actual: %v", expected, actual)

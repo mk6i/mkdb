@@ -82,7 +82,7 @@ func (s *Session) ExecQuery(q string) error {
 		if err := EvaluateUpdate(stmt, s.RelationService); err != nil {
 			return err
 		}
-		fmt.Print("update successful\n\r", 1, stmt.TableName)
+		fmt.Printf("update successful %d %s\n\r", 1, stmt.TableName)
 	case sql.DeleteStatementSearched:
 		if count, err := EvaluateDelete(stmt, s.RelationService); err != nil {
 			return err

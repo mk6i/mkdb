@@ -16,9 +16,9 @@ type (
 )
 
 const (
-	OP_INSERT WALOp = iota
-	OP_UPDATE
-	OP_DELETE
+	OpInsert WALOp = iota
+	OpUpdate
+	OpDelete
 )
 
 func InitStorage() error {
@@ -32,38 +32,45 @@ func InitStorage() error {
 	}
 
 	for _, db := range dbs {
-		path, exists, err := dbFilePath(db)
-		if err != nil {
-			return err
-		}
-		if !exists {
+		// wrap in closure to ensure defer is handled
+		err := func() error {
+			path, exists, err := dbFilePath(db)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return nil
+			}
+			wal, err := newWal(db)
+			if err != nil {
+				return err
+			}
+
+			defer wal.close()
+
+			fs, err := newFileStore(path)
+			if err != nil {
+				return err
+			}
+
+			if err := fs.open(); err != nil {
+				return err
+			}
+
+			defer fs.close()
+
+			batch, err := wal.read()
+			if err != nil {
+				return err
+			}
+
+			if err := batch.replay(fs); err != nil {
+				return fmt.Errorf("WAL replay error: %w", err)
+			}
 			return nil
-		}
-		wal, err := newWal(db)
+		}()
 		if err != nil {
 			return err
-		}
-
-		defer wal.close()
-
-		fs, err := newFileStore(path)
-		if err != nil {
-			return err
-		}
-
-		if err := fs.open(); err != nil {
-			return err
-		}
-
-		defer fs.close()
-
-		batch, err := wal.read()
-		if err != nil {
-			return err
-		}
-
-		if err := batch.replay(fs); err != nil {
-			return fmt.Errorf("WAL replay error: %w", err)
 		}
 	}
 
@@ -220,7 +227,7 @@ func (w *wal) flush(batch WALBatch) error {
 			panic("bytes written differs from expected buffer length")
 		}
 
-		if w.reader.Sync(); err != nil {
+		if err := w.reader.Sync(); err != nil {
 			return err
 		}
 	}
@@ -240,7 +247,7 @@ func (w WALBatch) replay(fs *fileStore) error {
 			continue
 		}
 		switch row.WALOp {
-		case OP_INSERT:
+		case OpInsert:
 			bt := &BTree{store: fs}
 			bt.setRoot(node)
 			err = bt.insertKey(row.cellID, row.LSN, row.val)
@@ -251,7 +258,7 @@ func (w WALBatch) replay(fs *fileStore) error {
 				return err
 			}
 
-		case OP_UPDATE:
+		case OpUpdate:
 			tuple := Tuple{
 				Relation: &pageTableSchema,
 				Vals:     make(map[string]interface{}),
@@ -259,17 +266,17 @@ func (w WALBatch) replay(fs *fileStore) error {
 			if err := tuple.Decode(bytes.NewBuffer(row.val)); err != nil {
 				return err
 			}
-			err = node.(*leafNode).updateCell(row.cellID, row.val)
+			err = node.updateCell(row.cellID, row.val)
 			if err != nil {
 				return nil
 			}
 			node.markDirty(row.LSN)
-		case OP_DELETE:
-			offset, found := node.(*leafNode).findCellOffsetByKey(row.cellID)
+		case OpDelete:
+			offset, found := node.findCellOffsetByKey(row.cellID)
 			if !found {
 				return fmt.Errorf("unable to find cell for rowID %d", row.cellID)
 			}
-			node.(*leafNode).cells[offset].deleted = true
+			node.leafCells[offset].deleted = true
 			node.markDirty(row.LSN)
 		}
 	}

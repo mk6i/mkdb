@@ -383,8 +383,8 @@ func (rs *RelationService) CreateTable(r *Relation, tableName string) error {
 	return rs.fs.flushPages()
 }
 
-func (rs *RelationService) createPage() (btreeNode, error) {
-	rootPg := &leafNode{}
+func (rs *RelationService) createPage() (*btreeNode, error) {
+	rootPg := &btreeNode{isLeaf: true}
 	rootPg.markDirty(0)
 
 	if err := rs.fs.append(rootPg); err != nil {
@@ -393,7 +393,7 @@ func (rs *RelationService) createPage() (btreeNode, error) {
 	return rootPg, nil
 }
 
-func (rs *RelationService) insertPageTable(node btreeNode, tableName string) error {
+func (rs *RelationService) insertPageTable(node *btreeNode, tableName string) error {
 	tuple := Tuple{
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
@@ -450,7 +450,7 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 	bt.setRoot(pgTablePg)
 
 	found := false
-	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -465,14 +465,14 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 			if err != nil {
 				return StopScanning, err
 			}
-			if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
+			if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
 				return StopScanning, err
 			}
 			cell.pg.markDirty(rs.fs.nextLSN())
 
 			walLogs = append(walLogs, &WALEntry{
 				LSN:    rs.fs.nextLSN(),
-				WALOp:  OP_UPDATE,
+				WALOp:  OpUpdate,
 				pageID: cell.pg.getFileOffset(),
 				cellID: cell.key,
 				val:    buf.Bytes(),
@@ -589,7 +589,7 @@ func (rs *RelationService) getRelationFileOffset(relName string) (int32, error) 
 
 	fileOffset := int32(0)
 	found := false
-	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &pageTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -633,7 +633,7 @@ func (rs *RelationService) getRelationSchema(relName string) (*Relation, error) 
 
 	r := &Relation{}
 
-	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: &schemaTableSchema,
 			Vals:     make(map[string]interface{}),
@@ -738,7 +738,7 @@ func (rs *RelationService) scanRelation(fileOffset uint64, r *Relation, fields F
 
 	var results []*Row
 
-	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		tuple := Tuple{
 			Relation: r,
 			Vals:     make(map[string]interface{}),
@@ -816,7 +816,7 @@ func (rs *RelationService) Insert(tableName string, cols []string, vals []interf
 	walLogs = append(walLogs, &WALEntry{
 		LSN:    lsn,
 		pageID: uint64(fileOffset),
-		WALOp:  OP_INSERT,
+		WALOp:  OpInsert,
 		cellID: id,
 		val:    buf.Bytes(),
 	})
@@ -861,7 +861,7 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 	bt := BTree{store: rs.fs}
 	bt.setRoot(pg)
 
-	err = bt.scanRight(func(cell *leafNodeCell) (ScanAction, error) {
+	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		if cell.key != rowID {
 			return KeepScanning, nil
 		}
@@ -883,7 +883,7 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 			return StopScanning, err
 		}
 
-		if err := cell.pg.(*leafNode).updateCell(cell.key, buf.Bytes()); err != nil {
+		if err := cell.pg.updateCell(cell.key, buf.Bytes()); err != nil {
 			return StopScanning, err
 		}
 
@@ -891,7 +891,7 @@ func (rs *RelationService) Update(tableName string, rowID uint32, cols []string,
 
 		walLogs = append(walLogs, &WALEntry{
 			LSN:    rs.fs.nextLSN(),
-			WALOp:  OP_UPDATE,
+			WALOp:  OpUpdate,
 			pageID: cell.pg.getFileOffset(),
 			cellID: cell.key,
 			val:    buf.Bytes(),
@@ -937,7 +937,7 @@ func (rs *RelationService) MarkDeleted(tableName string, rowID uint32) (WALBatch
 
 	walLogs = append(walLogs, &WALEntry{
 		LSN:    rs.fs.nextLSN(),
-		WALOp:  OP_DELETE,
+		WALOp:  OpDelete,
 		pageID: cell.pg.getFileOffset(),
 		cellID: cell.key,
 	})

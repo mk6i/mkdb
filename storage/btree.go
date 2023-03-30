@@ -21,11 +21,11 @@ type BTree struct {
 	rootOffset uint64
 }
 
-func (b *BTree) getRoot() (btreeNode, error) {
+func (b *BTree) getRoot() (*btreeNode, error) {
 	return b.store.fetch(b.rootOffset)
 }
 
-func (b *BTree) setRoot(node btreeNode) {
+func (b *BTree) setRoot(node *btreeNode) {
 	b.rootOffset = node.getFileOffset()
 }
 
@@ -45,159 +45,177 @@ func (b *BTree) insertKey(key uint32, nextLSN uint64, value []byte) error {
 	if err != nil {
 		return err
 	}
-	err = b.insertHelper(nil, pg, key, nextLSN, value)
-	return err
+	if pg.isLeaf {
+		return b.insertLeaf(nil, pg, key, nextLSN, value)
+	}
+	return b.insertInternal(nil, pg, key, nextLSN, value)
 }
 
-func (b *BTree) insertHelper(parent *internalNode, node btreeNode, key uint32, nextLSN uint64, value []byte) error {
+func (b *BTree) insertInternal(parent *btreeNode, curNode *btreeNode, key uint32, nextLSN uint64, value []byte) error {
+	offset, found := curNode.findCellOffsetByKey(key)
+	if found {
+		return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
+	}
 
-	switch node := node.(type) {
-	case *internalNode:
-		offset, found := node.findCellOffsetByKey(key)
-		if found {
-			return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
-		}
+	var fileOffset uint64
+	if offset == len(curNode.offsets) {
+		fileOffset = curNode.rightOffset
+	} else {
+		fileOffset = curNode.internalCells[curNode.offsets[offset]].fileOffset
+	}
 
-		var fileOffset uint64
-		if offset == len(node.offsets) {
-			fileOffset = node.rightOffset
-		} else {
-			fileOffset = node.cells[node.offsets[offset]].fileOffset
-		}
+	childPg, err := b.store.fetch(fileOffset)
+	if err != nil {
+		return err
+	}
 
-		childPg, err := b.store.fetch(fileOffset)
-		if err != nil {
+	if childPg.isLeaf {
+		if err := b.insertLeaf(curNode, childPg, key, nextLSN, value); err != nil {
 			return err
 		}
-
-		if err := b.insertHelper(node, childPg, key, nextLSN, value); err != nil {
+	} else {
+		if err := b.insertInternal(curNode, childPg, key, nextLSN, value); err != nil {
 			return err
 		}
+	}
 
-		if node.isFull() {
-			newPg := &internalNode{}
-			if err := b.store.append(newPg); err != nil {
-				return err
-			}
-			newKey, err := node.split(newPg)
-			if err != nil {
-				return err
-			}
-			if parent == nil {
-				parent = &internalNode{}
-				if err := b.store.append(parent); err != nil {
-					return err
-				}
-				b.setRoot(parent)
-				parent.setRightMostKey(newPg.fileOffset)
-				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
-					return err
-				}
-			} else {
-				if err := parent.appendCell(newKey, parent.rightOffset); err != nil {
-					return err
-				}
-				parent.setRightMostKey(newPg.fileOffset)
-			}
-			newPg.markDirty(nextLSN)
-			parent.markDirty(nextLSN)
-		}
-		if parent != nil {
-			parent.markDirty(nextLSN)
-		}
-	case *leafNode:
-		offset, found := node.findCellOffsetByKey(key)
-		if found {
-			return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
-		}
-		if err := node.insertCell(uint32(offset), key, value); err != nil {
+	if !curNode.isFull() {
+		return nil
+	}
+
+	newPg := &btreeNode{}
+	if err := b.store.append(newPg); err != nil {
+		return err
+	}
+
+	newKey, err := curNode.split(newPg)
+	if err != nil {
+		return err
+	}
+
+	if parent == nil {
+		parent = &btreeNode{}
+		if err := b.store.append(parent); err != nil {
 			return err
 		}
-		node.markDirty(nextLSN)
-
-		if node.isFull() {
-			newPg := &leafNode{}
-			if err := b.store.append(newPg); err != nil {
-				return err
-			}
-			newKey, err := node.split(newPg)
-			if err != nil {
-				return err
-			}
-
-			oldRSibFileOffset := node.rSibFileOffset
-			node.hasRSib = true
-			node.rSibFileOffset = newPg.fileOffset
-			newPg.hasLSib = true
-			newPg.lSibFileOffset = node.fileOffset
-
-			if parent == nil {
-				parent = &internalNode{}
-				if err := b.store.append(parent); err != nil {
-					return err
-				}
-				b.setRoot(parent)
-				parent.setRightMostKey(newPg.fileOffset)
-				if err := parent.appendCell(newKey, node.fileOffset); err != nil {
-					return err
-				}
-			} else {
-				if newKey > parent.getRightmostKey() {
-					if err := parent.appendCell(newKey, parent.rightOffset); err != nil {
-						return err
-					}
-					parent.setRightMostKey(newPg.fileOffset)
-				} else {
-					newPg.hasRSib = true
-					newPg.rSibFileOffset = oldRSibFileOffset
-
-					offset, found := parent.findCellOffsetByKey(newKey)
-					if found {
-						return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, newKey)
-					}
-					if err := parent.insertCell(uint32(offset), newKey, newPg.fileOffset); err != nil {
-						return err
-					}
-
-					// update old right sibling's left pointer
-					rightSib, err := b.store.fetch(oldRSibFileOffset)
-					if err != nil {
-						return err
-					}
-					rightSib.(*leafNode).lSibFileOffset = newPg.fileOffset
-					rightSib.markDirty(nextLSN)
-				}
-			}
-			newPg.markDirty(nextLSN)
+		b.setRoot(parent)
+		parent.setRightMostKey(newPg.fileOffset)
+		if err := parent.appendInternalCell(newKey, curNode.fileOffset); err != nil {
+			return err
 		}
-		node.markDirty(nextLSN)
-		if parent != nil {
-			parent.markDirty(nextLSN)
+	} else {
+		if err := parent.appendInternalCell(newKey, parent.rightOffset); err != nil {
+			return err
 		}
+		parent.setRightMostKey(newPg.fileOffset)
+	}
+
+	newPg.markDirty(nextLSN)
+	parent.markDirty(nextLSN)
+
+	if parent != nil {
+		parent.markDirty(nextLSN)
 	}
 
 	return nil
 }
 
-func (b *BTree) findCell(key uint32) (*leafNodeCell, error) {
+func (b *BTree) insertLeaf(parent *btreeNode, curNode *btreeNode, key uint32, nextLSN uint64, value []byte) error {
+	offset, found := curNode.findCellOffsetByKey(key)
+	if found {
+		return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, key)
+	}
+
+	if err := curNode.insertLeafCell(uint32(offset), key, value); err != nil {
+		return err
+	}
+
+	curNode.markDirty(nextLSN)
+
+	if !curNode.isFull() {
+		return nil
+	}
+
+	newPg := &btreeNode{isLeaf: true}
+	if err := b.store.append(newPg); err != nil {
+		return err
+	}
+
+	newKey, err := curNode.split(newPg)
+	if err != nil {
+		return err
+	}
+
+	oldRSibFileOffset := curNode.rSibFileOffset
+	curNode.hasRSib = true
+	curNode.rSibFileOffset = newPg.fileOffset
+	newPg.hasLSib = true
+	newPg.lSibFileOffset = curNode.fileOffset
+
+	if parent == nil {
+		parent = &btreeNode{}
+		if err := b.store.append(parent); err != nil {
+			return err
+		}
+		b.setRoot(parent)
+		parent.setRightMostKey(newPg.fileOffset)
+		if err := parent.appendInternalCell(newKey, curNode.fileOffset); err != nil {
+			return err
+		}
+	} else {
+		if newKey > parent.getRightmostKey() {
+			if err := parent.appendInternalCell(newKey, parent.rightOffset); err != nil {
+				return err
+			}
+			parent.setRightMostKey(newPg.fileOffset)
+		} else {
+			newPg.hasRSib = true
+			newPg.rSibFileOffset = oldRSibFileOffset
+
+			offset, found := parent.findCellOffsetByKey(newKey)
+			if found {
+				return fmt.Errorf("%w for key: %d", errKeyAlreadyExists, newKey)
+			}
+			if err := parent.insertInternalCell(uint32(offset), newKey, newPg.fileOffset); err != nil {
+				return err
+			}
+
+			// update old right sibling's left pointer
+			rightSib, err := b.store.fetch(oldRSibFileOffset)
+			if err != nil {
+				return err
+			}
+			rightSib.lSibFileOffset = newPg.fileOffset
+			rightSib.markDirty(nextLSN)
+		}
+	}
+
+	newPg.markDirty(nextLSN)
+	curNode.markDirty(nextLSN)
+
+	if parent != nil {
+		parent.markDirty(nextLSN)
+	}
+
+	return nil
+}
+
+func (b *BTree) findCell(key uint32) (*leafCell, error) {
 
 	pg, err := b.getRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	for {
-		if _, ok := pg.(*internalNode); !ok {
-			break
-		}
+	for !pg.isLeaf {
 		// todo: replace with binary search
-		for i := 0; i <= len(pg.(*internalNode).offsets); i++ {
-			if i == len(pg.(*internalNode).offsets) || key < pg.(*internalNode).cellKey(pg.(*internalNode).offsets[i]) {
+		for i := 0; i <= len(pg.offsets); i++ {
+			if i == len(pg.offsets) || key < pg.cellKey(pg.offsets[i]) {
 				var fileOffset uint64
-				if i == len(pg.(*internalNode).offsets) {
-					fileOffset = pg.(*internalNode).rightOffset
+				if i == len(pg.offsets) {
+					fileOffset = pg.rightOffset
 				} else {
-					fileOffset = pg.(*internalNode).cells[pg.(*internalNode).offsets[i]].fileOffset
+					fileOffset = pg.internalCells[pg.offsets[i]].fileOffset
 				}
 				var err error
 				pg, err = b.store.fetch(fileOffset)
@@ -209,12 +227,12 @@ func (b *BTree) findCell(key uint32) (*leafNodeCell, error) {
 		}
 	}
 
-	offset, found := pg.(*leafNode).findCellOffsetByKey(key)
+	offset, found := pg.findCellOffsetByKey(key)
 	if !found {
 		return nil, nil
 	}
 
-	cell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
+	cell := pg.leafCells[pg.offsets[offset]]
 	if cell.deleted {
 		return nil, nil
 	}
@@ -224,7 +242,7 @@ func (b *BTree) findCell(key uint32) (*leafNodeCell, error) {
 	return cell, nil
 }
 
-func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
+func (b *BTree) scanRight(f func(kv *leafCell) (ScanAction, error)) error {
 	pg, err := b.getRoot()
 	if err != nil {
 		return err
@@ -232,11 +250,8 @@ func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 
 	// find left-most leaf node
 	// todo: store reference to left-mode leaf node
-	for {
-		if _, ok := pg.(*internalNode); !ok {
-			break
-		}
-		fileOffset := pg.(*internalNode).cells[pg.(*internalNode).offsets[0]].fileOffset
+	for !pg.isLeaf {
+		fileOffset := pg.internalCells[pg.offsets[0]].fileOffset
 		var err error
 		pg, err = b.store.fetch(fileOffset)
 		if err != nil {
@@ -245,8 +260,8 @@ func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 	}
 
 	for {
-		for _, offset := range pg.(*leafNode).offsets {
-			cell := pg.(*leafNode).cells[offset]
+		for _, offset := range pg.offsets {
+			cell := pg.leafCells[offset]
 			if cell.deleted {
 				continue
 			}
@@ -259,9 +274,9 @@ func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 				return nil
 			}
 		}
-		if pg.(*leafNode).hasRSib {
+		if pg.hasRSib {
 			var err error
-			pg, err = b.store.fetch(pg.(*leafNode).rSibFileOffset)
+			pg, err = b.store.fetch(pg.rSibFileOffset)
 			if err != nil {
 				return fmt.Errorf("table scan error: %w", err)
 			}
@@ -273,7 +288,7 @@ func (b *BTree) scanRight(f func(kv *leafNodeCell) (ScanAction, error)) error {
 	return nil
 }
 
-func (b *BTree) scanLeft(f func(kv *leafNodeCell) (ScanAction, error)) error {
+func (b *BTree) scanLeft(f func(kv *leafCell) (ScanAction, error)) error {
 	pg, err := b.getRoot()
 	if err != nil {
 		return err
@@ -281,20 +296,17 @@ func (b *BTree) scanLeft(f func(kv *leafNodeCell) (ScanAction, error)) error {
 
 	// find right-most leaf node
 	// todo: store reference to right-mode leaf node
-	for {
-		if _, ok := pg.(*internalNode); !ok {
-			break
-		}
+	for !pg.isLeaf {
 		var err error
-		pg, err = b.store.fetch(pg.(*internalNode).rightOffset)
+		pg, err = b.store.fetch(pg.rightOffset)
 		if err != nil {
 			return fmt.Errorf("table scan error: %w", err)
 		}
 	}
 
 	for {
-		for offset := len(pg.(*leafNode).offsets) - 1; offset >= 0; offset-- {
-			cell := pg.(*leafNode).cells[pg.(*leafNode).offsets[offset]]
+		for offset := len(pg.offsets) - 1; offset >= 0; offset-- {
+			cell := pg.leafCells[pg.offsets[offset]]
 			if cell.deleted {
 				continue
 			}
@@ -307,9 +319,9 @@ func (b *BTree) scanLeft(f func(kv *leafNodeCell) (ScanAction, error)) error {
 				return nil
 			}
 		}
-		if pg.(*leafNode).hasLSib {
+		if pg.hasLSib {
 			var err error
-			pg, err = b.store.fetch(pg.(*leafNode).lSibFileOffset)
+			pg, err = b.store.fetch(pg.lSibFileOffset)
 			if err != nil {
 				return fmt.Errorf("table scan error: %w", err)
 			}

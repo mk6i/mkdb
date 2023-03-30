@@ -9,14 +9,12 @@ import (
 
 func TestEncodeDecodeInternalNode(t *testing.T) {
 
-	pg := &internalNode{
-		node: node{
-			fileOffset: 10,
-			offsets:    []uint16{2, 1, 0, 3},
-			freeSize:   4009,
-			lastLSN:    1234,
-		},
-		cells: []*internalNodeCell{
+	pg := &btreeNode{
+		fileOffset: 10,
+		offsets:    []uint16{2, 1, 0, 3},
+		freeSize:   4009,
+		lastLSN:    1234,
+		internalCells: []*internalCell{
 			{
 				key:        123,
 				fileOffset: 3,
@@ -46,7 +44,7 @@ func TestEncodeDecodeInternalNode(t *testing.T) {
 		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
-	actual := &internalNode{}
+	actual := &btreeNode{}
 	if err = actual.decode(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -58,14 +56,13 @@ func TestEncodeDecodeInternalNode(t *testing.T) {
 
 func TestEncodeDecodeLeafNode(t *testing.T) {
 
-	pg := &leafNode{
-		node: node{
-			fileOffset: 10,
-			freeSize:   3945,
-			offsets:    []uint16{2, 1, 0, 3},
-			lastLSN:    1234,
-		},
-		cells: []*leafNodeCell{
+	pg := &btreeNode{
+		isLeaf:     true,
+		fileOffset: 10,
+		freeSize:   3945,
+		offsets:    []uint16{2, 1, 0, 3},
+		lastLSN:    1234,
+		leafCells: []*leafCell{
 			{
 				key:        1,
 				valueSize:  uint32(len("lorem ipsum")),
@@ -98,7 +95,7 @@ func TestEncodeDecodeLeafNode(t *testing.T) {
 		t.Fatalf("page size is not %d bytes, got %d\n", pageSize, buf.Cap())
 	}
 
-	actual := &leafNode{}
+	actual := &btreeNode{isLeaf: true}
 	if err = actual.decode(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +107,7 @@ func TestEncodeDecodeLeafNode(t *testing.T) {
 
 func TestMemoryStore(t *testing.T) {
 
-	pages := []*leafNode{{}, {}, {}}
+	pages := []*btreeNode{{isLeaf: true}, {isLeaf: true}, {isLeaf: true}}
 
 	m := &memoryStore{}
 
@@ -165,7 +162,7 @@ func TestFileStore(t *testing.T) {
 		t.Errorf("file store branch factors do not match")
 	}
 
-	root := &leafNode{}
+	root := &btreeNode{isLeaf: true}
 	if err := fs2.append(root); err != nil {
 		t.Errorf("error appending root: %s", err.Error())
 	}
@@ -182,14 +179,12 @@ func TestFileStore(t *testing.T) {
 }
 
 func TestFindCellByKey(t *testing.T) {
-	pages := []interface{}{
-		&internalNode{
-			node: node{
-				offsets: []uint16{
-					0, 1, 2, 3, 4,
-				},
+	pages := []*btreeNode{
+		{
+			offsets: []uint16{
+				0, 1, 2, 3, 4,
 			},
-			cells: []*internalNodeCell{
+			internalCells: []*internalCell{
 				{key: 1},
 				{key: 3},
 				{key: 5},
@@ -197,13 +192,12 @@ func TestFindCellByKey(t *testing.T) {
 				{key: 9},
 			},
 		},
-		&leafNode{
-			node: node{
-				offsets: []uint16{
-					0, 1, 2, 3, 4,
-				},
+		{
+			isLeaf: true,
+			offsets: []uint16{
+				0, 1, 2, 3, 4,
 			},
-			cells: []*leafNodeCell{
+			leafCells: []*leafCell{
 				{key: 1},
 				{key: 3},
 				{key: 5},
@@ -218,7 +212,7 @@ func TestFindCellByKey(t *testing.T) {
 	}
 }
 
-func findCellByKeyTestCase(t *testing.T, pg interface{}) {
+func findCellByKeyTestCase(t *testing.T, pg *btreeNode) {
 
 	tbl := []struct {
 		key            uint32
@@ -287,12 +281,7 @@ func findCellByKeyTestCase(t *testing.T, pg interface{}) {
 		var expectedOffset int
 		var expectedFound bool
 
-		switch pg := pg.(type) {
-		case *internalNode:
-			expectedOffset, expectedFound = pg.findCellOffsetByKey(v.key)
-		case *leafNode:
-			expectedOffset, expectedFound = pg.findCellOffsetByKey(v.key)
-		}
+		expectedOffset, expectedFound = pg.findCellOffsetByKey(v.key)
 
 		if expectedOffset != v.expectedOffset || expectedFound != v.expectedFound {
 			t.Errorf("[key]: %d [page]: %v [expectedOffset]: %d [actualOffset]: %d [expectedFound]: %t [actualFound]: %t",
@@ -302,10 +291,10 @@ func findCellByKeyTestCase(t *testing.T, pg interface{}) {
 }
 
 func TestIsFullLeafNodeExpectFull(t *testing.T) {
-	pg := &leafNode{}
+	pg := &btreeNode{isLeaf: true}
 
 	for i := 0; i < maxLeafNodeCells; i++ {
-		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
+		if err := pg.appendLeafCell(uint32(i), []byte("hello")); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -316,10 +305,10 @@ func TestIsFullLeafNodeExpectFull(t *testing.T) {
 }
 
 func TestIsFullLeafNodeExpectNotFull(t *testing.T) {
-	pg := &leafNode{}
+	pg := &btreeNode{isLeaf: true}
 
 	for i := 0; i < maxLeafNodeCells-1; i++ {
-		if err := pg.appendCell(uint32(i), []byte("hello")); err != nil {
+		if err := pg.appendLeafCell(uint32(i), []byte("hello")); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -330,10 +319,10 @@ func TestIsFullLeafNodeExpectNotFull(t *testing.T) {
 }
 
 func TestIsFullInternalNodeExpectFull(t *testing.T) {
-	pg := &internalNode{}
+	pg := &btreeNode{}
 
 	for i := 0; i < maxInternalNodeCells; i++ {
-		if err := pg.appendCell(uint32(i), 1); err != nil {
+		if err := pg.appendInternalCell(uint32(i), 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -344,10 +333,10 @@ func TestIsFullInternalNodeExpectFull(t *testing.T) {
 }
 
 func TestIsFullInternalNodeExpectNotFull(t *testing.T) {
-	pg := &internalNode{}
+	pg := &btreeNode{}
 
 	for i := 0; i < maxInternalNodeCells-1; i++ {
-		if err := pg.appendCell(uint32(i), 1); err != nil {
+		if err := pg.appendInternalCell(uint32(i), 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -358,22 +347,22 @@ func TestIsFullInternalNodeExpectNotFull(t *testing.T) {
 }
 
 func TestSplitLeafNode(t *testing.T) {
-	pg := &leafNode{}
+	pg := &btreeNode{isLeaf: true}
 
-	if err := pg.appendCell(0, []byte("hello 0")); err != nil {
+	if err := pg.appendLeafCell(0, []byte("hello 0")); err != nil {
 		t.Fatal(err)
 	}
-	if err := pg.appendCell(1, []byte("hello 1")); err != nil {
+	if err := pg.appendLeafCell(1, []byte("hello 1")); err != nil {
 		t.Fatal(err)
 	}
-	if err := pg.appendCell(2, []byte("hello 2")); err != nil {
+	if err := pg.appendLeafCell(2, []byte("hello 2")); err != nil {
 		t.Fatal(err)
 	}
-	if err := pg.appendCell(3, []byte("hello 3")); err != nil {
+	if err := pg.appendLeafCell(3, []byte("hello 3")); err != nil {
 		t.Fatal(err)
 	}
 
-	newPg := &leafNode{}
+	newPg := &btreeNode{isLeaf: true}
 	parentKey, err := pg.split(newPg)
 	if err != nil {
 		t.Fatal(err)
@@ -382,17 +371,17 @@ func TestSplitLeafNode(t *testing.T) {
 	if parentKey != 2 {
 		t.Errorf("parent key is unexpected. actual: %d", parentKey)
 	}
-	if len(newPg.cells) != 2 {
-		t.Errorf("new page is supposed to be half size but is not. size: %d", len(newPg.cells))
+	if len(newPg.leafCells) != 2 {
+		t.Errorf("new page is supposed to be half size but is not. size: %d", len(newPg.leafCells))
 	}
 
 	expected := []interface{}{
-		&leafNodeCell{
+		&leafCell{
 			key:        0,
 			valueSize:  uint32(len([]byte("hello 0"))),
 			valueBytes: []byte("hello 0"),
 		},
-		&leafNodeCell{
+		&leafCell{
 			key:        1,
 			valueSize:  uint32(len([]byte("hello 1"))),
 			valueBytes: []byte("hello 1"),
@@ -400,19 +389,19 @@ func TestSplitLeafNode(t *testing.T) {
 	}
 
 	for i := 0; i < len(expected); i++ {
-		actual := pg.cells[pg.offsets[i]]
+		actual := pg.leafCells[pg.offsets[i]]
 		if !reflect.DeepEqual(actual, expected[i]) {
 			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
 	}
 
 	expected = []interface{}{
-		&leafNodeCell{
+		&leafCell{
 			key:        2,
 			valueSize:  uint32(len([]byte("hello 2"))),
 			valueBytes: []byte("hello 2"),
 		},
-		&leafNodeCell{
+		&leafCell{
 			key:        3,
 			valueSize:  uint32(len([]byte("hello 3"))),
 			valueBytes: []byte("hello 3"),
@@ -420,7 +409,7 @@ func TestSplitLeafNode(t *testing.T) {
 	}
 
 	for i := 0; i < len(expected); i++ {
-		actual := newPg.cells[pg.offsets[i]]
+		actual := newPg.leafCells[pg.offsets[i]]
 		if !reflect.DeepEqual(actual, expected[i]) {
 			t.Errorf("key value cell does not match. expected: %+v actual: %+v", expected[i], actual)
 		}
@@ -437,16 +426,16 @@ func TestLeafNodeSizeLimit(t *testing.T) {
 		{
 			name: "insert cell at size limit",
 			fn: func() error {
-				pg := &leafNode{}
-				return pg.insertCell(0, 0, make([]byte, maxValueSize))
+				pg := &btreeNode{isLeaf: true}
+				return pg.insertLeafCell(0, 0, make([]byte, maxValueSize))
 			},
 			expectErr: nil,
 		},
 		{
 			name: "update cell at size limit",
 			fn: func() error {
-				pg := &leafNode{}
-				err := pg.insertCell(0, 0, []byte("test"))
+				pg := &btreeNode{isLeaf: true}
+				err := pg.insertLeafCell(0, 0, []byte("test"))
 				if err != nil {
 					return err
 				}
@@ -457,16 +446,16 @@ func TestLeafNodeSizeLimit(t *testing.T) {
 		{
 			name: "insert cell over size limit",
 			fn: func() error {
-				pg := &leafNode{}
-				return pg.insertCell(0, 0, make([]byte, maxValueSize+1))
+				pg := &btreeNode{isLeaf: true}
+				return pg.insertLeafCell(0, 0, make([]byte, maxValueSize+1))
 			},
 			expectErr: ErrRowTooLarge,
 		},
 		{
 			name: "update cell over size limit",
 			fn: func() error {
-				pg := &leafNode{}
-				err := pg.insertCell(0, 0, []byte("test"))
+				pg := &btreeNode{isLeaf: true}
+				err := pg.insertLeafCell(0, 0, []byte("test"))
 				if err != nil {
 					return err
 				}
