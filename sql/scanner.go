@@ -313,8 +313,10 @@ func (ts *tokenScanner) Cur() Token {
 			}
 		} else {
 			tok.Type = STR
-			// strip quotes
-			tok.Text = tok.Text[1 : len(tok.Text)-1]
+			if ts.cur == String {
+				// strip quotes
+				tok.Text = tok.Text[1 : len(tok.Text)-1]
+			}
 		}
 	}
 	return tok
