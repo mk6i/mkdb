@@ -601,7 +601,8 @@ func TestScanCreateTable(t *testing.T) {
 	const src = `
 		CREATE TABLE Persons (
 			PersonID int,
-			LastName varchar(255)
+			LastName varchar(255),
+			BoolValue boolean
 		);
 	`
 
@@ -655,6 +656,18 @@ func TestScanCreateTable(t *testing.T) {
 		{
 			Type: RPAREN,
 			Text: ")",
+		},
+		{
+			Type: COMMA,
+			Text: ",",
+		},
+		{
+			Type: IDENT,
+			Text: "BoolValue",
+		},
+		{
+			Type: T_BOOL,
+			Text: "boolean",
 		},
 		{
 			Type: RPAREN,
@@ -1188,5 +1201,47 @@ func TestScanSelectCount(t *testing.T) {
 		if ts.Next() {
 			t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
 		}
+	}
+}
+
+func TestScanSelectBoolean(t *testing.T) {
+
+	const src = `SELECT true, false`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: SELECT,
+			Text: "SELECT",
+		},
+		{
+			Type: TRUE,
+			Text: "true",
+		},
+		{
+			Type: COMMA,
+			Text: ",",
+		},
+		{
+			Type: FALSE,
+			Text: "false",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
 	}
 }

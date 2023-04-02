@@ -24,6 +24,10 @@ func TestRelationEncodeDecode(t *testing.T) {
 				Len:      255,
 				Name:     "last_name",
 			},
+			{
+				DataType: TypeBoolean,
+				Name:     "bool_val",
+			},
 		},
 	}
 
@@ -61,6 +65,10 @@ func TestTupleEncodeDecode(t *testing.T) {
 				Len:      255,
 				Name:     "last_name",
 			},
+			{
+				DataType: TypeBoolean,
+				Name:     "bool_val",
+			},
 		},
 	}
 
@@ -69,6 +77,7 @@ func TestTupleEncodeDecode(t *testing.T) {
 			"id":         int32(1234),
 			"first_name": "John",
 			"last_name":  "Doe",
+			"bool_val":   true,
 		},
 		Relation: rel,
 	}

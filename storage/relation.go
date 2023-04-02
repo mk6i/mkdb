@@ -14,6 +14,7 @@ type DataType uint8
 const (
 	TypeInt = iota
 	TypeVarchar
+	TypeBoolean
 )
 
 const (
@@ -49,6 +50,10 @@ func (f *FieldDef) Validate(val interface{}) error {
 		}
 	case TypeVarchar:
 		if reflect.TypeOf(val).Kind() != reflect.String {
+			return ErrTypeMismatch
+		}
+	case TypeBoolean:
+		if reflect.TypeOf(val).Kind() != reflect.Bool {
 			return ErrTypeMismatch
 		}
 	default:
@@ -187,7 +192,7 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 		}
 
 		switch fd.DataType {
-		case TypeInt:
+		case TypeInt, TypeBoolean:
 			if err := binary.Write(buf, binary.LittleEndian, val); err != nil {
 				return buf, err
 			}
@@ -234,6 +239,12 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 				return err
 			}
 			v = string(strBuf)
+		case TypeBoolean:
+			var val bool
+			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+				return err
+			}
+			v = val
 		default:
 			panic("unsupported data type")
 		}

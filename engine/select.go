@@ -278,6 +278,8 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 				sortAsc = lhs.(int32) < rhs.(int32)
 			case string:
 				sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
+			case bool:
+				sortAsc = !lhs.(bool) && rhs.(bool)
 			default:
 				panic(fmt.Sprintf("no comparison available for type %T", lhs))
 			}
