@@ -8,13 +8,15 @@ import (
 )
 
 const (
-	literal_start = iota
-	IDENT
+	IDENT = iota
+	literal_start
 	INT
 	STR
+	reserved_word_start
+	TRUE
+	FALSE
 	literal_end
 
-	operator_start
 	BANG
 	AND
 	OR
@@ -27,9 +29,7 @@ const (
 	GTE
 	LPAREN
 	RPAREN
-	operator_end
 
-	keyword_start
 	AS
 	ASC
 	BEGIN
@@ -47,7 +47,6 @@ const (
 	ELSE
 	END
 	EXISTS
-	FALSE
 	FROM
 	FULL
 	GROUP
@@ -77,7 +76,6 @@ const (
 	T_VARCHAR
 	TABLE
 	THEN
-	TRUE
 	UNION
 	UNIQUE
 	UPDATE
@@ -86,27 +84,26 @@ const (
 	WHEN
 	WHERE
 	WITH
-	keyword_end
+	reserved_word_end
 )
 
 type TokenType int
 
-func (t TokenType) IsKeyword() bool {
-	return keyword_start < t && t < keyword_end
+func (t TokenType) IsReservedWord() bool {
+	return reserved_word_start < t && t < reserved_word_end
 }
 
 func (t TokenType) IsLiteral() bool {
 	return literal_start < t && t < literal_end
 }
 
-func (t TokenType) IsOperator() bool {
-	return operator_start < t && t < operator_end
-}
-
 var Tokens = map[TokenType]string{
-	IDENT: "an identifier",
 	INT:   "an integer",
 	STR:   "a string",
+	TRUE:  "TRUE",
+	FALSE: "FALSE",
+
+	IDENT: "an identifier",
 
 	BANG:   "!",
 	AND:    "AND",
@@ -138,7 +135,6 @@ var Tokens = map[TokenType]string{
 	ELSE:      "ELSE",
 	END:       "END",
 	EXISTS:    "EXISTS",
-	FALSE:     "FALSE",
 	FROM:      "FROM",
 	FULL:      "FULL",
 	GROUP:     "GROUP",
@@ -168,7 +164,6 @@ var Tokens = map[TokenType]string{
 	T_VARCHAR: "VARCHAR",
 	TABLE:     "TABLE",
 	THEN:      "THEN",
-	TRUE:      "TRUE",
 	UNION:     "UNION",
 	UNIQUE:    "UNIQUE",
 	UPDATE:    "UPDATE",
@@ -181,13 +176,18 @@ var Tokens = map[TokenType]string{
 
 var keywords map[string]TokenType
 
+var literals []TokenType
+
 func init() {
 	keywords = make(map[string]TokenType)
-	for i := TokenType(operator_start) + 1; i < operator_end; i++ {
-		keywords[Tokens[i]] = i
+	for i := TokenType(reserved_word_start) + 1; i < reserved_word_end; i++ {
+		// make sure we don't include boundary enums
+		if _, ok := Tokens[i]; ok {
+			keywords[Tokens[i]] = i
+		}
 	}
-	for i := TokenType(keyword_start) + 1; i < keyword_end; i++ {
-		keywords[Tokens[i]] = i
+	for i := TokenType(literal_start) + 1; i < literal_end; i++ {
+		literals = append(literals, i)
 	}
 }
 
@@ -208,6 +208,10 @@ func (t Token) Val() (interface{}, error) {
 			return nil, err
 		}
 		return int32(intVal), nil
+	case TRUE:
+		return true, nil
+	case FALSE:
+		return false, nil
 	}
 	return nil, fmt.Errorf("unsupported token type: %v", t)
 }
