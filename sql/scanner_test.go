@@ -1245,3 +1245,70 @@ func TestScanSelectBoolean(t *testing.T) {
 		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
 	}
 }
+
+func TestScanMalformedSQL(t *testing.T) {
+
+	// This test replicates a situation where someone entered a DDL query that
+	// accidentally contained curly braces instead of parens. This caused the
+	// scanner to throw a runtime error because it attempted to strip quotes
+	// from a string containing a single curly brace character.
+
+	const src = `
+		CREATE TABLE Persons {
+			PersonID int
+		};
+	`
+
+	ts := NewTokenScanner(strings.NewReader(src))
+
+	expected := []Token{
+		{
+			Type: CREATE,
+			Text: "CREATE",
+		},
+		{
+			Type: TABLE,
+			Text: "TABLE",
+		},
+		{
+			Type: IDENT,
+			Text: "Persons",
+		},
+		{
+			Type: STR,
+			Text: "{",
+		},
+		{
+			Type: IDENT,
+			Text: "PersonID",
+		},
+		{
+			Type: T_INT,
+			Text: "int",
+		},
+		{
+			Type: STR,
+			Text: "}",
+		},
+		{
+			Type: SEMICOLON,
+			Text: ";",
+		},
+	}
+
+	for _, exp := range expected {
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if exp.Type != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[exp.Type], Tokens[actual.Type]))
+		}
+		if exp.Text != actual.Text {
+			t.Errorf(fmt.Sprintf("token text does not match. expected: %s actual: %s", exp.Text, actual.Text))
+		}
+	}
+	if ts.Next() {
+		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+	}
+}
