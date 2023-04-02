@@ -592,7 +592,7 @@ func (p *Parser) ComparisonPredicate() (interface{}, error) {
 type ValueExpression any
 
 func (p *Parser) ValueExpression() (ValueExpression, error) {
-	if p.match(STR, INT) {
+	if p.match(literals...) {
 		return p.Prev().Val()
 	}
 
@@ -602,7 +602,7 @@ func (p *Parser) ValueExpression() (ValueExpression, error) {
 		return cr, nil
 	}
 
-	return nil, p.unexpectedTypeErr(INT, STR, IDENT)
+	return nil, p.unexpectedTypeErr(literals...)
 }
 
 func (p *Parser) ColumnReference() (bool, ColumnReference, error) {
@@ -753,7 +753,7 @@ func (p *Parser) Insert() (InsertStatement, error) {
 	for p.match(LPAREN) {
 		var rvc RowValueConstructor
 
-		for p.match(STR, INT) {
+		for p.match(literals...) {
 			val, err := p.Prev().Val()
 			if err != nil {
 				return is, err
@@ -886,8 +886,8 @@ func hasType(targetType TokenType, types ...TokenType) bool {
 
 func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	var unex string
-	switch p.Cur().Type {
-	case IDENT, INT, STR:
+	switch {
+	case p.Cur().Type.IsLiteral():
 		unex = fmt.Sprintf("`%s`", p.Cur().Text)
 	default:
 		unex = Tokens[p.Cur().Type]
