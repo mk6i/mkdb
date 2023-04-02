@@ -72,6 +72,7 @@ const (
 	SEMICOLON
 	SET
 	SUM
+	T_BOOL
 	T_INT
 	T_VARCHAR
 	TABLE
@@ -160,6 +161,7 @@ var Tokens = map[TokenType]string{
 	SEMICOLON: ";",
 	SET:       "SET",
 	SUM:       "SUM",
+	T_BOOL:    "BOOLEAN",
 	T_INT:     "INT",
 	T_VARCHAR: "VARCHAR",
 	TABLE:     "TABLE",

@@ -135,6 +135,9 @@ type ColumnDefinition struct {
 	Name     string
 }
 
+type BooleanType struct {
+}
+
 type CharacterStringType struct {
 	Len  int32
 	Type TokenType
@@ -295,6 +298,8 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 				return ret, err
 			}
 			te.ColumnDefinition.DataType = cst
+		case T_BOOL:
+			te.ColumnDefinition.DataType = BooleanType{}
 		default:
 			return ret, syntaxErr(cur)
 		}

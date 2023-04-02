@@ -28,7 +28,8 @@ USE testdb;
 CREATE TABLE family (
     name varchar(255),
     age int,
-    hair varchar(255)
+    hair varchar(255),
+    criminal boolean
 );
 
 CREATE TABLE famous_lines (
@@ -42,11 +43,11 @@ CREATE TABLE season (
     year int
 );
 
-INSERT INTO family (name, age, hair) VALUES
-    ('Walter', 50, 'bald'),
-    ('Skyler', 40, 'blonde'),
-    ('Walter Jr.', 16, 'brown'),
-    ('Holly', 1, 'bald');
+INSERT INTO family (name, age, hair, criminal) VALUES
+    ('Walter', 50, 'bald', true),
+    ('Skyler', 40, 'blonde', true),
+    ('Walter Jr.', 16, 'brown', false),
+    ('Holly', 1, 'bald', false);
 
 INSERT INTO season (number, year) VALUES
     (1, 2008),

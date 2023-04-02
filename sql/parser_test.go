@@ -1389,6 +1389,16 @@ func TestParseCreateTable(t *testing.T) {
 			Type: RPAREN,
 		},
 		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
+			Text: "BoolVal",
+		},
+		{
+			Type: T_BOOL,
+		},
+		{
 			Type: RPAREN,
 		},
 	}
@@ -1409,6 +1419,12 @@ func TestParseCreateTable(t *testing.T) {
 						Type: T_VARCHAR,
 					},
 					Name: "LastName",
+				},
+			},
+			{
+				ColumnDefinition{
+					DataType: BooleanType{},
+					Name:     "BoolVal",
 				},
 			},
 		},
@@ -1662,6 +1678,12 @@ func TestParseInsertSansColumnList(t *testing.T) {
 			Text: "value3",
 		},
 		{
+			Type: COMMA,
+		},
+		{
+			Type: TRUE,
+		},
+		{
 			Type: RPAREN,
 		},
 	}
@@ -1671,7 +1693,7 @@ func TestParseInsertSansColumnList(t *testing.T) {
 		InsertColumnsAndSource: InsertColumnsAndSource{
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int32(1), "value2", "value3"}},
+					{RowValueConstructorList: []interface{}{int32(1), "value2", "value3", true}},
 				},
 			},
 		},

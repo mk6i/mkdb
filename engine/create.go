@@ -22,6 +22,8 @@ func EvaluateCreateTable(q sql.CreateTable, rm relationManager) error {
 		case sql.CharacterStringType:
 			fd.DataType = storage.TypeVarchar
 			fd.Len = t.Len
+		case sql.BooleanType:
+			fd.DataType = storage.TypeBoolean
 		default:
 			panic("unsupported column definition type")
 		}
