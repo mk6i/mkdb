@@ -28,8 +28,7 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 		var fields storage.Fields
 		// create a placeholder row to populate
 		rows := []*storage.Row{{}}
-		var err error
-		fields, err = projectColumns(q.SelectList, fields, rows)
+		fields, err := projectColumns(q.SelectList, fields, rows)
 		return rows, fields, err
 	}
 
@@ -50,6 +49,11 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 		return nil, nil, err
 	}
 
+	rows, err = aggregateRows(q.SelectList, q.GroupByClause, rows)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	err = sortColumns(q.SortSpecificationList, fields, rows)
 	if err != nil {
 		return nil, nil, err
@@ -61,17 +65,6 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 
 	if q.LimitOffsetClause.LimitActive {
 		rows = limit(int(q.LimitOffsetClause.Limit), rows)
-	}
-
-	// if select count(*), replace rows with row count
-	// todo: move logic into projectColumns()
-	if _, ok := q.SelectList[0].ValueExpressionPrimary.(sql.Count); ok {
-		count := int32(len(rows))
-		rows = []*storage.Row{
-			{
-				Vals: []interface{}{count},
-			},
-		}
 	}
 
 	return rows, fields, nil
@@ -180,8 +173,6 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
 	var projFields storage.Fields
 
-	var prototype []any
-
 	lookup := map[sql.ColumnReference]int{}
 
 	for _, elem := range selectList {
@@ -204,13 +195,11 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				return nil, err
 			}
 			lookup[elem] = idx
-			prototype = append(prototype, elem)
 			projFields = append(projFields, qfields[idx])
 		default:
 			projFields = append(projFields, &storage.Field{
 				Column: "?",
 			})
-			prototype = append(prototype, elem)
 		}
 
 		// replace field name with alias
@@ -223,8 +212,11 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	// todo use copy to make more efficient?
 	for _, row := range rows {
 		var newVals []interface{}
-		for _, elem := range prototype {
-			switch elem := elem.(type) {
+		for _, elem := range selectList {
+			switch elem := elem.ValueExpressionPrimary.(type) {
+			case sql.Count:
+				// add placeholder
+				newVals = append(newVals, int32(0))
 			case sql.ColumnReference:
 				idx := lookup[elem]
 				newVals = append(newVals, row.Vals[idx])
@@ -241,6 +233,88 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	}
 
 	return projFields, nil
+}
+
+func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, rows []*storage.Row) ([]*storage.Row, error) {
+	if !selectList.HasAggrFunc() {
+		return rows, nil
+	}
+
+	lookup := map[sql.ColumnReference]int{}
+	for idx, elem := range selectList {
+		switch elem := elem.ValueExpressionPrimary.(type) {
+		case sql.ColumnReference:
+			lookup[elem] = idx
+		}
+	}
+
+	// if implicit group by with no results, return a single row that contains
+	// 0-value results
+	if len(groupBy) == 0 && len(rows) == 0 {
+		return emptyAggregateRow(selectList, rows)
+	}
+
+	aggrKey := func(row *storage.Row) string {
+		var key string
+		for _, elem := range groupBy {
+			idx := lookup[elem]
+			key += fmt.Sprintf("%v", row.Vals[idx])
+		}
+		return key
+	}
+
+	aggr := map[string]int{}
+
+	// de-dupe result set by aggregation key and update aggregate value in
+	// de-duped row
+	i := 0
+	for _, row := range rows {
+		key := aggrKey(row)
+		if _, ok := aggr[key]; !ok {
+			aggr[key] = i
+			rows[i] = row
+			i++
+		}
+
+		// we already saw key, update aggregates
+		for j, elem := range selectList {
+			switch elem.ValueExpressionPrimary.(type) {
+			case sql.Count:
+				idx := aggr[key]
+				rows[idx].Vals[j] = rows[idx].Vals[j].(int32) + 1
+			}
+
+		}
+	}
+
+	// dont leak memory
+	for j := i; j < len(rows); j++ {
+		rows[j] = nil
+	}
+	rows = rows[:i]
+
+	return rows, nil
+}
+
+// emptyAggregateRow returns a row that represents an aggregation of an empty
+// result set.
+func emptyAggregateRow(selectList sql.SelectList, rows []*storage.Row) ([]*storage.Row, error) {
+	row := &storage.Row{}
+	for _, elem := range selectList {
+		switch elem := elem.ValueExpressionPrimary.(type) {
+		case sql.Count:
+			row.Vals = append(row.Vals, int32(0))
+		default:
+			// handle any expressions in the select list
+			result, err := evaluate(elem, storage.Fields{}, row)
+			if err != nil {
+				return rows, err
+			}
+			row.Vals = append(row.Vals, result)
+		}
+
+	}
+	return []*storage.Row{row}, nil
 }
 
 func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*storage.Row) error {
