@@ -16,15 +16,21 @@ const (
 )
 
 var (
-	ErrNegativeLimit        = errors.New("LIMIT clause can not be negative")
-	ErrNegativeOffset       = errors.New("OFFSET clause can not be negative")
-	ErrSyntax               = errors.New("syntax error")
-	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
-	ErrUnexpectedToken      = errors.New("unexpected token")
+	ErrAmbiguousGroupByColumn = errors.New("group by column is ambiguous")
+	ErrInvalidGroupByColumn   = errors.New("cannot include column in result set without grouping or aggregation")
+	ErrNegativeLimit          = errors.New("LIMIT clause can not be negative")
+	ErrNegativeOffset         = errors.New("OFFSET clause can not be negative")
+	ErrSyntax                 = errors.New("syntax error")
+	ErrTmpUnsupportedSyntax   = errors.New("temporarily unsupported syntax")
+	ErrUnexpectedToken        = errors.New("unexpected token")
 )
 
 func syntaxErr(t Token) error {
 	return fmt.Errorf("%w around `%s`", ErrSyntax, t.Text)
+}
+
+func invalidGroupByColumnErr(cr DerivedColumn) error {
+	return fmt.Errorf("%w: `%s`", ErrInvalidGroupByColumn, cr)
 }
 
 type Select struct {
@@ -36,7 +42,8 @@ type Select struct {
 
 type TableExpression struct {
 	FromClause
-	WhereClause interface{}
+	WhereClause   interface{}
+	GroupByClause []ColumnReference
 }
 
 type SortSpecification struct {
@@ -56,6 +63,23 @@ type ColumnReference struct {
 	ColumnName string
 }
 
+// Equals returns true if column reference v and column reference rhs have the
+// same qualifiers and column names.
+func (v ColumnReference) Equals(rhs ColumnReference) bool {
+	if (v.Qualifier == nil) != (rhs.Qualifier == nil) {
+		return false
+	}
+	if lhs, ok := v.Qualifier.(Token); ok {
+		if lhs.Text != rhs.Qualifier.(Token).Text {
+			return false
+		}
+	}
+	if v.ColumnName != rhs.ColumnName {
+		return false
+	}
+	return true
+}
+
 func (v ColumnReference) String() string {
 	if v.Qualifier != nil {
 		return fmt.Sprintf("%v.%v", v.Qualifier.(Token).Text, v.ColumnName)
@@ -73,11 +97,51 @@ type DerivedColumn struct {
 	AsClause string
 }
 
+func (d DerivedColumn) IsColumnReference() bool {
+	_, ok := d.ValueExpressionPrimary.(ColumnReference)
+	return ok
+}
+
+// Matches returns true if column reference rhs matches the column reference in
+// derived column d, based on column names, qualifiers
+// (i.e. SELECT qualifier.field) and aliases (i.e. SELECT field as alias).
+func (d DerivedColumn) Matches(rhs ColumnReference) bool {
+	lhs, isCr := d.ValueExpressionPrimary.(ColumnReference)
+	if !isCr {
+		return false
+	}
+
+	switch {
+	case lhs.Equals(rhs):
+		// col name and qualifiers are identical
+		fallthrough
+	case d.AsClause == rhs.ColumnName:
+		// derived column alias matches column name
+		fallthrough
+	case lhs.ColumnName == rhs.ColumnName && rhs.Qualifier == nil:
+		// column names are the same. because rhs qualifier is unspecified,
+		// qualifier comparison is ignored
+		return true
+	}
+
+	return false
+}
+
 // ValueExpressionPrimary is one of ColumnReference or Count
 type ValueExpressionPrimary any
 
 type Pattern string
 type SelectList []DerivedColumn
+
+func (s SelectList) HasAggrFunc() bool {
+	for _, selectCol := range s {
+		if _, isAggr := selectCol.ValueExpressionPrimary.(Count); isAggr {
+			return true
+		}
+	}
+	return false
+}
+
 type FromClause []TableReference
 
 // SimpleTable is one of QuerySpecification, TableValueConstructor,
@@ -327,6 +391,7 @@ func (p *Parser) Select() (Select, error) {
 		return sel, err
 	}
 
+	// todo: can hasFromClause be replaced with a nil-check?
 	var hasFromClause bool
 	sel.TableExpression, hasFromClause, err = p.TableExpression()
 	if err != nil {
@@ -337,6 +402,10 @@ func (p *Parser) Select() (Select, error) {
 	// select list.
 	if !hasFromClause && p.HasNext() {
 		return sel, p.requireMatch(FROM)
+	}
+
+	if err := validateGroupByFields(sel); err != nil {
+		return sel, err
 	}
 
 	sel.SortSpecificationList, err = p.SortSpecificationList()
@@ -350,6 +419,60 @@ func (p *Parser) Select() (Select, error) {
 	}
 
 	return sel, nil
+}
+
+// validateGroupByFields ensures that SELECT columns correctly match GROUP BY
+// columns
+func validateGroupByFields(s Select) error {
+	if !s.HasAggrFunc() && len(s.GroupByClause) == 0 {
+		return nil
+	}
+
+	// check that each SELECT column has a corresponding GROUP BY column
+	//
+	// invalid:
+	// SELECT count(*), field_1, field_2
+	// FROM some_table
+	// GROUP BY field_1
+	for _, derivedCol := range s.SelectList {
+		if !derivedCol.IsColumnReference() {
+			continue
+		}
+		var hasMatch bool
+		for _, groupByCol := range s.GroupByClause {
+			if derivedCol.Matches(groupByCol) {
+				hasMatch = true
+				break
+			}
+		}
+		if !hasMatch {
+			return invalidGroupByColumnErr(derivedCol)
+		}
+	}
+
+	// check that each GROUP BY column corresponds to at most one SELECT column
+	//
+	// invalid:
+	// SELECT count(*), s1.year, s2.year
+	// FROM s1
+	// JOIN s2 ON s1.number = s2.number
+	// GROUP BY year;
+	for _, groupByCol := range s.GroupByClause {
+		var hasMatch bool
+		for _, derivedCol := range s.SelectList {
+			if !derivedCol.IsColumnReference() {
+				continue
+			}
+			if derivedCol.Matches(groupByCol) {
+				if hasMatch {
+					return ErrAmbiguousGroupByColumn
+				}
+				hasMatch = true
+			}
+		}
+	}
+
+	return nil
 }
 
 func (p *Parser) SortSpecificationList() ([]SortSpecification, error) {
@@ -436,6 +559,11 @@ func (p *Parser) TableExpression() (TableExpression, bool, error) {
 		return te, found, err
 	}
 
+	te.GroupByClause, err = p.GroupByClause()
+	if err != nil {
+		return te, found, err
+	}
+
 	return te, found, err
 }
 
@@ -511,6 +639,30 @@ func (p *Parser) WhereClause() (interface{}, error) {
 	wc.SearchCondition, err = p.OrCondition()
 
 	return wc, err
+}
+
+func (p *Parser) GroupByClause() ([]ColumnReference, error) {
+	if !p.match(GROUP) {
+		return nil, nil
+	}
+	if err := p.requireMatch(BY); err != nil {
+		return nil, err
+	}
+
+	var ret []ColumnReference
+
+	for {
+		found, cr, err := p.ColumnReference()
+		if err != nil {
+			return ret, err
+		}
+		if !found {
+			break
+		}
+		ret = append(ret, cr)
+	}
+
+	return ret, nil
 }
 
 func (p *Parser) OrCondition() (interface{}, error) {
@@ -697,9 +849,6 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 		}
 		if err := p.requireMatch(RPAREN); err != nil {
 			return false, setFunc, err
-		}
-		if p.match(COMMA) {
-			return false, setFunc, fmt.Errorf("%w: count(*) must be the only select field", ErrTmpUnsupportedSyntax)
 		}
 		return true, setFunc, nil
 	}

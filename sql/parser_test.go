@@ -2010,34 +2010,6 @@ func TestParseSelectCountErrTmpUnsupportedSyntax(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "SELECT COUNT(*), name",
-			tokens: []Token{
-				{
-					Type: SELECT,
-				},
-				{
-					Type: COUNT,
-				},
-				{
-					Type: LPAREN,
-				},
-				{
-					Type: ASTRSK,
-					Text: "name",
-				},
-				{
-					Type: RPAREN,
-				},
-				{
-					Type: COMMA,
-				},
-				{
-					Type: IDENT,
-					Text: "name",
-				},
-			},
-		},
 	}
 
 	for _, test := range tc {
@@ -2206,5 +2178,656 @@ func TestParseSelectExpressionWithMissingFrom(t *testing.T) {
 
 	if !errors.Is(err, ErrUnexpectedToken) {
 		t.Errorf("expected ErrUnexpectedToken, got %v", err)
+	}
+}
+
+func TestParseSelectCountGroupBy(t *testing.T) {
+	tc := []struct {
+		name      string
+		input     []Token
+		expect    Select
+		expectErr error
+	}{
+		{
+			name: "aggregate two fields on one table",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "field_2",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: IDENT,
+					Text: "field_2",
+				},
+			},
+			expect: Select{
+				SelectList: SelectList{
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							ColumnName: "field_1",
+						},
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							ColumnName: "field_2",
+						},
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: Count{},
+					},
+				},
+				TableExpression: TableExpression{
+					FromClause: FromClause{
+						TableName{
+							Name: "the_table",
+						},
+					},
+					GroupByClause: []ColumnReference{
+						{ColumnName: "field_1"},
+						{ColumnName: "field_2"},
+					},
+				},
+			},
+		},
+		{
+			name: "aggregate aliased column with group by that references alias",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: AS,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1_alias",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1_alias",
+				},
+			},
+			expect: Select{
+				SelectList: SelectList{
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							ColumnName: "field_1",
+						},
+						AsClause: "field_1_alias",
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: Count{},
+					},
+				},
+				TableExpression: TableExpression{
+					FromClause: FromClause{
+						TableName{
+							Name: "the_table",
+						},
+					},
+					GroupByClause: []ColumnReference{
+						{ColumnName: "field_1_alias"},
+					},
+				},
+			},
+		},
+		{
+			name: "aggregate column with field qualifier on select and not on group by column",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "tt",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			expect: Select{
+				SelectList: SelectList{
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							Qualifier: Token{
+								Type: IDENT,
+								Text: "tt",
+							},
+							ColumnName: "field_1",
+						},
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: Count{},
+					},
+				},
+				TableExpression: TableExpression{
+					FromClause: FromClause{
+						TableName{
+							Name: "the_table",
+						},
+					},
+					GroupByClause: []ColumnReference{
+						{ColumnName: "field_1"},
+					},
+				},
+			},
+		},
+		{
+			name: "aggregate column with field qualifier on select and group by column",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "tt",
+					Line: 10,
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "tt",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			expect: Select{
+				SelectList: SelectList{
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							Qualifier: Token{
+								Type: IDENT,
+								Text: "tt",
+								Line: 10,
+							},
+							ColumnName: "field_1",
+						},
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: Count{},
+					},
+				},
+				TableExpression: TableExpression{
+					FromClause: FromClause{
+						TableName{
+							Name: "the_table",
+						},
+					},
+					GroupByClause: []ColumnReference{
+						{
+							Qualifier: Token{
+								Type: IDENT,
+								Text: "tt",
+							},
+							ColumnName: "field_1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "aggregate joined tables",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: JOIN,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: ON,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "id",
+				},
+				{
+					Type: EQ,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "id",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+			},
+			expectErr: ErrInvalidGroupByColumn,
+		},
+		{
+			name: "aggregation with ambiguous group by that could match 2 select columns",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: JOIN,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: ON,
+				},
+				{
+					Type: IDENT,
+					Text: "table_1",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "id",
+				},
+				{
+					Type: EQ,
+				},
+				{
+					Type: IDENT,
+					Text: "table_2",
+				},
+				{
+					Type: DOT,
+				},
+				{
+					Type: IDENT,
+					Text: "id",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "common_field",
+				},
+			},
+			expectErr: ErrAmbiguousGroupByColumn,
+		},
+		{
+			name: "implicit aggregation with non-aggregated select column",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+			},
+			expectErr: ErrInvalidGroupByColumn,
+		},
+		{
+			name: "explicit aggregation with non-aggregated select column",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: IDENT,
+					Text: "field_2",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: ASTRSK,
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			expectErr: ErrInvalidGroupByColumn,
+		},
+	}
+
+	for _, test := range tc {
+		t.Run(test.name, func(t *testing.T) {
+			tl := TokenList{
+				tokens: test.input,
+				cur:    0,
+			}
+			p := &Parser{tl}
+
+			actual, err := p.Parse()
+
+			if !errors.Is(err, test.expectErr) {
+				t.Errorf("expected %v, got %v", test.expectErr, err)
+			}
+			if test.expectErr == nil && !reflect.DeepEqual(test.expect, actual) {
+				t.Errorf("ASTs are not the same. expected: %+v actual :%+v", test.expect, actual)
+			}
+		})
 	}
 }

@@ -936,7 +936,6 @@ func TestSelect(t *testing.T) {
 				{Vals: []interface{}{true}},
 			},
 		},
-
 		{
 			name: `SELECT expression with FROM clause: SELECT field_1 as field_1_alias, field_2 field_2_alias FROM tbl1`,
 			query: sql.Select{
@@ -981,6 +980,322 @@ func TestSelect(t *testing.T) {
 				{Vals: []interface{}{"id_1", "id_2"}},
 				{Vals: []interface{}{"id_3", "id_4"}},
 				{Vals: []interface{}{"id_5", "id_6"}},
+			},
+		},
+		{
+			name: `select with aggregation on two fields: SELECT customer_id, product_id, count(*)
+		        FROM orders
+		        GROUP BY customer_id, product_id`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "customer_id",
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "product_id",
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{Name: "orders"},
+					},
+					GroupByClause: []sql.ColumnReference{
+						{ColumnName: "customer_id"},
+						{ColumnName: "product_id"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"orders": {
+					&storage.Field{Column: "customer_id"},
+					&storage.Field{Column: "product_id"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "customer_id", TableID: "orders"},
+				{Column: "product_id", TableID: "orders"},
+				{Column: "count(*)"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"orders": {
+					{Vals: []interface{}{"1", "A"}},
+					{Vals: []interface{}{"1", "A"}},
+					{Vals: []interface{}{"1", "B"}},
+					{Vals: []interface{}{"2", "B"}},
+					{Vals: []interface{}{"2", "B"}},
+					{Vals: []interface{}{"2", "C"}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"1", "A", int32(2)}},
+				{Vals: []interface{}{"1", "B", int32(1)}},
+				{Vals: []interface{}{"2", "B", int32(2)}},
+				{Vals: []interface{}{"2", "C", int32(1)}},
+			},
+		},
+		{
+			name: "select with implicit aggregation returns non-empty result set: SELECT count(*) FROM tbl1",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "tbl1",
+						},
+					},
+				},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{int32(1)}},
+					{Vals: []interface{}{int32(2)}},
+					{Vals: []interface{}{int32(3)}},
+					{Vals: []interface{}{int32(4)}},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "count(*)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(4)}},
+			},
+		},
+		{
+			name: "implicit aggregation count(*) and scalar expression with empty result set: SELECT 1, count(*) FROM tbl1",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: int32(1),
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "tbl1",
+						},
+					},
+				},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {},
+			},
+			expectFields: []*storage.Field{
+				{Column: "?"},
+				{Column: "count(*)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(1), int32(0)}},
+			},
+		},
+		{
+			name: `select aggregate with column qualifier: SELECT tbl2.year, count(*)
+		        FROM tbl1
+		        JOIN tbl2 ON tbl1.id = tbl2.id
+		        GROUP BY year`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl2",
+							},
+							ColumnName: "year",
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.QualifiedJoin{
+							LHS:      sql.TableName{Name: "tbl1"},
+							RHS:      sql.TableName{Name: "tbl2"},
+							JoinType: sql.INNER_JOIN,
+							JoinCondition: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS: sql.ColumnReference{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl1",
+										},
+										ColumnName: "id",
+									},
+									CompOp: sql.EQ,
+									RHS: sql.ColumnReference{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl2",
+										},
+										ColumnName: "id",
+									},
+								},
+							},
+						},
+					},
+					GroupByClause: []sql.ColumnReference{
+						{ColumnName: "year"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "year"},
+				},
+				"tbl2": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "year"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "year", TableID: "tbl2"},
+				{Column: "count(*)"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{"1", int32(1990)}},
+					{Vals: []interface{}{"2", int32(1991)}},
+					{Vals: []interface{}{"3", int32(1991)}},
+					{Vals: []interface{}{"4", int32(1992)}},
+					{Vals: []interface{}{"5", int32(1992)}},
+					{Vals: []interface{}{"6", int32(1992)}},
+					{Vals: []interface{}{"7", int32(1993)}},
+					{Vals: []interface{}{"8", int32(1993)}},
+					{Vals: []interface{}{"9", int32(1994)}},
+				},
+				"tbl2": {
+					{Vals: []interface{}{"1", int32(2000)}},
+					{Vals: []interface{}{"2", int32(2001)}},
+					{Vals: []interface{}{"3", int32(2001)}},
+					{Vals: []interface{}{"4", int32(2002)}},
+					{Vals: []interface{}{"5", int32(2002)}},
+					{Vals: []interface{}{"6", int32(2002)}},
+					{Vals: []interface{}{"7", int32(2003)}},
+					{Vals: []interface{}{"8", int32(2003)}},
+					{Vals: []interface{}{"9", int32(2004)}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(2000), int32(1)}},
+				{Vals: []interface{}{int32(2001), int32(2)}},
+				{Vals: []interface{}{int32(2002), int32(3)}},
+				{Vals: []interface{}{int32(2003), int32(2)}},
+				{Vals: []interface{}{int32(2004), int32(1)}},
+			},
+		},
+		{
+			name: `select aggregate with column alias: SELECT tbl2.year as yr, count(*)
+		        FROM tbl1
+		        JOIN tbl2 ON tbl1.id = tbl2.id
+		        GROUP BY yr`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							Qualifier: sql.Token{
+								Type: sql.IDENT,
+								Text: "tbl2",
+							},
+							ColumnName: "year",
+						},
+						AsClause: "yr",
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.QualifiedJoin{
+							LHS:      sql.TableName{Name: "tbl1"},
+							RHS:      sql.TableName{Name: "tbl2"},
+							JoinType: sql.INNER_JOIN,
+							JoinCondition: sql.Predicate{
+								ComparisonPredicate: sql.ComparisonPredicate{
+									LHS: sql.ColumnReference{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl1",
+										},
+										ColumnName: "id",
+									},
+									CompOp: sql.EQ,
+									RHS: sql.ColumnReference{
+										Qualifier: sql.Token{
+											Type: sql.IDENT,
+											Text: "tbl2",
+										},
+										ColumnName: "id",
+									},
+								},
+							},
+						},
+					},
+					GroupByClause: []sql.ColumnReference{
+						{ColumnName: "yr"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"tbl1": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "year"},
+				},
+				"tbl2": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "year"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "yr", TableID: "tbl2"},
+				{Column: "count(*)"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"tbl1": {
+					{Vals: []interface{}{"1", int32(1990)}},
+					{Vals: []interface{}{"2", int32(1991)}},
+					{Vals: []interface{}{"3", int32(1991)}},
+					{Vals: []interface{}{"4", int32(1992)}},
+					{Vals: []interface{}{"5", int32(1992)}},
+					{Vals: []interface{}{"6", int32(1992)}},
+					{Vals: []interface{}{"7", int32(1993)}},
+					{Vals: []interface{}{"8", int32(1993)}},
+					{Vals: []interface{}{"9", int32(1994)}},
+				},
+				"tbl2": {
+					{Vals: []interface{}{"1", int32(2000)}},
+					{Vals: []interface{}{"2", int32(2001)}},
+					{Vals: []interface{}{"3", int32(2001)}},
+					{Vals: []interface{}{"4", int32(2002)}},
+					{Vals: []interface{}{"5", int32(2002)}},
+					{Vals: []interface{}{"6", int32(2002)}},
+					{Vals: []interface{}{"7", int32(2003)}},
+					{Vals: []interface{}{"8", int32(2003)}},
+					{Vals: []interface{}{"9", int32(2004)}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(2000), int32(1)}},
+				{Vals: []interface{}{int32(2001), int32(2)}},
+				{Vals: []interface{}{int32(2002), int32(3)}},
+				{Vals: []interface{}{int32(2003), int32(2)}},
+				{Vals: []interface{}{int32(2004), int32(1)}},
 			},
 		},
 	}
@@ -1219,93 +1534,6 @@ func TestSelectComparisonOperators(t *testing.T) {
 			givenRows:    intRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
-		},
-	}
-
-	for _, test := range tc {
-		t.Run(test.name, func(t *testing.T) {
-			actualRows, actualFields, err := EvaluateSelect(test.query, &mockRelationManager{
-				fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
-					return test.givenRows[tableName], givenFields[tableName], nil
-				},
-			})
-
-			if !errors.Is(err, test.expectErr) {
-				t.Errorf("expected error `%v`, got `%v`", test.expectErr, err)
-			}
-
-			if !reflect.DeepEqual(test.expectRows, actualRows) {
-				t.Fatalf("rows do not match. expected: %s actual: %s", test.expectRows, actualRows)
-			}
-
-			if !reflect.DeepEqual(test.expectFields, actualFields) {
-				t.Fatalf("fields do not match. expected: %s actual: %s", test.expectFields, actualFields)
-			}
-		})
-	}
-}
-
-func TestSelectCount(t *testing.T) {
-	buildSQL := func(compOp sql.TokenType, rhs any) sql.Select {
-		return sql.Select{
-			SelectList: sql.SelectList{
-				sql.DerivedColumn{
-					ValueExpressionPrimary: sql.Count{},
-				},
-			},
-			TableExpression: sql.TableExpression{
-				FromClause: sql.FromClause{
-					sql.TableName{
-						Name: "tbl1",
-					},
-				},
-			},
-		}
-	}
-
-	givenFields := map[string]storage.Fields{
-		"tbl1": {
-			&storage.Field{Column: "col1"},
-		},
-	}
-	expectFields := []*storage.Field{
-		{Column: "count(*)"},
-	}
-
-	tc := []struct {
-		name         string
-		query        sql.Select
-		givenRows    map[string][]*storage.Row
-		expectFields []*storage.Field
-		expectRows   []*storage.Row
-		expectErr    error
-	}{
-		{
-			name:  "count(*) with non-empty result set: SELECT count(*) FROM tbl1",
-			query: buildSQL(sql.GT, int32(4)),
-			givenRows: map[string][]*storage.Row{
-				"tbl1": {
-					{Vals: []interface{}{int32(1)}},
-					{Vals: []interface{}{int32(2)}},
-					{Vals: []interface{}{int32(3)}},
-					{Vals: []interface{}{int32(4)}},
-				},
-			},
-			expectFields: expectFields,
-			expectRows: []*storage.Row{
-				{Vals: []interface{}{int32(4)}},
-			},
-		},
-		{
-			name:  "count(*) with empty result set: SELECT count(*) FROM tbl1",
-			query: buildSQL(sql.GT, int32(4)),
-			givenRows: map[string][]*storage.Row{
-				"tbl1": {},
-			},
-			expectFields: expectFields,
-			expectRows: []*storage.Row{
-				{Vals: []interface{}{int32(0)}},
-			},
 		},
 	}
 

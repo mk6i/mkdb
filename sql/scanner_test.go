@@ -1312,3 +1312,36 @@ func TestScanMalformedSQL(t *testing.T) {
 		t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
 	}
 }
+
+func TestScanGroupBy(t *testing.T) {
+
+	cases := []struct {
+		input  string
+		expect TokenType
+	}{
+		{
+			input:  `GROUP`,
+			expect: GROUP,
+		},
+		{
+			input:  `BY`,
+			expect: BY,
+		},
+	}
+
+	for _, test := range cases {
+
+		ts := NewTokenScanner(strings.NewReader(test.input))
+
+		if !ts.Next() {
+			t.Error("ran out of tokens")
+		}
+		actual := ts.Cur()
+		if test.expect != actual.Type {
+			t.Errorf(fmt.Sprintf("token type does not match. expected: %s actual: %s", Tokens[test.expect], Tokens[actual.Type]))
+		}
+		if ts.Next() {
+			t.Errorf("there are still tokens that remain in scanner. next: %s", ts.Cur().Text)
+		}
+	}
+}
