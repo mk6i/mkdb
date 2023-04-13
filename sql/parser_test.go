@@ -159,20 +159,14 @@ func TestParseSelect(t *testing.T) {
 		SelectList: SelectList{
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "tt",
-					},
+					Qualifier:  "tt",
 					ColumnName: "field_1",
 				},
 				AsClause: "field_1_alias",
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "tt",
-					},
+					Qualifier:  "tt",
 					ColumnName: "field_2",
 				},
 				AsClause: "field_2_alias",
@@ -190,23 +184,17 @@ func TestParseSelect(t *testing.T) {
 					LHS: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "tt",
-								},
+								Qualifier:  "tt",
 								ColumnName: "ident1",
 							},
 							CompOp: EQ,
-							RHS:    string("\"some literal\""),
+							RHS:    "\"some literal\"",
 						},
 					},
 					RHS: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "tt",
-								},
+								Qualifier:  "tt",
 								ColumnName: "ident2",
 							},
 							CompOp: NEQ,
@@ -219,30 +207,21 @@ func TestParseSelect(t *testing.T) {
 		SortSpecificationList: []SortSpecification{
 			{
 				SortKey: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "tt",
-					},
+					Qualifier:  "tt",
 					ColumnName: "field_1",
 				},
 				OrderingSpecification: Token{Type: ASC},
 			},
 			{
 				SortKey: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "tt",
-					},
+					Qualifier:  "tt",
 					ColumnName: "field_2",
 				},
 				OrderingSpecification: Token{Type: DESC},
 			},
 			{
 				SortKey: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "tt",
-					},
+					Qualifier:  "tt",
 					ColumnName: "field_1",
 				},
 				OrderingSpecification: Token{Type: ASC},
@@ -597,19 +576,13 @@ func TestParseSelectInnerJoinSansInnerKeyword(t *testing.T) {
 		SelectList: SelectList{
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_1",
-					},
+					Qualifier:  "table_1",
 					ColumnName: "field_1",
 				},
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_2",
-					},
+					Qualifier:  "table_2",
 					ColumnName: "field_2",
 				},
 			},
@@ -624,18 +597,12 @@ func TestParseSelectInnerJoinSansInnerKeyword(t *testing.T) {
 						JoinCondition: Predicate{
 							ComparisonPredicate{
 								LHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_1",
-									},
+									Qualifier:  "table_1",
 									ColumnName: "id",
 								},
 								CompOp: EQ,
 								RHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_2",
-									},
+									Qualifier:  "table_2",
 									ColumnName: "id",
 								},
 							},
@@ -646,18 +613,12 @@ func TestParseSelectInnerJoinSansInnerKeyword(t *testing.T) {
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_2",
-								},
+								Qualifier:  "table_2",
 								ColumnName: "id",
 							},
 							CompOp: EQ,
 							RHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_3",
-								},
+								Qualifier:  "table_3",
 								ColumnName: "id",
 							},
 						},
@@ -801,19 +762,13 @@ func TestParseSelectInnerJoinWithInnerKeyword(t *testing.T) {
 		SelectList: SelectList{
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_1",
-					},
+					Qualifier:  "table_1",
 					ColumnName: "field_1",
 				},
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_2",
-					},
+					Qualifier:  "table_2",
 					ColumnName: "field_2",
 				},
 			},
@@ -828,18 +783,12 @@ func TestParseSelectInnerJoinWithInnerKeyword(t *testing.T) {
 						JoinCondition: Predicate{
 							ComparisonPredicate{
 								LHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_1",
-									},
+									Qualifier:  "table_1",
 									ColumnName: "id",
 								},
 								CompOp: EQ,
 								RHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_2",
-									},
+									Qualifier:  "table_2",
 									ColumnName: "id",
 								},
 							},
@@ -850,18 +799,12 @@ func TestParseSelectInnerJoinWithInnerKeyword(t *testing.T) {
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_2",
-								},
+								Qualifier:  "table_2",
 								ColumnName: "id",
 							},
 							CompOp: EQ,
 							RHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_3",
-								},
+								Qualifier:  "table_3",
 								ColumnName: "id",
 							},
 						},
@@ -1005,19 +948,13 @@ func TestParseSelectLeftJoin(t *testing.T) {
 		SelectList: SelectList{
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_1",
-					},
+					Qualifier:  "table_1",
 					ColumnName: "field_1",
 				},
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_2",
-					},
+					Qualifier:  "table_2",
 					ColumnName: "field_2",
 				},
 			},
@@ -1032,18 +969,12 @@ func TestParseSelectLeftJoin(t *testing.T) {
 						JoinCondition: Predicate{
 							ComparisonPredicate{
 								LHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_1",
-									},
+									Qualifier:  "table_1",
 									ColumnName: "id",
 								},
 								CompOp: EQ,
 								RHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_2",
-									},
+									Qualifier:  "table_2",
 									ColumnName: "id",
 								},
 							},
@@ -1054,18 +985,12 @@ func TestParseSelectLeftJoin(t *testing.T) {
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_2",
-								},
+								Qualifier:  "table_2",
 								ColumnName: "id",
 							},
 							CompOp: EQ,
 							RHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_3",
-								},
+								Qualifier:  "table_3",
 								ColumnName: "id",
 							},
 						},
@@ -1209,19 +1134,13 @@ func TestParseSelectRightJoin(t *testing.T) {
 		SelectList: SelectList{
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_1",
-					},
+					Qualifier:  "table_1",
 					ColumnName: "field_1",
 				},
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: ColumnReference{
-					Qualifier: Token{
-						Type: IDENT,
-						Text: "table_2",
-					},
+					Qualifier:  "table_2",
 					ColumnName: "field_2",
 				},
 			},
@@ -1236,18 +1155,12 @@ func TestParseSelectRightJoin(t *testing.T) {
 						JoinCondition: Predicate{
 							ComparisonPredicate{
 								LHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_1",
-									},
+									Qualifier:  "table_1",
 									ColumnName: "id",
 								},
 								CompOp: EQ,
 								RHS: ColumnReference{
-									Qualifier: Token{
-										Type: IDENT,
-										Text: "table_2",
-									},
+									Qualifier:  "table_2",
 									ColumnName: "id",
 								},
 							},
@@ -1258,18 +1171,12 @@ func TestParseSelectRightJoin(t *testing.T) {
 					JoinCondition: Predicate{
 						ComparisonPredicate{
 							LHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_2",
-								},
+								Qualifier:  "table_2",
 								ColumnName: "id",
 							},
 							CompOp: EQ,
 							RHS: ColumnReference{
-								Qualifier: Token{
-									Type: IDENT,
-									Text: "table_3",
-								},
+								Qualifier:  "table_3",
 								ColumnName: "id",
 							},
 						},
@@ -1789,15 +1696,15 @@ func TestParseUpdate(t *testing.T) {
 		Set: []SetClause{
 			{
 				ObjectColumn: "column1",
-				UpdateSource: string("val1"),
+				UpdateSource: "val1",
 			},
 			{
 				ObjectColumn: "column2",
-				UpdateSource: string("val2"),
+				UpdateSource: "val2",
 			},
 			{
 				ObjectColumn: "column3",
-				UpdateSource: string("val3"),
+				UpdateSource: "val3",
 			},
 		},
 		Where: WhereClause{
@@ -2452,10 +2359,7 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 				SelectList: SelectList{
 					DerivedColumn{
 						ValueExpressionPrimary: ColumnReference{
-							Qualifier: Token{
-								Type: IDENT,
-								Text: "tt",
-							},
+							Qualifier:  "tt",
 							ColumnName: "field_1",
 						},
 					},
@@ -2537,11 +2441,7 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 				SelectList: SelectList{
 					DerivedColumn{
 						ValueExpressionPrimary: ColumnReference{
-							Qualifier: Token{
-								Type: IDENT,
-								Text: "tt",
-								Line: 10,
-							},
+							Qualifier:  "tt",
 							ColumnName: "field_1",
 						},
 					},
@@ -2557,10 +2457,7 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 					},
 					GroupByClause: []ColumnReference{
 						{
-							Qualifier: Token{
-								Type: IDENT,
-								Text: "tt",
-							},
+							Qualifier:  "tt",
 							ColumnName: "field_1",
 						},
 					},

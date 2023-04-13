@@ -59,20 +59,20 @@ type LimitOffsetClause struct {
 }
 
 type ColumnReference struct {
-	Qualifier  interface{}
+	Qualifier  string
 	ColumnName string
 }
 
 // Equals returns true if column reference v and column reference rhs have the
 // same qualifiers and column names.
 func (v ColumnReference) Equals(rhs ColumnReference) bool {
-	if (v.Qualifier == nil) != (rhs.Qualifier == nil) {
+	if (v.Qualifier == "") != (rhs.Qualifier == "") {
 		return false
 	}
-	if lhs, ok := v.Qualifier.(Token); ok {
-		if lhs.Text != rhs.Qualifier.(Token).Text {
-			return false
-		}
+	// at this point, either both qualifiers are empty or not
+	//if v.Qualifier != "" && v.Qualifier != rhs.Qualifier {
+	if v.Qualifier != rhs.Qualifier {
+		return false
 	}
 	if v.ColumnName != rhs.ColumnName {
 		return false
@@ -81,8 +81,8 @@ func (v ColumnReference) Equals(rhs ColumnReference) bool {
 }
 
 func (v ColumnReference) String() string {
-	if v.Qualifier != nil {
-		return fmt.Sprintf("%v.%v", v.Qualifier.(Token).Text, v.ColumnName)
+	if v.Qualifier != "" {
+		return fmt.Sprintf("%v.%v", v.Qualifier, v.ColumnName)
 	}
 	return v.ColumnName
 }
@@ -118,7 +118,7 @@ func (d DerivedColumn) Matches(rhs ColumnReference) bool {
 	case d.AsClause == rhs.ColumnName:
 		// derived column alias matches column name
 		fallthrough
-	case lhs.ColumnName == rhs.ColumnName && rhs.Qualifier == nil:
+	case lhs.ColumnName == rhs.ColumnName && rhs.Qualifier == "":
 		// column names are the same. because rhs qualifier is unspecified,
 		// qualifier comparison is ignored
 		return true
@@ -777,7 +777,7 @@ func (p *Parser) ColumnReference() (bool, ColumnReference, error) {
 	}
 
 	if p.curType(DOT) {
-		ve.Qualifier = p.Prev()
+		ve.Qualifier = p.Prev().Text
 		p.Advance()
 		if err := p.requireMatch(IDENT); err != nil {
 			return false, ve, err

@@ -72,21 +72,21 @@ func TestSelect(t *testing.T) {
 				SortSpecificationList: []sql.SortSpecification{
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col1",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col2",
 						},
 						OrderingSpecification: sql.Token{Type: sql.ASC},
 					},
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col3",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
@@ -148,21 +148,21 @@ func TestSelect(t *testing.T) {
 				SortSpecificationList: []sql.SortSpecification{
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col1",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
 					},
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col2",
 						},
 						OrderingSpecification: sql.Token{Type: sql.ASC},
 					},
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "col3",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
@@ -218,7 +218,7 @@ func TestSelect(t *testing.T) {
 				SortSpecificationList: []sql.SortSpecification{
 					{
 						SortKey: sql.ColumnReference{
-							Qualifier:  nil,
+							Qualifier:  "",
 							ColumnName: "non_existent_col",
 						},
 						OrderingSpecification: sql.Token{Type: sql.DESC},
@@ -533,19 +533,13 @@ func TestSelect(t *testing.T) {
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl1",
-							},
+							Qualifier:  "tbl1",
 							ColumnName: "col1",
 						},
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl2",
-							},
+							Qualifier:  "tbl2",
 							ColumnName: "col3",
 						},
 					},
@@ -559,18 +553,12 @@ func TestSelect(t *testing.T) {
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
 									LHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl1",
-										},
+										Qualifier:  "tbl1",
 										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
 									RHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl2",
-										},
+										Qualifier:  "tbl2",
 										ColumnName: "id",
 									},
 								},
@@ -628,19 +616,13 @@ func TestSelect(t *testing.T) {
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl1",
-							},
+							Qualifier:  "tbl1",
 							ColumnName: "col1",
 						},
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl2",
-							},
+							Qualifier:  "tbl2",
 							ColumnName: "col3",
 						},
 					},
@@ -654,18 +636,12 @@ func TestSelect(t *testing.T) {
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
 									LHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl1",
-										},
+										Qualifier:  "tbl1",
 										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
 									RHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl2",
-										},
+										Qualifier:  "tbl2",
 										ColumnName: "id",
 									},
 								},
@@ -720,19 +696,13 @@ func TestSelect(t *testing.T) {
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl1",
-							},
+							Qualifier:  "tbl1",
 							ColumnName: "col1",
 						},
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl2",
-							},
+							Qualifier:  "tbl2",
 							ColumnName: "col3",
 						},
 					},
@@ -746,18 +716,12 @@ func TestSelect(t *testing.T) {
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
 									LHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl1",
-										},
+										Qualifier:  "tbl1",
 										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
 									RHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl2",
-										},
+										Qualifier:  "tbl2",
 										ColumnName: "id",
 									},
 								},
@@ -1110,10 +1074,7 @@ func TestSelect(t *testing.T) {
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl2",
-							},
+							Qualifier:  "tbl2",
 							ColumnName: "year",
 						},
 					},
@@ -1130,18 +1091,12 @@ func TestSelect(t *testing.T) {
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
 									LHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl1",
-										},
+										Qualifier:  "tbl1",
 										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
 									RHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl2",
-										},
+										Qualifier:  "tbl2",
 										ColumnName: "id",
 									},
 								},
@@ -1208,10 +1163,7 @@ func TestSelect(t *testing.T) {
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.ColumnReference{
-							Qualifier: sql.Token{
-								Type: sql.IDENT,
-								Text: "tbl2",
-							},
+							Qualifier:  "tbl2",
 							ColumnName: "year",
 						},
 						AsClause: "yr",
@@ -1229,18 +1181,12 @@ func TestSelect(t *testing.T) {
 							JoinCondition: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
 									LHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl1",
-										},
+										Qualifier:  "tbl1",
 										ColumnName: "id",
 									},
 									CompOp: sql.EQ,
 									RHS: sql.ColumnReference{
-										Qualifier: sql.Token{
-											Type: sql.IDENT,
-											Text: "tbl2",
-										},
+										Qualifier:  "tbl2",
 										ColumnName: "id",
 									},
 								},
@@ -1305,10 +1251,7 @@ func TestSelect(t *testing.T) {
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Average{
 							ValueExpression: sql.ColumnReference{
-								Qualifier: sql.Token{
-									Type: sql.IDENT,
-									Text: "grades",
-								},
+								Qualifier:  "grades",
 								ColumnName: "math",
 							},
 						},
@@ -1316,10 +1259,7 @@ func TestSelect(t *testing.T) {
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Average{
 							ValueExpression: sql.ColumnReference{
-								Qualifier: sql.Token{
-									Type: sql.IDENT,
-									Text: "grades",
-								},
+								Qualifier:  "grades",
 								ColumnName: "science",
 							},
 						},
