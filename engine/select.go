@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -179,6 +180,22 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 		switch elem := elem.ValueExpressionPrimary.(type) {
 		case sql.Asterisk:
 			return qfields, nil
+		case sql.Average:
+			var idx int
+			var err error
+			col := elem.ValueExpression.(sql.ColumnReference)
+			if col.Qualifier != nil {
+				idx, err = qfields.LookupColIdxByID(col.Qualifier.(sql.Token).Text, col.ColumnName)
+			} else {
+				idx, err = qfields.LookupFieldIdx(col.ColumnName)
+			}
+			if err != nil {
+				return nil, err
+			}
+			lookup[col] = idx
+			projFields = append(projFields, &storage.Field{
+				Column: fmt.Sprintf("avg(%s)", col.String()),
+			})
 		case sql.Count:
 			projFields = append(projFields, &storage.Field{
 				Column: "count(*)",
@@ -214,6 +231,10 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 		var newVals []interface{}
 		for _, elem := range selectList {
 			switch elem := elem.ValueExpressionPrimary.(type) {
+			case sql.Average:
+				// add placeholder
+				idx := lookup[elem.ValueExpression.(sql.ColumnReference)]
+				newVals = append(newVals, row.Vals[idx].(int32))
 			case sql.Count:
 				// add placeholder
 				newVals = append(newVals, int32(0))
@@ -240,58 +261,90 @@ func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, row
 		return rows, nil
 	}
 
-	lookup := map[sql.ColumnReference]int{}
-	for idx, elem := range selectList {
-		switch elem := elem.ValueExpressionPrimary.(type) {
-		case sql.ColumnReference:
-			lookup[elem] = idx
-		}
-	}
-
 	// if implicit group by with no results, return a single row that contains
 	// 0-value results
 	if len(groupBy) == 0 && len(rows) == 0 {
 		return emptyAggregateRow(selectList, rows)
 	}
 
-	aggrKey := func(row *storage.Row) string {
+	// map columns to indexes on the select list
+	colToIdx := map[sql.ColumnReference]int{}
+	for idx, col := range selectList {
+		switch col := col.ValueExpressionPrimary.(type) {
+		case sql.ColumnReference:
+			colToIdx[col] = idx
+		}
+	}
+
+	// generate keys for GROUP BY values
+	groupKey := func(row *storage.Row) string {
 		var key string
-		for _, elem := range groupBy {
-			idx := lookup[elem]
+		for _, groupByCol := range groupBy {
+			idx := colToIdx[groupByCol]
 			key += fmt.Sprintf("%v", row.Vals[idx])
 		}
 		return key
 	}
 
-	aggr := map[string]int{}
+	// map group key to the index of the row that contains the aggregated value
+	groupKeyToRow := map[string]int{}
 
-	// de-dupe result set by aggregation key and update aggregate value in
-	// de-duped row
-	i := 0
+	// this auxiliary data structure stores the counts per aggregated value
+	// used in the cumulative average calculation
+	counts := map[string]int32{}
+
+	// calculate the aggregate values. de-dupe the rows by group key
+	rowIdx := 0
 	for _, row := range rows {
-		key := aggrKey(row)
-		if _, ok := aggr[key]; !ok {
-			aggr[key] = i
-			rows[i] = row
-			i++
+		key := groupKey(row)
+		if _, ok := groupKeyToRow[key]; !ok {
+			// this is the first time we encounter this unique group key. the
+			// aggregate value for all subsequent rows that have this particular
+			// group key is maintained in this row, and the rest of the rows
+			// are discarded from the result set.
+			groupKeyToRow[key] = rowIdx
+			rows[rowIdx] = row
+			rowIdx++
 		}
 
-		// we already saw key, update aggregates
-		for j, elem := range selectList {
-			switch elem.ValueExpressionPrimary.(type) {
+		// the index of the de-duped row that maintains the aggregated value
+		groupKeyIdx := groupKeyToRow[key]
+
+		for colIdx, selectCol := range selectList {
+			switch selectCol := selectCol.ValueExpressionPrimary.(type) {
 			case sql.Count:
-				idx := aggr[key]
-				rows[idx].Vals[j] = rows[idx].Vals[j].(int32) + 1
-			}
+				rows[groupKeyIdx].Vals[colIdx] = rows[groupKeyIdx].Vals[colIdx].(int32) + 1
+			case sql.Average:
+				avgCol, ok := selectCol.ValueExpression.(sql.ColumnReference)
+				if !ok {
+					// should be caught in parser
+					panic("avg() param must be a ColumnReference")
+				}
 
+				// update the count of this particular group key + value
+				// combination
+				countKey := fmt.Sprintf("%s%s", key, avgCol)
+				if _, ok := counts[countKey]; !ok {
+					counts[countKey] = 0
+				}
+				counts[countKey]++
+
+				// calculate the cumulative average average
+				avg := rows[groupKeyIdx].Vals[colIdx].(int32) * (counts[countKey] - 1)
+				avg += row.Vals[colIdx].(int32)
+				avg = int32(math.Round(float64(avg) / float64(counts[countKey])))
+
+				// update the de-duped row with the recalculated average
+				rows[groupKeyIdx].Vals[colIdx] = avg
+			}
 		}
 	}
 
-	// dont leak memory
-	for j := i; j < len(rows); j++ {
-		rows[j] = nil
+	// discard duplicate rows to avoid memory leaks
+	for idx := rowIdx; idx < len(rows); idx++ {
+		rows[idx] = nil
 	}
-	rows = rows[:i]
+	rows = rows[:rowIdx]
 
 	return rows, nil
 }
@@ -302,7 +355,7 @@ func emptyAggregateRow(selectList sql.SelectList, rows []*storage.Row) ([]*stora
 	row := &storage.Row{}
 	for _, elem := range selectList {
 		switch elem := elem.ValueExpressionPrimary.(type) {
-		case sql.Count:
+		case sql.Count, sql.Average:
 			row.Vals = append(row.Vals, int32(0))
 		default:
 			// handle any expressions in the select list

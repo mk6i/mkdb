@@ -88,6 +88,50 @@ UPDATE family SET age = 2, hair = 'blonde' WHERE name = 'Holly';
 DELETE FROM family WHERE name = 'Walter';
 ```
 
+#### Aggregate Queries
+
+```sql
+CREATE DATABASE testdb;
+
+USE testdb;
+    
+CREATE TABLE weather (
+    hour int,
+    city varchar(255),
+    temp int,
+    rel_humidity int,
+);
+
+INSERT INTO weather (hour, city, temp, rel_humidity) VALUES
+    (10, 'New York City', 71, 45),
+    (12, 'New York City', 84, 50),
+    (12, 'San Francisco', 72, 45),
+    (12, 'Austin', 90, 40),
+    (14, 'New York City', 87, 65),
+    (14, 'San Francisco', 75, 60),
+    (14, 'Austin', 95, 42),
+    (18, 'New York City', 64, 70),
+    (18, 'San Francisco', 55, 50),
+    (18, 'Austin', 85, 45),
+    (20, 'Austin', 79, 40);
+```
+
+##### Count Temperature Readings per City
+
+```sql
+SELECT city, count(*)
+FROM weather
+GROUP BY city;
+```
+
+##### Calculate Average Temperature and Relative Humidity per City
+
+```sql
+SELECT city, avg(temp) as avg_temp, avg(rel_humidity)
+FROM weather
+GROUP BY city;
+```
+
 #### View All Tables
 
 ```sql

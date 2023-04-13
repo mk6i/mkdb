@@ -1298,6 +1298,222 @@ func TestSelect(t *testing.T) {
 				{Vals: []interface{}{int32(2004), int32(1)}},
 			},
 		},
+		{
+			name: "avg() using field qualifiers returns non-empty result set: SELECT avg(grades.math), avg(grades.science) FROM grades",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								Qualifier: sql.Token{
+									Type: sql.IDENT,
+									Text: "grades",
+								},
+								ColumnName: "math",
+							},
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								Qualifier: sql.Token{
+									Type: sql.IDENT,
+									Text: "grades",
+								},
+								ColumnName: "science",
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "grades",
+						},
+					},
+				},
+			},
+			givenRows: map[string][]*storage.Row{
+				"grades": {
+					{Vals: []interface{}{int32(1), int32(100), int32(23)}},
+					{Vals: []interface{}{int32(2), int32(74), int32(89)}},
+					{Vals: []interface{}{int32(3), int32(34), int32(54)}},
+					{Vals: []interface{}{int32(4), int32(90), int32(32)}},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"grades": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "math"},
+					&storage.Field{Column: "science"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "avg(grades.math)"},
+				{Column: "avg(grades.science)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(74), int32(49)}},
+			},
+		},
+		{
+			name: "avg() with implicit GROUP BY returns non-empty result set: SELECT avg(math), avg(science) FROM grades",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "math",
+							},
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "science",
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "grades",
+						},
+					},
+				},
+			},
+			givenRows: map[string][]*storage.Row{
+				"grades": {
+					{Vals: []interface{}{int32(1), int32(100), int32(23)}},
+					{Vals: []interface{}{int32(2), int32(74), int32(89)}},
+					{Vals: []interface{}{int32(3), int32(34), int32(54)}},
+					{Vals: []interface{}{int32(4), int32(90), int32(32)}},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"grades": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "math"},
+					&storage.Field{Column: "science"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "avg(math)"},
+				{Column: "avg(science)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(74), int32(49)}},
+			},
+		},
+		{
+			name: "avg() with implicit GROUP BY returns empty result set: SELECT avg(math), avg(science) FROM grades",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "math",
+							},
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "science",
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "grades",
+						},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"grades": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "math"},
+					&storage.Field{Column: "science"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "avg(math)"},
+				{Column: "avg(science)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(0), int32(0)}},
+			},
+		},
+		{
+			name: "avg() with GROUP BY returns non-empty result set: SELECT id, avg(math), avg(science) FROM grades group by id",
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "id",
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "math",
+							},
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Average{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "science",
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{
+							Name: "grades",
+						},
+					},
+					GroupByClause: []sql.ColumnReference{
+						{ColumnName: "id"},
+					},
+				},
+			},
+			givenRows: map[string][]*storage.Row{
+				"grades": {
+					{Vals: []interface{}{int32(4), int32(100), int32(25)}},
+					{Vals: []interface{}{int32(1), int32(91), int32(75)}},
+					{Vals: []interface{}{int32(2), int32(34), int32(87)}},
+					{Vals: []interface{}{int32(3), int32(85), int32(12)}},
+					{Vals: []interface{}{int32(1), int32(99), int32(25)}},
+					{Vals: []interface{}{int32(3), int32(34), int32(63)}},
+					{Vals: []interface{}{int32(4), int32(23), int32(72)}},
+					{Vals: []interface{}{int32(2), int32(10), int32(39)}},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"grades": {
+					&storage.Field{Column: "id"},
+					&storage.Field{Column: "math"},
+					&storage.Field{Column: "science"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{TableID: "grades", Column: "id"},
+				{Column: "avg(math)"},
+				{Column: "avg(science)"},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{int32(4), int32(62), int32(49)}},
+				{Vals: []interface{}{int32(1), int32(95), int32(50)}},
+				{Vals: []interface{}{int32(2), int32(22), int32(63)}},
+				{Vals: []interface{}{int32(3), int32(60), int32(38)}},
+			},
+		},
 	}
 
 	for _, test := range tc {
