@@ -127,7 +127,7 @@ func (d DerivedColumn) Matches(rhs ColumnReference) bool {
 	return false
 }
 
-// ValueExpressionPrimary is one of ColumnReference or Count
+// ValueExpressionPrimary is one of ColumnReference or Count or Avg
 type ValueExpressionPrimary any
 
 type Pattern string
@@ -136,6 +136,9 @@ type SelectList []DerivedColumn
 func (s SelectList) HasAggrFunc() bool {
 	for _, selectCol := range s {
 		if _, isAggr := selectCol.ValueExpressionPrimary.(Count); isAggr {
+			return true
+		}
+		if _, isAggr := selectCol.ValueExpressionPrimary.(Average); isAggr {
 			return true
 		}
 	}
@@ -261,6 +264,10 @@ type DeleteStatementSearched struct {
 }
 
 type Count struct {
+}
+
+type Average struct {
+	ValueExpression
 }
 
 type Asterisk struct{}
@@ -838,7 +845,8 @@ func (p *Parser) SelectSubList() (DerivedColumn, error) {
 func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 	var setFunc any
 
-	if p.match(COUNT) {
+	switch {
+	case p.match(COUNT):
 		if err := p.requireMatch(LPAREN); err != nil {
 			return false, setFunc, err
 		}
@@ -846,6 +854,24 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 			setFunc = Count{}
 		} else {
 			return false, setFunc, fmt.Errorf("%w: only count(*) is valid", ErrTmpUnsupportedSyntax)
+		}
+		if err := p.requireMatch(RPAREN); err != nil {
+			return false, setFunc, err
+		}
+		return true, setFunc, nil
+	case p.match(AVG):
+		if err := p.requireMatch(LPAREN); err != nil {
+			return false, setFunc, err
+		}
+		found, ve, err := p.ColumnReference()
+		if err != nil {
+			return false, setFunc, err
+		}
+		if !found {
+			panic("not found what do")
+		}
+		setFunc = Average{
+			ValueExpression: ve,
 		}
 		if err := p.requireMatch(RPAREN); err != nil {
 			return false, setFunc, err

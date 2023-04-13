@@ -1313,7 +1313,7 @@ func TestScanMalformedSQL(t *testing.T) {
 	}
 }
 
-func TestScanGroupBy(t *testing.T) {
+func TestScanAggregation(t *testing.T) {
 
 	cases := []struct {
 		input  string
@@ -1326,6 +1326,10 @@ func TestScanGroupBy(t *testing.T) {
 		{
 			input:  `BY`,
 			expect: BY,
+		},
+		{
+			input:  `AVG`,
+			expect: AVG,
 		},
 	}
 

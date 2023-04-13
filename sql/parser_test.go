@@ -2089,6 +2089,59 @@ func TestParseSelectScalar(t *testing.T) {
 	}
 }
 
+func TestParseSelectAvg(t *testing.T) {
+
+	input := []Token{
+		{
+			Type: SELECT,
+		},
+		{
+			Type: AVG,
+		},
+		{
+			Type: LPAREN,
+		},
+		{
+			Type: IDENT,
+			Text: "col1",
+		},
+		{
+			Type: RPAREN,
+		},
+	}
+
+	expected := Select{
+		SelectList: SelectList{
+			DerivedColumn{
+				ValueExpressionPrimary: Average{
+					ValueExpression: ColumnReference{
+						ColumnName: "col1",
+					},
+				},
+			},
+		},
+		TableExpression: TableExpression{
+			FromClause: []TableReference{},
+		},
+	}
+
+	tl := TokenList{
+		tokens: input,
+		cur:    0,
+	}
+	p := &Parser{tl}
+
+	actual, err := p.Parse()
+
+	if err != nil {
+		t.Errorf("parsing failed: %s", err.Error())
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("ASTs are not the same. expected: %+v actual :%+v", expected, actual)
+	}
+}
+
 func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
 
 	input := []Token{

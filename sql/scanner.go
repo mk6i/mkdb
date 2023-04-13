@@ -32,6 +32,7 @@ const (
 
 	AS
 	ASC
+	AVG
 	BEGIN
 	BY
 	CASE
@@ -121,6 +122,7 @@ var Tokens = map[TokenType]string{
 
 	AS:        "AS",
 	ASC:       "ASC",
+	AVG:       "AVG",
 	BEGIN:     "BEGIN",
 	BY:        "BY",
 	CASE:      "CASE",
