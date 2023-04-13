@@ -184,8 +184,8 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 			var idx int
 			var err error
 			col := elem.ValueExpression.(sql.ColumnReference)
-			if col.Qualifier != nil {
-				idx, err = qfields.LookupColIdxByID(col.Qualifier.(sql.Token).Text, col.ColumnName)
+			if col.Qualifier != "" {
+				idx, err = qfields.LookupColIdxByID(col.Qualifier, col.ColumnName)
 			} else {
 				idx, err = qfields.LookupFieldIdx(col.ColumnName)
 			}
@@ -203,8 +203,8 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 		case sql.ColumnReference:
 			var idx int
 			var err error
-			if elem.Qualifier != nil {
-				idx, err = qfields.LookupColIdxByID(elem.Qualifier.(sql.Token).Text, elem.ColumnName)
+			if elem.Qualifier != "" {
+				idx, err = qfields.LookupColIdxByID(elem.Qualifier, elem.ColumnName)
 			} else {
 				idx, err = qfields.LookupFieldIdx(elem.ColumnName)
 			}
@@ -376,8 +376,8 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 	for _, ss := range ssl {
 		var idx int
 		var err error
-		if ss.SortKey.Qualifier != nil {
-			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier.(sql.Token).Text, ss.SortKey.ColumnName)
+		if ss.SortKey.Qualifier != "" {
+			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier, ss.SortKey.ColumnName)
 		} else {
 			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName)
 		}
@@ -582,8 +582,8 @@ func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (inter
 	if t, ok := q.(sql.ColumnReference); ok {
 		var idx int
 		var err error
-		if t.Qualifier != nil {
-			idx, err = qfields.LookupColIdxByID(t.Qualifier.(sql.Token).Text, t.ColumnName)
+		if t.Qualifier != "" {
+			idx, err = qfields.LookupColIdxByID(t.Qualifier, t.ColumnName)
 		} else {
 			idx, err = qfields.LookupFieldIdx(t.ColumnName)
 		}
