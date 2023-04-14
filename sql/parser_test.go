@@ -2181,6 +2181,13 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 					Type: RPAREN,
 				},
 				{
+					Type: AS,
+				},
+				{
+					Type: IDENT,
+					Text: "field_2_alias",
+				},
+				{
 					Type: FROM,
 				},
 				{
@@ -2216,6 +2223,7 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 					},
 					DerivedColumn{
 						ValueExpressionPrimary: Count{},
+						AsClause:               "field_2_alias",
 					},
 				},
 				TableExpression: TableExpression{
