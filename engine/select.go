@@ -177,6 +177,8 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	lookup := map[sql.ColumnReference]int{}
 
 	for _, elem := range selectList {
+		var field *storage.Field
+
 		switch elem := elem.ValueExpressionPrimary.(type) {
 		case sql.Asterisk:
 			return qfields, nil
@@ -193,13 +195,11 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				return nil, err
 			}
 			lookup[col] = idx
-			projFields = append(projFields, &storage.Field{
+			field = &storage.Field{
 				Column: fmt.Sprintf("avg(%s)", col.String()),
-			})
+			}
 		case sql.Count:
-			projFields = append(projFields, &storage.Field{
-				Column: "count(*)",
-			})
+			field = &storage.Field{Column: "count(*)"}
 		case sql.ColumnReference:
 			var idx int
 			var err error
@@ -212,17 +212,17 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				return nil, err
 			}
 			lookup[elem] = idx
-			projFields = append(projFields, qfields[idx])
+			field = qfields[idx]
 		default:
-			projFields = append(projFields, &storage.Field{
-				Column: "?",
-			})
+			field = &storage.Field{Column: "?"}
 		}
 
 		// replace field name with alias
 		if elem.AsClause != "" {
-			projFields[len(projFields)-1].Column = elem.AsClause
+			field.Column = elem.AsClause
 		}
+
+		projFields = append(projFields, field)
 	}
 
 	// rearrange columns according to order imposed by selectList
