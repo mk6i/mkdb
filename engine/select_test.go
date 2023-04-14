@@ -947,7 +947,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: `select with aggregation on two fields: SELECT customer_id, product_id, count(*)
+			name: `select with aggregation on two fields: SELECT customer_id, product_id, count(*) as total
 		        FROM orders
 		        GROUP BY customer_id, product_id`,
 			query: sql.Select{
@@ -964,6 +964,7 @@ func TestSelect(t *testing.T) {
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Count{},
+						AsClause:               "total",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -985,7 +986,7 @@ func TestSelect(t *testing.T) {
 			expectFields: []*storage.Field{
 				{Column: "customer_id", TableID: "orders"},
 				{Column: "product_id", TableID: "orders"},
-				{Column: "count(*)"},
+				{Column: "total"},
 			},
 			givenRows: map[string][]*storage.Row{
 				"orders": {
@@ -1245,7 +1246,7 @@ func TestSelect(t *testing.T) {
 			},
 		},
 		{
-			name: "avg() using field qualifiers returns non-empty result set: SELECT avg(grades.math), avg(grades.science) FROM grades",
+			name: "avg() using field qualifiers returns non-empty result set: SELECT avg(grades.math), avg(grades.science) as sci_avg FROM grades",
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
@@ -1263,6 +1264,7 @@ func TestSelect(t *testing.T) {
 								ColumnName: "science",
 							},
 						},
+						AsClause: "sci_avg",
 					},
 				},
 				TableExpression: sql.TableExpression{
@@ -1290,7 +1292,7 @@ func TestSelect(t *testing.T) {
 			},
 			expectFields: []*storage.Field{
 				{Column: "avg(grades.math)"},
-				{Column: "avg(grades.science)"},
+				{Column: "sci_avg"},
 			},
 			expectRows: []*storage.Row{
 				{Vals: []interface{}{int32(74), int32(49)}},

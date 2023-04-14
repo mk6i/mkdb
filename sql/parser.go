@@ -800,11 +800,19 @@ func (p *Parser) SelectList() (SelectList, error) {
 	}
 
 	for {
-		subList, err := p.SelectSubList()
+		dc, err := p.DerivedColumn()
 		if err != nil {
 			return sl, err
 		}
-		sl = append(sl, subList)
+		if p.match(AS) {
+			if p.Cur().Type != IDENT {
+				return sl, p.requireMatch(IDENT)
+			}
+		}
+		if p.match(IDENT) {
+			dc.AsClause = p.Prev().Text
+		}
+		sl = append(sl, dc)
 		if !p.match(COMMA) {
 			break
 		}
@@ -813,7 +821,7 @@ func (p *Parser) SelectList() (SelectList, error) {
 	return sl, nil
 }
 
-func (p *Parser) SelectSubList() (DerivedColumn, error) {
+func (p *Parser) DerivedColumn() (DerivedColumn, error) {
 	dc := DerivedColumn{}
 
 	found, setFunc, err := p.SetFunctionSpecification()
@@ -828,15 +836,6 @@ func (p *Parser) SelectSubList() (DerivedColumn, error) {
 	dc.ValueExpressionPrimary, err = p.OrCondition()
 	if err != nil {
 		return dc, err
-	}
-
-	if p.match(AS) {
-		if p.Cur().Type != IDENT {
-			return dc, p.requireMatch(IDENT)
-		}
-	}
-	if p.match(IDENT) {
-		dc.AsClause = p.Prev().Text
 	}
 
 	return dc, err
@@ -858,7 +857,6 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 		if err := p.requireMatch(RPAREN); err != nil {
 			return false, setFunc, err
 		}
-		return true, setFunc, nil
 	case p.match(AVG):
 		if err := p.requireMatch(LPAREN); err != nil {
 			return false, setFunc, err
@@ -876,10 +874,9 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 		if err := p.requireMatch(RPAREN); err != nil {
 			return false, setFunc, err
 		}
-		return true, setFunc, nil
 	}
 
-	return false, setFunc, nil
+	return setFunc != nil, setFunc, nil
 }
 
 func (p *Parser) TableName() (TableName, error) {
