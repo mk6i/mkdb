@@ -172,16 +172,17 @@ func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, 
 }
 
 func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
-	var projFields storage.Fields
+	if _, isSelectStar := selectList[0].ValueExpressionPrimary.(sql.Asterisk); isSelectStar {
+		// select *, nothing to do here
+		return qfields, nil
+	}
 
+	// maps SELECT column references to storage field columns positions
 	lookup := map[sql.ColumnReference]int{}
 
+	// build column reference lookup
 	for _, elem := range selectList {
-		var field *storage.Field
-
 		switch elem := elem.ValueExpressionPrimary.(type) {
-		case sql.Asterisk:
-			return qfields, nil
 		case sql.Average:
 			var idx int
 			var err error
@@ -195,11 +196,6 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				return nil, err
 			}
 			lookup[col] = idx
-			field = &storage.Field{
-				Column: fmt.Sprintf("avg(%s)", col.String()),
-			}
-		case sql.Count:
-			field = &storage.Field{Column: "count(*)"}
 		case sql.ColumnReference:
 			var idx int
 			var err error
@@ -212,20 +208,10 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				return nil, err
 			}
 			lookup[elem] = idx
-			field = qfields[idx]
-		default:
-			field = &storage.Field{Column: "?"}
 		}
-
-		// replace field name with alias
-		if elem.AsClause != "" {
-			field.Column = elem.AsClause
-		}
-
-		projFields = append(projFields, field)
 	}
 
-	// rearrange columns according to order imposed by selectList
+	// rearrange result set columns according to order imposed by selectList
 	// todo use copy to make more efficient?
 	for _, row := range rows {
 		var newVals []interface{}
@@ -248,12 +234,39 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				}
 				newVals = append(newVals, result)
 			}
-
 		}
 		row.Vals = newVals
 	}
 
-	return projFields, nil
+	var headerRow storage.Fields
+
+	// build the query result header row
+	for _, selectCol := range selectList {
+		var field *storage.Field
+
+		switch elem := selectCol.ValueExpressionPrimary.(type) {
+		case sql.Average:
+			col := elem.ValueExpression.(sql.ColumnReference)
+			field = &storage.Field{
+				Column: fmt.Sprintf("avg(%s)", col.String()),
+			}
+		case sql.Count:
+			field = &storage.Field{Column: "count(*)"}
+		case sql.ColumnReference:
+			field = qfields[lookup[elem]]
+		default:
+			field = &storage.Field{Column: "?"}
+		}
+
+		// replace field name with alias
+		if selectCol.AsClause != "" {
+			field.Column = selectCol.AsClause
+		}
+
+		headerRow = append(headerRow, field)
+	}
+
+	return headerRow, nil
 }
 
 func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, rows []*storage.Row) ([]*storage.Row, error) {
