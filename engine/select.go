@@ -184,30 +184,28 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	for _, elem := range selectList {
 		switch elem := elem.ValueExpressionPrimary.(type) {
 		case sql.Average:
-			var idx int
-			var err error
 			col := elem.ValueExpression.(sql.ColumnReference)
-			if col.Qualifier != "" {
-				idx, err = qfields.LookupColIdxByID(col.Qualifier, col.ColumnName)
-			} else {
-				idx, err = qfields.LookupFieldIdx(col.ColumnName)
-			}
+			idx, err := findColumnInFieldList(col, qfields)
 			if err != nil {
 				return nil, err
 			}
 			lookup[col] = idx
 		case sql.ColumnReference:
-			var idx int
-			var err error
-			if elem.Qualifier != "" {
-				idx, err = qfields.LookupColIdxByID(elem.Qualifier, elem.ColumnName)
-			} else {
-				idx, err = qfields.LookupFieldIdx(elem.ColumnName)
-			}
+			idx, err := findColumnInFieldList(elem, qfields)
 			if err != nil {
 				return nil, err
 			}
 			lookup[elem] = idx
+		case sql.Count:
+			col, isColRef := elem.ValueExpression.(sql.ColumnReference)
+			if !isColRef {
+				break
+			}
+			idx, err := findColumnInFieldList(col, qfields)
+			if err != nil {
+				return nil, err
+			}
+			lookup[col] = idx
 		}
 	}
 
@@ -218,12 +216,25 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 		for _, elem := range selectList {
 			switch elem := elem.ValueExpressionPrimary.(type) {
 			case sql.Average:
-				// add placeholder
+				// set initial value used for subsequent aggregation step
 				idx := lookup[elem.ValueExpression.(sql.ColumnReference)]
 				newVals = append(newVals, row.Vals[idx].(int32))
 			case sql.Count:
-				// add placeholder
-				newVals = append(newVals, int32(0))
+				// set initial value used for subsequent aggregation step
+				count := int32(0)
+				if colRef, hasColRef := elem.ValueExpression.(sql.ColumnReference); hasColRef {
+					idx := lookup[colRef]
+					if row.Vals[idx] != nil {
+						// starting count is 1 since selected column is non-nil
+						// for this row
+						count = 1
+					}
+				} else {
+					// select count(*) just counts the number of rows
+					// regardless of values, so starting count is 1
+					count = 1
+				}
+				newVals = append(newVals, count)
 			case sql.ColumnReference:
 				idx := lookup[elem]
 				newVals = append(newVals, row.Vals[idx])
@@ -251,7 +262,14 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 				Column: fmt.Sprintf("avg(%s)", col.String()),
 			}
 		case sql.Count:
-			field = &storage.Field{Column: "count(*)"}
+			col, hasColRef := elem.ValueExpression.(sql.ColumnReference)
+			if hasColRef {
+				field = &storage.Field{
+					Column: fmt.Sprintf("count(%s)", col.String()),
+				}
+			} else {
+				field = &storage.Field{Column: "count(*)"}
+			}
 		case sql.ColumnReference:
 			field = qfields[lookup[elem]]
 		default:
@@ -267,6 +285,15 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 	}
 
 	return headerRow, nil
+}
+
+// findColumnInFieldList returns the index of the select column in the result
+// columns
+func findColumnInFieldList(selectCol sql.ColumnReference, resultCols storage.Fields) (int, error) {
+	if selectCol.Qualifier != "" {
+		return resultCols.LookupColIdxByID(selectCol.Qualifier, selectCol.ColumnName)
+	}
+	return resultCols.LookupFieldIdx(selectCol.ColumnName)
 }
 
 func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, rows []*storage.Row) ([]*storage.Row, error) {
@@ -326,7 +353,11 @@ func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, row
 		for colIdx, selectCol := range selectList {
 			switch selectCol := selectCol.ValueExpressionPrimary.(type) {
 			case sql.Count:
-				rows[groupKeyIdx].Vals[colIdx] = rows[groupKeyIdx].Vals[colIdx].(int32) + 1
+				if rows[groupKeyIdx] == row {
+					// this is the first row, don't increment
+					break
+				}
+				rows[groupKeyIdx].Vals[colIdx] = rows[groupKeyIdx].Vals[colIdx].(int32) + row.Vals[colIdx].(int32)
 			case sql.Average:
 				avgCol, ok := selectCol.ValueExpression.(sql.ColumnReference)
 				if !ok {
@@ -387,13 +418,7 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 
 	var sortIdxs []int
 	for _, ss := range ssl {
-		var idx int
-		var err error
-		if ss.SortKey.Qualifier != "" {
-			idx, err = qfields.LookupColIdxByID(ss.SortKey.Qualifier, ss.SortKey.ColumnName)
-		} else {
-			idx, err = qfields.LookupFieldIdx(ss.SortKey.ColumnName)
-		}
+		idx, err := findColumnInFieldList(ss.SortKey, qfields)
 		if err != nil {
 			if errors.Is(err, storage.ErrFieldNotFound) {
 				return fmt.Errorf("%w: %s", ErrSortFieldNotFound, err)
@@ -592,14 +617,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 }
 
 func evalPrimary(q interface{}, qfields storage.Fields, row *storage.Row) (interface{}, error) {
-	if t, ok := q.(sql.ColumnReference); ok {
-		var idx int
-		var err error
-		if t.Qualifier != "" {
-			idx, err = qfields.LookupColIdxByID(t.Qualifier, t.ColumnName)
-		} else {
-			idx, err = qfields.LookupFieldIdx(t.ColumnName)
-		}
+	if col, ok := q.(sql.ColumnReference); ok {
+		idx, err := findColumnInFieldList(col, qfields)
 		if err != nil {
 			return nil, err
 		}

@@ -1890,51 +1890,6 @@ func TestParseSelectCount(t *testing.T) {
 	}
 }
 
-func TestParseSelectCountErrTmpUnsupportedSyntax(t *testing.T) {
-
-	tc := []struct {
-		name   string
-		tokens []Token
-	}{
-		{
-			name: "SELECT COUNT(name)",
-			tokens: []Token{
-				{
-					Type: SELECT,
-				},
-				{
-					Type: COUNT,
-				},
-				{
-					Type: LPAREN,
-				},
-				{
-					Type: IDENT,
-					Text: "name",
-				},
-				{
-					Type: RPAREN,
-				},
-			},
-		},
-	}
-
-	for _, test := range tc {
-		t.Run(test.name, func(t *testing.T) {
-			tl := TokenList{
-				tokens: test.tokens,
-				cur:    0,
-			}
-			p := &Parser{tl}
-
-			_, err := p.Parse()
-			if !errors.Is(err, ErrTmpUnsupportedSyntax) {
-				t.Errorf("expected ErrTmpUnsupportedSyntax, got %v", err)
-			}
-		})
-	}
-}
-
 func TestParseSelectScalar(t *testing.T) {
 
 	input := []Token{
@@ -2767,6 +2722,77 @@ func TestParseSelectCountGroupBy(t *testing.T) {
 				},
 			},
 			expectErr: ErrInvalidGroupByColumn,
+		},
+		{
+			name: "count(field_name)",
+			input: []Token{
+				{
+					Type: SELECT,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+				{
+					Type: COMMA,
+				},
+				{
+					Type: COUNT,
+				},
+				{
+					Type: LPAREN,
+				},
+				{
+					Type: IDENT,
+					Text: "field_2",
+				},
+				{
+					Type: RPAREN,
+				},
+				{
+					Type: FROM,
+				},
+				{
+					Type: IDENT,
+					Text: "the_table",
+				},
+				{
+					Type: GROUP,
+				},
+				{
+					Type: BY,
+				},
+				{
+					Type: IDENT,
+					Text: "field_1",
+				},
+			},
+			expect: Select{
+				SelectList: SelectList{
+					DerivedColumn{
+						ValueExpressionPrimary: ColumnReference{
+							ColumnName: "field_1",
+						},
+					},
+					DerivedColumn{
+						ValueExpressionPrimary: Count{
+							ValueExpression: ColumnReference{
+								ColumnName: "field_2",
+							},
+						},
+					},
+				},
+				TableExpression: TableExpression{
+					FromClause: FromClause{
+						TableName{
+							Name: "the_table",
+						},
+					},
+					GroupByClause: []ColumnReference{
+						{ColumnName: "field_1"},
+					},
+				},
+			},
 		},
 	}
 
