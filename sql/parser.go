@@ -264,6 +264,7 @@ type DeleteStatementSearched struct {
 }
 
 type Count struct {
+	ValueExpression
 }
 
 type Average struct {
@@ -752,7 +753,7 @@ func (p *Parser) ComparisonPredicate() (interface{}, error) {
 	return cp, nil
 }
 
-// ValueExpression is one of ColumnReference, integer literal, or string literal
+// ValueExpression is one of ColumnReference, integer literal, string literal, or nil
 type ValueExpression any
 
 func (p *Parser) ValueExpression() (ValueExpression, error) {
@@ -849,11 +850,17 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 		if err := p.requireMatch(LPAREN); err != nil {
 			return false, setFunc, err
 		}
-		if p.match(ASTRSK) {
-			setFunc = Count{}
-		} else {
-			return false, setFunc, fmt.Errorf("%w: only count(*) is valid", ErrTmpUnsupportedSyntax)
+		count := Count{}
+		foundColRef, ve, err := p.ColumnReference()
+		if err != nil {
+			return false, setFunc, err
 		}
+		if foundColRef {
+			count.ValueExpression = ve
+		} else if err := p.requireMatch(ASTRSK); err != nil {
+			return false, setFunc, err
+		}
+		setFunc = count
 		if err := p.requireMatch(RPAREN); err != nil {
 			return false, setFunc, err
 		}
@@ -861,12 +868,12 @@ func (p *Parser) SetFunctionSpecification() (bool, any, error) {
 		if err := p.requireMatch(LPAREN); err != nil {
 			return false, setFunc, err
 		}
-		found, ve, err := p.ColumnReference()
+		foundColRef, ve, err := p.ColumnReference()
 		if err != nil {
 			return false, setFunc, err
 		}
-		if !found {
-			panic("not found what do")
+		if !foundColRef {
+			return false, setFunc, errors.New("avg() requires a column argument")
 		}
 		setFunc = Average{
 			ValueExpression: ve,

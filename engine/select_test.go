@@ -1456,6 +1456,61 @@ func TestSelect(t *testing.T) {
 				{Vals: []interface{}{int32(3), int32(60), int32(38)}},
 			},
 		},
+		{
+			name: `select count(field): SELECT customer_id, count(product_id)
+		        FROM orders
+		        GROUP BY customer_id`,
+			query: sql.Select{
+				SelectList: sql.SelectList{
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.ColumnReference{
+							ColumnName: "customer_id",
+						},
+					},
+					sql.DerivedColumn{
+						ValueExpressionPrimary: sql.Count{
+							ValueExpression: sql.ColumnReference{
+								ColumnName: "product_id",
+							},
+						},
+					},
+				},
+				TableExpression: sql.TableExpression{
+					FromClause: sql.FromClause{
+						sql.TableName{Name: "orders"},
+					},
+					GroupByClause: []sql.ColumnReference{
+						{ColumnName: "customer_id"},
+					},
+				},
+			},
+			givenFields: map[string]storage.Fields{
+				"orders": {
+					&storage.Field{Column: "customer_id"},
+					&storage.Field{Column: "product_id"},
+				},
+			},
+			expectFields: []*storage.Field{
+				{Column: "customer_id", TableID: "orders"},
+				{Column: "count(product_id)"},
+			},
+			givenRows: map[string][]*storage.Row{
+				"orders": {
+					{Vals: []interface{}{"1", "A"}},
+					{Vals: []interface{}{"1", "A"}},
+					{Vals: []interface{}{"1", nil}},
+					{Vals: []interface{}{"1", "B"}},
+					{Vals: []interface{}{"1", nil}},
+					{Vals: []interface{}{"2", "B"}},
+					{Vals: []interface{}{"2", nil}},
+					{Vals: []interface{}{"2", "C"}},
+				},
+			},
+			expectRows: []*storage.Row{
+				{Vals: []interface{}{"1", int32(3)}},
+				{Vals: []interface{}{"2", int32(2)}},
+			},
+		},
 	}
 
 	for _, test := range tc {
