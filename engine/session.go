@@ -96,6 +96,22 @@ func (s *Session) ExecQuery(q string) error {
 	return nil
 }
 
+func (s *Session) BulkInsert(ch chan sql.InsertStatement) error {
+
+	i := 0
+	for q := range ch {
+		if _, err := EvaluateInsert(q, s.RelationService); err != nil {
+			fmt.Printf("error inserting %v: %s\n", q, err.Error())
+		} else if i%100 == 0 {
+			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
+		}
+
+		i++
+	}
+
+	return nil
+}
+
 func parseSQL(q string) (interface{}, error) {
 	ts := sql.NewTokenScanner(strings.NewReader(q))
 	tl := sql.TokenList{}

@@ -469,6 +469,10 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 				continue
 			}
 
+			if lhs == nil || rhs == nil {
+				continue
+			}
+
 			sortAsc := false
 			switch lhs.(type) {
 			case int32:
@@ -593,6 +597,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		}
 	case sql.GTE:
 		switch lhs := lhs.(type) {
@@ -608,6 +614,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		default:
 			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 		}
@@ -625,6 +633,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		}
 	case sql.LTE:
 		switch lhs := lhs.(type) {
@@ -640,6 +650,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		default:
 			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 		}

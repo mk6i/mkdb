@@ -227,9 +227,9 @@ func (w *wal) flush(batch WALBatch) error {
 			panic("bytes written differs from expected buffer length")
 		}
 
-		if err := w.reader.Sync(); err != nil {
-			return err
-		}
+		// if err := w.reader.Sync(); err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil
