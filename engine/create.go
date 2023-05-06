@@ -9,7 +9,7 @@ func EvaluateCreateDatabase(q sql.CreateDatabase) error {
 	return storage.CreateDB(q.Name)
 }
 
-func EvaluateCreateTable(q sql.CreateTable, rm relationManager) error {
+func EvaluateCreateTable(q sql.CreateTable, rm RelationManager) error {
 	r := &storage.Relation{}
 
 	for _, elem := range q.Elements {

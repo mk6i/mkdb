@@ -5,7 +5,7 @@ import (
 	"github.com/mkaminski/bkdb/storage"
 )
 
-func EvaluateInsert(q sql.InsertStatement, rm relationManager) (int, error) {
+func EvaluateInsert(q sql.InsertStatement, rm RelationManager) (int, error) {
 	rm.StartTxn()
 	defer rm.EndTxn()
 

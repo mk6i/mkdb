@@ -14,7 +14,7 @@ type Session struct {
 	RelationService *storage.RelationService
 }
 
-type relationManager interface {
+type RelationManager interface {
 	StartTxn()
 	EndTxn()
 	CreateTable(r *storage.Relation, tableName string) error
@@ -91,22 +91,6 @@ func (s *Session) ExecQuery(q string) error {
 		}
 	default:
 		return fmt.Errorf("unsupported statement type")
-	}
-
-	return nil
-}
-
-func (s *Session) BulkInsert(ch chan sql.InsertStatement) error {
-
-	i := 0
-	for q := range ch {
-		if _, err := EvaluateInsert(q, s.RelationService); err != nil {
-			fmt.Printf("error inserting %v: %s\n", q, err.Error())
-		} else if i%100 == 0 {
-			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
-		}
-
-		i++
 	}
 
 	return nil

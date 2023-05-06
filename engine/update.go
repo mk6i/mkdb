@@ -7,7 +7,7 @@ import (
 	"github.com/mkaminski/bkdb/storage"
 )
 
-func EvaluateUpdate(q sql.UpdateStatementSearched, rm relationManager) error {
+func EvaluateUpdate(q sql.UpdateStatementSearched, rm RelationManager) error {
 	rm.StartTxn()
 	defer rm.EndTxn()
 

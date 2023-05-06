@@ -20,10 +20,11 @@ import (
 )
 
 type importCfg struct {
-	srcCols []int
-	dstCols []string
-	table   string
-	db      string
+	srcCols   []int
+	dstCols   []string
+	dataTypes []storage.DataType
+	table     string
+	db        string
 }
 
 func init() {
@@ -34,7 +35,7 @@ func init() {
 
 // usage ./copy -src-cols '1,2,3' -dest-cols 'name,birth,death' -table actor -db
 func main() {
-
+	sess := &engine.Session{}
 	var cfg importCfg
 
 	srcCols := flag.String("src-cols", "", "CSV source column indexes")
@@ -62,9 +63,15 @@ func main() {
 	cfg.table = *table
 	cfg.db = *db
 
-	fmt.Printf("srcCols: %v, dstCols: %v, table: %s, db: %s\n", cfg.srcCols, cfg.dstCols, cfg.table, cfg.db)
+	var err error
+	cfg.dataTypes, err = getDataTypes(sess.RelationService, cfg.table, cfg.dstCols)
+	if err != nil {
+		fmt.Printf("err parsing indexes: %s", err.Error())
+		os.Exit(1)
+		return
+	}
 
-	sess := &engine.Session{}
+	fmt.Printf("srcCols: %v, dstCols: %v, table: %s, db: %s\n", cfg.srcCols, cfg.dstCols, cfg.table, cfg.db)
 
 	defer sess.Close()
 
@@ -74,14 +81,14 @@ func main() {
 		return
 	}
 
-	if err := Import(sess, cfg); err != nil {
+	if err := Import(sess.RelationService, cfg, os.Stdin); err != nil {
 		fmt.Printf("failed to import: %s\n", err.Error())
 	}
 }
 
-func getDataTypes(s *engine.Session, cfg importCfg) ([]storage.DataType, error) {
+func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]storage.DataType, error) {
 
-	qs := fmt.Sprintf(`select field_name, field_type from sys_schema where table_name = '%s'`, cfg.table)
+	qs := fmt.Sprintf(`select field_name, field_type from sys_schema where table_name = '%s'`, table)
 	ts := sql.NewTokenScanner(strings.NewReader(qs))
 	tl := sql.TokenList{}
 
@@ -96,7 +103,7 @@ func getDataTypes(s *engine.Session, cfg importCfg) ([]storage.DataType, error) 
 		return nil, nil
 	}
 
-	rows, _, err := engine.EvaluateSelect(q.(sql.Select), s.RelationService)
+	rows, _, err := engine.EvaluateSelect(q.(sql.Select), rm)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +114,9 @@ func getDataTypes(s *engine.Session, cfg importCfg) ([]storage.DataType, error) 
 		m[row.Vals[0].(string)] = row.Vals[1].(int32)
 	}
 
-	tokens := make([]storage.DataType, len(cfg.dstCols))
+	tokens := make([]storage.DataType, len(dstCols))
 
-	for i, col := range cfg.dstCols {
+	for i, col := range dstCols {
 		fieldType, ok := m[col]
 		if !ok {
 			return nil, errors.New("didn't find column")
@@ -120,14 +127,9 @@ func getDataTypes(s *engine.Session, cfg importCfg) ([]storage.DataType, error) 
 	return tokens, nil
 }
 
-func Import(s *engine.Session, cfg importCfg) error {
-	f, err := os.Open("/Users/mike/Downloads/name.basics.tsv")
-	if err != nil {
-		return err
-	}
-	// r := csv.NewReader(os.Stdin)
-	r := csv.NewReader(f)
-	r.Comma = '\t'
+func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
+	csvRead := csv.NewReader(r)
+	csvRead.Comma = '\t'
 
 	q := sql.InsertStatement{
 		TableName: cfg.table,
@@ -138,16 +140,11 @@ func Import(s *engine.Session, cfg importCfg) error {
 		},
 	}
 
-	types, err := getDataTypes(s, cfg)
-	if err != nil {
-		return err
-	}
-
 	ch := make(chan sql.InsertStatement)
 
 	go func() {
 		for {
-			record, err := r.Read()
+			record, err := csvRead.Read()
 			if err == io.EOF {
 				break
 			}
@@ -163,7 +160,7 @@ func Import(s *engine.Session, cfg importCfg) error {
 					row[i] = nil
 					continue
 				}
-				switch types[i] {
+				switch cfg.dataTypes[i] {
 				case storage.TypeInt:
 					val, err := strconv.Atoi(record[csvIdx])
 					if err != nil {
@@ -190,5 +187,16 @@ func Import(s *engine.Session, cfg importCfg) error {
 		close(ch)
 	}()
 
-	return s.BulkInsert(ch)
+	i := 0
+	for q := range ch {
+		if _, err := engine.EvaluateInsert(q, rm); err != nil {
+			fmt.Printf("error inserting %v: %s\n", q, err.Error())
+		} else if i%100 == 0 {
+			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
+		}
+
+		i++
+	}
+
+	return nil
 }
