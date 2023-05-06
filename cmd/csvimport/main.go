@@ -134,7 +134,6 @@ func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]
 func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 	csvRead := csv.NewReader(r)
 	csvRead.Comma = '\t'
-	csvRead.LazyQuotes = true
 	csvRead.ReuseRecord = true
 	csvRead.FieldsPerRecord = -1
 	// csvRead.Comma = cfg.separator
