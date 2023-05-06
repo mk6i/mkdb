@@ -18,6 +18,8 @@ import (
 	_ "net/http/pprof"
 )
 
+var ErrCsvImport = errors.New("error importing CSV")
+
 type importCfg struct {
 	srcCols   []int
 	dstCols   []string
@@ -85,8 +87,30 @@ func main() {
 		return
 	}
 
-	if err := CSVImport(sess.RelationService, cfg, os.Stdin); err != nil {
-		fmt.Printf("failed to import: %s\n", err.Error())
+	chOk, chErr := CSVImport(sess.RelationService, cfg, os.Stdin)
+	i := 0
+
+	for {
+		select {
+		case _, ok := <-chOk:
+			if ok {
+				if i%100 == 0 {
+					fmt.Printf("inserted %d record(s) into %s\n", i, cfg.table)
+				}
+				i++
+			} else {
+				chOk = nil
+			}
+		case err, ok := <-chErr:
+			if ok {
+				fmt.Println(err.Error())
+			} else {
+				chErr = nil
+			}
+		}
+		if chOk == nil && chErr == nil {
+			break
+		}
 	}
 }
 
@@ -131,10 +155,12 @@ func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]
 	return tokens, nil
 }
 
-func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
+func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) (chan bool, chan error) {
 	csvRead := csv.NewReader(r)
 	csvRead.Comma = '\t'
 	csvRead.ReuseRecord = true
+	// allow a variable number of columns. error out row if a column specified
+	// by cfg.srcCols is not present.
 	csvRead.FieldsPerRecord = -1
 	// csvRead.Comma = cfg.separator
 
@@ -154,28 +180,32 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 		}
 	}
 
-	ch := make(chan sql.InsertStatement)
+	chErr := make(chan error)
+	chOk := make(chan bool)
 
 	go func() {
+		defer close(chErr)
+		defer close(chOk)
+
 		for {
 			record, err := csvRead.Read()
 			if err == io.EOF {
 				break
 			}
 			if err != nil {
+				chErr <- fmt.Errorf("%w: %s", ErrCsvImport, err.Error())
 				if _, ok := err.(*csv.ParseError); ok {
-					fmt.Printf("error parsing csv: %s", err.Error())
 					continue
 				}
-				fmt.Printf("fatal error parsing csv: %s", err.Error())
 				break
 			}
 
 			if maxCsvIdx >= len(record) {
-				fmt.Printf("insufficient col count in csv record: %v\n", record)
+				chErr <- fmt.Errorf("%w: index not present in row: %v", ErrCsvImport, record)
 				continue
 			}
 
+			var colErr error
 			row := make([]interface{}, len(cfg.srcCols))
 
 			for i, csvIdx := range cfg.srcCols {
@@ -185,10 +215,10 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 				}
 				switch cfg.dataTypes[i] {
 				case storage.TypeInt:
-					val, err := strconv.Atoi(record[csvIdx])
+					var val int
+					val, colErr = strconv.Atoi(record[csvIdx])
 					if err != nil {
-						fmt.Printf("failed to convert number. record: %v", record)
-						continue
+						break
 					}
 					row[i] = int32(val)
 				case storage.TypeBoolean:
@@ -198,27 +228,24 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 				}
 			}
 
+			if colErr != nil {
+				chErr <- fmt.Errorf("%w: %s", ErrCsvImport, colErr.Error())
+				continue
+			}
+
 			q.InsertColumnsAndSource.QueryExpression = sql.TableValueConstructor{
 				TableValueConstructorList: []sql.RowValueConstructor{
 					{RowValueConstructorList: row},
 				},
 			}
 
-			ch <- q
+			if _, err := engine.EvaluateInsert(q, rm); err != nil {
+				chErr <- err
+			} else {
+				chOk <- true
+			}
 		}
-
-		close(ch)
 	}()
 
-	i := 0
-	for q := range ch {
-		if _, err := engine.EvaluateInsert(q, rm); err != nil {
-			fmt.Printf("error inserting %v: %s\n", q, err.Error())
-		} else if i%100 == 0 {
-			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
-		}
-		i++
-	}
-
-	return nil
+	return chOk, chErr
 }

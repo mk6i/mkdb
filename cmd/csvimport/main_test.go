@@ -120,23 +120,82 @@ func TestCSVImport(t *testing.T) {
 		separator: '\t',
 	}
 
-	csv := "Mike\t10\n" +
+	goodRows := []string {
+		"Mike\t10\n" +
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
+		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
 		"Jay\t20\n" +
+		"Jay\tFoo\n" + // should cause string conversion error
+		"Casey\n" + // should cause "index not present in row"
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
+		"Garv\t\\N"
+	}
+
+	badRows := []string {
+		"Mike\t10\n" +
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
+		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
+		"Jay\t20\n" +
+		"Jay\tFoo\n" + // should cause string conversion error
+		"Casey\n" + // should cause "index not present in row"
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
+		"Garv\t\\N"
+	}
+	csv := "Mike\t10\n" +
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
+		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
+		"Jay\t20\n" +
+		"Jay\tFoo\n" + // should cause string conversion error
+		"Casey\n" + // should cause "index not present in row"
+		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
 		"Garv\t\\N"
 
-	if err := CSVImport(rm, cfg, bytes.NewBufferString(csv)); err != nil {
-		if err != nil {
-			t.Fatalf("err getting data types: %s", err.Error())
+	chOk, chErr := CSVImport(rm, cfg, bytes.NewBufferString(csv))
+
+	totalOk := 0
+	totalCsvParseErr := 0
+
+	for {
+		select {
+		case _, ok := <-chOk:
+			if ok {
+				totalOk++
+			} else {
+				chOk = nil
+			}
+		case err, ok := <-chErr:
+			if ok {
+				if errors.Is(err, ErrCsvImport) {
+					totalCsvParseErr++
+				} else {
+					t.Fatalf("unexpected error: %s", err.Error())
+				}
+			} else {
+				chErr = nil
+			}
+		}
+		if chOk == nil && chErr == nil {
+			break
 		}
 	}
 
 	expected := [][]interface{}{
 		{"Mike", int32(10)},
+		{"Joe", int32(15)},
 		{"Jay", int32(20)},
 		{"Garv", nil},
 	}
 
 	if !reflect.DeepEqual(expected, importedRows) {
-		t.Fatalf("types do not match. expected: %v actual: %v", expected, importedRows)
+		t.Fatalf("imported rows do not match expected rows. expected: %v actual: %v", expected, importedRows)
+	}
+
+	if totalOk != len(expected) {
+		t.Fatalf("total imported does not match expected count. expected: %d actual: %d", len(expected), totalOk)
+	}
+
+	expectCsvParseErrCount := 4
+	if totalCsvParseErr != expectCsvParseErrCount {
+		t.Fatalf("total csv errors does not match expected count. expected: %d actual: %d", expectCsvParseErrCount, totalCsvParseErr)
 	}
 }
