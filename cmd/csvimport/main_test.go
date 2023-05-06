@@ -43,9 +43,47 @@ func (m *mockRelationManager) StartTxn() {
 func (m *mockRelationManager) EndTxn() {
 }
 
-func TestImport(t *testing.T) {
+func TestGetDataTypes(t *testing.T) {
+	rm := &mockRelationManager{
+		fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
+			if tableName != "sys_schema" {
+				return nil, nil, errors.New("expected fetch for `sys_schema`")
+			}
+			return []*storage.Row{
+					{Vals: []interface{}{"author", "name", int32(storage.TypeVarchar)}},
+					{Vals: []interface{}{"author", "age", int32(storage.TypeInt)}},
+				},
+				[]*storage.Field{
+					{Column: "table_name"},
+					{Column: "field_name"},
+					{Column: "field_type"},
+				},
+				nil
+		},
+	}
+	cfg := importCfg{
+		table:   "author",
+		dstCols: []string{"name", "age"},
+	}
 
-	var inserted interface{}
+	types, err := getDataTypes(rm, cfg.table, cfg.dstCols)
+	if err != nil {
+		t.Fatalf("err getting data types: %s", err.Error())
+	}
+
+	expect := []storage.DataType{
+		storage.TypeVarchar,
+		storage.TypeInt,
+	}
+
+	if !reflect.DeepEqual(types, expect) {
+		t.Fatalf("types do not match. expected: %v actual: %v", expect, types)
+	}
+}
+
+func TestCSVImport(t *testing.T) {
+
+	var importedRows [][]interface{}
 
 	rm := &mockRelationManager{
 		fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {
@@ -64,7 +102,7 @@ func TestImport(t *testing.T) {
 				nil
 		},
 		insert: func(tableName string, cols []string, vals []interface{}) (storage.WALBatch, error) {
-			inserted = vals
+			importedRows = append(importedRows, vals)
 			return []*storage.WALEntry{}, nil
 		},
 		flushWALBatch: func(batch storage.WALBatch) error {
@@ -74,35 +112,31 @@ func TestImport(t *testing.T) {
 	cfg := importCfg{
 		table:   "author",
 		dstCols: []string{"name", "age"},
-		srcCols: []int{1, 2},
+		srcCols: []int{0, 1},
+		dataTypes: []storage.DataType{
+			storage.TypeVarchar,
+			storage.TypeInt,
+		},
+		separator: '\t',
 	}
 
 	csv := "Mike\t10\n" +
 		"Jay\t20\n" +
-		"Garv\t30"
+		"Garv\t\\N"
 
-	if err := Import(rm, cfg, bytes.NewBufferString(csv)); err != nil {
+	if err := CSVImport(rm, cfg, bytes.NewBufferString(csv)); err != nil {
 		if err != nil {
 			t.Fatalf("err getting data types: %s", err.Error())
 		}
 	}
 
-	expected := []interface{}{}
-
-	if !reflect.DeepEqual(expected, inserted) {
-		t.Fatalf("types do not match. expected: %v actual: %v", expected, inserted)
+	expected := [][]interface{}{
+		{"Mike", int32(10)},
+		{"Jay", int32(20)},
+		{"Garv", nil},
 	}
-	// types, err := getDataTypes(rm, cfg.table, cfg.dstCols)
-	// if err != nil {
-	// 	t.Fatalf("err getting data types: %s", err.Error())
-	// }
 
-	// expect := []storage.DataType{
-	// 	storage.TypeVarchar,
-	// 	storage.TypeInt,
-	// }
-
-	// if !reflect.DeepEqual(types, expect) {
-	// 	t.Fatalf("types do not match. expected: %v actual: %v", expect, types)
-	// }
+	if !reflect.DeepEqual(expected, importedRows) {
+		t.Fatalf("types do not match. expected: %v actual: %v", expected, importedRows)
+	}
 }

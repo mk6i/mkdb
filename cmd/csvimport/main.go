@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ type importCfg struct {
 	dataTypes []storage.DataType
 	table     string
 	db        string
+	separator rune
 }
 
 func init() {
@@ -36,10 +36,10 @@ func init() {
 // usage ./copy -src-cols '1,2,3' -dest-cols 'name,birth,death' -table actor -db
 func main() {
 	sess := &engine.Session{}
-	var cfg importCfg
 
 	srcCols := flag.String("src-cols", "", "CSV source column indexes")
 	dstCols := flag.String("dest-cols", "", "DB destination columns")
+	separator := flag.String("separator", ",", "CSV separator")
 	table := flag.String("table", "", "Destination table name")
 	db := flag.String("db", "", "Destination DB name")
 
@@ -50,6 +50,13 @@ func main() {
 		return
 	}
 
+	cfg := importCfg{
+		db:        *db,
+		separator: []rune(*separator)[0],
+		table:     *table,
+		dstCols:   strings.Split(*dstCols, ","),
+	}
+
 	for _, col := range strings.Split(*srcCols, ",") {
 		v, err := strconv.Atoi(col)
 		if err != nil {
@@ -58,17 +65,6 @@ func main() {
 			return
 		}
 		cfg.srcCols = append(cfg.srcCols, v)
-	}
-	cfg.dstCols = strings.Split(*dstCols, ",")
-	cfg.table = *table
-	cfg.db = *db
-
-	var err error
-	cfg.dataTypes, err = getDataTypes(sess.RelationService, cfg.table, cfg.dstCols)
-	if err != nil {
-		fmt.Printf("err parsing indexes: %s", err.Error())
-		os.Exit(1)
-		return
 	}
 
 	fmt.Printf("srcCols: %v, dstCols: %v, table: %s, db: %s\n", cfg.srcCols, cfg.dstCols, cfg.table, cfg.db)
@@ -81,7 +77,15 @@ func main() {
 		return
 	}
 
-	if err := Import(sess.RelationService, cfg, os.Stdin); err != nil {
+	var err error
+	cfg.dataTypes, err = getDataTypes(sess.RelationService, cfg.table, cfg.dstCols)
+	if err != nil {
+		fmt.Printf("err parsing indexes: %s", err.Error())
+		os.Exit(1)
+		return
+	}
+
+	if err := CSVImport(sess.RelationService, cfg, os.Stdin); err != nil {
 		fmt.Printf("failed to import: %s\n", err.Error())
 	}
 }
@@ -127,9 +131,13 @@ func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]
 	return tokens, nil
 }
 
-func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
+func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 	csvRead := csv.NewReader(r)
 	csvRead.Comma = '\t'
+	csvRead.LazyQuotes = true
+	csvRead.ReuseRecord = true
+	csvRead.FieldsPerRecord = -1
+	// csvRead.Comma = cfg.separator
 
 	q := sql.InsertStatement{
 		TableName: cfg.table,
@@ -138,6 +146,13 @@ func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 				ColumnNames: cfg.dstCols,
 			},
 		},
+	}
+
+	var maxCsvIdx int
+	for _, i := range cfg.srcCols {
+		if i > maxCsvIdx {
+			maxCsvIdx = i
+		}
 	}
 
 	ch := make(chan sql.InsertStatement)
@@ -149,7 +164,16 @@ func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 				break
 			}
 			if err != nil {
-				log.Println(err)
+				if _, ok := err.(*csv.ParseError); ok {
+					fmt.Printf("error parsing csv: %s", err.Error())
+					continue
+				}
+				fmt.Printf("fatal error parsing csv: %s", err.Error())
+				break
+			}
+
+			if maxCsvIdx >= len(record) {
+				fmt.Printf("insufficient col count in csv record: %v\n", record)
 				continue
 			}
 
@@ -171,7 +195,7 @@ func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 				case storage.TypeBoolean:
 					panic("no bools")
 				case storage.TypeVarchar:
-					row[i] = strings.ReplaceAll(record[csvIdx], "'", "\\'")
+					row[i] = record[csvIdx]
 				}
 			}
 
@@ -194,7 +218,6 @@ func Import(rm engine.RelationManager, cfg importCfg, r io.Reader) error {
 		} else if i%100 == 0 {
 			fmt.Printf("inserted %d record(s) into %s\n", i, q.TableName)
 		}
-
 		i++
 	}
 

@@ -48,7 +48,7 @@ func InitStorage() error {
 
 			defer wal.close()
 
-			fs, err := newFileStore(path)
+			fs, err := newFileStore(path, false)
 			if err != nil {
 				return err
 			}
@@ -282,5 +282,6 @@ func (w WALBatch) replay(fs *fileStore) error {
 	}
 
 	fs._nextLSN++
+
 	return fs.flushPages()
 }

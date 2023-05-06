@@ -603,30 +603,32 @@ func (m *memoryStore) incrLSN() {
 
 }
 
-func newFileStore(path string) (*fileStore, error) {
+func newFileStore(path string, autoFlush bool) (*fileStore, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
 	fs := &fileStore{
-		cache:      NewLRU(10000),
-		file:       file,
-		ticker:     time.NewTicker(pageFlushInterval),
-		tickerDone: make(chan bool),
-		mtx:        sync.RWMutex{},
+		cache:  NewLRU(10000),
+		file:   file,
+		ticker: time.NewTicker(pageFlushInterval),
+		mtx:    sync.RWMutex{},
 	}
-	go func() {
-		for {
-			select {
-			case <-fs.tickerDone:
-				return
-			case <-fs.ticker.C:
-				if err := fs.flushPages(); err != nil {
-					fmt.Printf("error flushing pages: %s", err.Error())
+	if autoFlush {
+		fs.tickerDone = make(chan bool)
+		go func() {
+			for {
+				select {
+				case <-fs.tickerDone:
+					return
+				case <-fs.ticker.C:
+					if err := fs.flushPages(); err != nil {
+						fmt.Printf("error flushing pages: %s", err.Error())
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 	return fs, nil
 }
 
@@ -660,7 +662,9 @@ func (f *fileStore) unlockExclusive() {
 func (f *fileStore) close() error {
 	defer f.file.Close()
 	f.ticker.Stop()
-	f.tickerDone <- true
+	if f.tickerDone != nil {
+		f.tickerDone <- true
+	}
 	return f.flushPages()
 }
 

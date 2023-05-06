@@ -130,7 +130,7 @@ func TestMemoryStore(t *testing.T) {
 
 func TestFileStore(t *testing.T) {
 
-	fs1, err := newFileStore("/tmp/page_file")
+	fs1, err := newFileStore("/tmp/page_file", false)
 	if err != nil {
 		t.Errorf("error creating file store: %s", err.Error())
 	}
@@ -146,7 +146,7 @@ func TestFileStore(t *testing.T) {
 		t.Errorf("unable to save file store: %s", err.Error())
 	}
 
-	fs2, err := newFileStore("/tmp/page_file")
+	fs2, err := newFileStore("/tmp/page_file", false)
 	if err != nil {
 		t.Errorf("error creating file store: %s", err.Error())
 	}
