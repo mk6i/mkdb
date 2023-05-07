@@ -70,7 +70,7 @@ func TestWalReplay(t *testing.T) {
 	}
 	defer os.Remove(file.Name())
 
-	fs, err := newFileStore(file.Name())
+	fs, err := newFileStore(file.Name(), false)
 	if err != nil {
 		t.Fatalf("error creating file store: %s", err.Error())
 	}
@@ -124,7 +124,7 @@ func TestWalReplay(t *testing.T) {
 	}
 
 	// new file store in order to start with fresh cache
-	fs, err = newFileStore(file.Name())
+	fs, err = newFileStore(file.Name(), false)
 	if err != nil {
 		t.Fatalf("error creating file store: %s", err.Error())
 	}
