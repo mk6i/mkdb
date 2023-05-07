@@ -107,17 +107,36 @@ func nestedLoopJoin(rm RelationManager, tf sql.TableReference) ([]*storage.Row, 
 
 			switch v.JoinType {
 			case sql.INNER_JOIN:
-				for _, lRow := range lRows {
+				if equiJoin, isCompar := v.JoinCondition.(sql.Predicate); isCompar && isEquiJoin(equiJoin.ComparisonPredicate) {
+
+					idx, err := findColumnInFieldList(equiJoin.LHS.(sql.ColumnReference), lFields)
+					if err != nil {
+						return nil, nil, err
+					}
+
+					build := make(map[any]*storage.Row, len(lRows))
+					for _, row := range lRows {
+						build[row.Vals[idx]] = row
+					}
+
 					for _, rRow := range rRows {
-						tmpRow := lRow.Merge(rRow)
-						result, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
-						if err != nil {
-							return nil, nil, err
+						if lRow, matches := build[rRow.Vals[idx]]; matches {
+							tmpRows = append(tmpRows, lRow.Merge(rRow))
 						}
-						if doJoin, ok := result.(bool); !ok {
-							return nil, nil, ErrNonBoolJoinCond
-						} else if doJoin {
-							tmpRows = append(tmpRows, tmpRow)
+					}
+				} else {
+					for _, lRow := range lRows {
+						for _, rRow := range rRows {
+							tmpRow := lRow.Merge(rRow)
+							result, err := evaluate(v.JoinCondition, tmpFields, tmpRow)
+							if err != nil {
+								return nil, nil, err
+							}
+							if doJoin, ok := result.(bool); !ok {
+								return nil, nil, ErrNonBoolJoinCond
+							} else if doJoin {
+								tmpRows = append(tmpRows, tmpRow)
+							}
 						}
 					}
 				}
@@ -169,6 +188,19 @@ func nestedLoopJoin(rm RelationManager, tf sql.TableReference) ([]*storage.Row, 
 	}
 
 	return nil, nil, nil
+}
+
+func isEquiJoin(q sql.ComparisonPredicate) bool {
+	if _, isColRef := q.LHS.(sql.ColumnReference); !isColRef {
+		return false
+	}
+	if _, isColRef := q.RHS.(sql.ColumnReference); !isColRef {
+		return false
+	}
+	if q.CompOp != sql.EQ {
+		return false
+	}
+	return true
 }
 
 func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*storage.Row) (storage.Fields, error) {
@@ -437,6 +469,10 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 				continue
 			}
 
+			if lhs == nil || rhs == nil {
+				continue
+			}
+
 			sortAsc := false
 			switch lhs.(type) {
 			case int32:
@@ -561,6 +597,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		}
 	case sql.GTE:
 		switch lhs := lhs.(type) {
@@ -576,6 +614,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		default:
 			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 		}
@@ -593,6 +633,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		}
 	case sql.LTE:
 		switch lhs := lhs.(type) {
@@ -608,6 +650,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 			}
+		case nil:
+			return false, nil
 		default:
 			return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
 		}
