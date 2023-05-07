@@ -20,7 +20,7 @@ var (
 	ErrTmpUnsupportedSyntax = errors.New("temporarily unsupported syntax")
 )
 
-func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storage.Field, error) {
+func EvaluateSelect(q sql.Select, rm RelationManager) ([]*storage.Row, []*storage.Field, error) {
 	rm.StartTxn()
 	defer rm.EndTxn()
 
@@ -71,7 +71,7 @@ func EvaluateSelect(q sql.Select, rm relationManager) ([]*storage.Row, []*storag
 	return rows, fields, nil
 }
 
-func nestedLoopJoin(rm relationManager, tf sql.TableReference) ([]*storage.Row, storage.Fields, error) {
+func nestedLoopJoin(rm RelationManager, tf sql.TableReference) ([]*storage.Row, storage.Fields, error) {
 
 	switch v := tf.(type) {
 	case sql.TableName:

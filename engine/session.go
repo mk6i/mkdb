@@ -14,7 +14,7 @@ type Session struct {
 	RelationService *storage.RelationService
 }
 
-type relationManager interface {
+type RelationManager interface {
 	StartTxn()
 	EndTxn()
 	CreateTable(r *storage.Relation, tableName string) error
@@ -48,7 +48,7 @@ func (s *Session) ExecQuery(q string) error {
 	case sql.UseStatement:
 		var err error
 		s.CurDB = stmt.DBName
-		s.RelationService, err = storage.OpenRelation(stmt.DBName)
+		s.RelationService, err = storage.OpenRelation(stmt.DBName, true)
 		if err != nil {
 			return err
 		}

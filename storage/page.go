@@ -63,7 +63,7 @@ const (
 )
 
 // pageFlushInterval is how often to flush dirty pages to disk
-const pageFlushInterval = 1 * time.Second
+const pageFlushInterval = 100 * time.Millisecond
 
 var (
 	ErrRowTooLarge  = fmt.Errorf("row exceeds %d bytes", maxValueSize)

@@ -41,7 +41,7 @@ func InitStorage() error {
 			if !exists {
 				return nil
 			}
-			wal, err := newWal(db)
+			wal, err := newWal(db, true)
 			if err != nil {
 				return err
 			}
@@ -138,7 +138,7 @@ func (w *WALEntry) decode(buf *bytes.Buffer) error {
 	return nil
 }
 
-func newWal(db string) (*wal, error) {
+func newWal(db string, forceSync bool) (*wal, error) {
 	path, _, err := walFilePath(db)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,8 @@ func newWal(db string) (*wal, error) {
 		return nil, err
 	}
 	return &wal{
-		reader: file,
+		reader:    file,
+		forceSync: forceSync,
 	}, nil
 }
 
@@ -160,7 +161,8 @@ type readWriteSyncCloser interface {
 }
 
 type wal struct {
-	reader readWriteSyncCloser
+	reader    readWriteSyncCloser
+	forceSync bool
 }
 
 func (w *wal) close() error {
@@ -227,8 +229,10 @@ func (w *wal) flush(batch WALBatch) error {
 			panic("bytes written differs from expected buffer length")
 		}
 
-		if err := w.reader.Sync(); err != nil {
-			return err
+		if w.forceSync {
+			if err := w.reader.Sync(); err != nil {
+				return err
+			}
 		}
 	}
 
