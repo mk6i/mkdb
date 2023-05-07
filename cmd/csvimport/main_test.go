@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/mkaminski/bkdb/storage"
@@ -120,40 +121,25 @@ func TestCSVImport(t *testing.T) {
 		separator: '\t',
 	}
 
-	goodRows := []string {
-		"Mike\t10\n" +
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
-		"Jay\t20\n" +
-		"Jay\tFoo\n" + // should cause string conversion error
-		"Casey\n" + // should cause "index not present in row"
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Garv\t\\N"
+	goodRows := []string{
+		"Person1\t10",
+		"Person2\t20",
+		"Person3\t\\N",
+		"Person5\t15\tFooBar", // should not cause cause ErrFieldCount
 	}
 
-	badRows := []string {
-		"Mike\t10\n" +
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
-		"Jay\t20\n" +
-		"Jay\tFoo\n" + // should cause string conversion error
-		"Casey\n" + // should cause "index not present in row"
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Garv\t\\N"
+	badRows := []string{
+		"Per\"son4\t30", // should cause ErrBareQuote
+		"Person6\tFoo",  // should cause string conversion error on second column
+		"Person7",       // should cause "index not present in row"
 	}
-	csv := "Mike\t10\n" +
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Joe\t15\tFooBar\n" + // should not cause cause ErrFieldCount
-		"Jay\t20\n" +
-		"Jay\tFoo\n" + // should cause string conversion error
-		"Casey\n" + // should cause "index not present in row"
-		"Malfo\"rmed\tRecord\n" + // should cause ErrBareQuote
-		"Garv\t\\N"
+
+	csv := strings.Join(append(goodRows, badRows...), "\n")
 
 	chOk, chErr := CSVImport(rm, cfg, bytes.NewBufferString(csv))
 
 	totalOk := 0
-	totalCsvParseErr := 0
+	totalErr := 0
 
 	for {
 		select {
@@ -166,7 +152,7 @@ func TestCSVImport(t *testing.T) {
 		case err, ok := <-chErr:
 			if ok {
 				if errors.Is(err, ErrCsvImport) {
-					totalCsvParseErr++
+					totalErr++
 				} else {
 					t.Fatalf("unexpected error: %s", err.Error())
 				}
@@ -180,22 +166,19 @@ func TestCSVImport(t *testing.T) {
 	}
 
 	expected := [][]interface{}{
-		{"Mike", int32(10)},
-		{"Joe", int32(15)},
-		{"Jay", int32(20)},
-		{"Garv", nil},
+		{"Person1", int32(10)},
+		{"Person2", int32(20)},
+		{"Person3", nil},
+		{"Person5", int32(15)},
 	}
 
 	if !reflect.DeepEqual(expected, importedRows) {
 		t.Fatalf("imported rows do not match expected rows. expected: %v actual: %v", expected, importedRows)
 	}
-
-	if totalOk != len(expected) {
-		t.Fatalf("total imported does not match expected count. expected: %d actual: %d", len(expected), totalOk)
+	if totalOk != len(goodRows) {
+		t.Fatalf("total imported does not match expected count. expected: %d actual: %d", len(goodRows), totalOk)
 	}
-
-	expectCsvParseErrCount := 4
-	if totalCsvParseErr != expectCsvParseErrCount {
-		t.Fatalf("total csv errors does not match expected count. expected: %d actual: %d", expectCsvParseErrCount, totalCsvParseErr)
+	if totalErr != len(badRows) {
+		t.Fatalf("total csv errors does not match expected count. expected: %d actual: %d", len(badRows), totalErr)
 	}
 }
