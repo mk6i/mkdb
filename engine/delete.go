@@ -5,7 +5,7 @@ import (
 	"github.com/mkaminski/bkdb/storage"
 )
 
-func EvaluateDelete(q sql.DeleteStatementSearched, rm relationManager) (int, error) {
+func EvaluateDelete(q sql.DeleteStatementSearched, rm RelationManager) (int, error) {
 	rm.StartTxn()
 	defer rm.EndTxn()
 

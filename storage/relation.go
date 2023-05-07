@@ -275,7 +275,7 @@ func (rs *RelationService) Close() error {
 	return rs.fs.close()
 }
 
-func OpenRelation(dbName string) (*RelationService, error) {
+func OpenRelation(dbName string, forceWALSync bool) (*RelationService, error) {
 	path, exists, err := dbFilePath(dbName)
 	if err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func OpenRelation(dbName string) (*RelationService, error) {
 	if err := fs.open(); err != nil {
 		return nil, err
 	}
-	wal, err := newWal(dbName)
+	wal, err := newWal(dbName, forceWALSync)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +324,7 @@ func CreateDB(dbName string) error {
 		return err
 	}
 
-	wal, err := newWal(dbName)
+	wal, err := newWal(dbName, true)
 	if err != nil {
 		return err
 	}
