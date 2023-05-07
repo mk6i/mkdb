@@ -37,10 +37,8 @@ func (m *mockRelationManager) Insert(tableName string, cols []string, vals []int
 func (m *mockRelationManager) FlushWALBatch(batch storage.WALBatch) error {
 	return m.flushWALBatch(batch)
 }
-
 func (m *mockRelationManager) StartTxn() {
 }
-
 func (m *mockRelationManager) EndTxn() {
 }
 
@@ -67,7 +65,7 @@ func TestGetDataTypes(t *testing.T) {
 		dstCols: []string{"name", "age"},
 	}
 
-	types, err := getDataTypes(rm, cfg.table, cfg.dstCols)
+	types, err := colDataTypes(rm, cfg.table, cfg.dstCols)
 	if err != nil {
 		t.Fatalf("err getting data types: %s", err.Error())
 	}
@@ -94,6 +92,7 @@ func TestCSVImport(t *testing.T) {
 			return []*storage.Row{
 					{Vals: []interface{}{"author", "name", int32(storage.TypeVarchar)}},
 					{Vals: []interface{}{"author", "age", int32(storage.TypeInt)}},
+					{Vals: []interface{}{"author", "active", int32(storage.TypeBoolean)}},
 				},
 				[]*storage.Field{
 					{Column: "table_name"},
@@ -112,31 +111,30 @@ func TestCSVImport(t *testing.T) {
 	}
 	cfg := importCfg{
 		table:   "author",
-		dstCols: []string{"name", "age"},
-		srcCols: []int{0, 1},
-		dataTypes: []storage.DataType{
+		dstCols: []string{"name", "age", "active"},
+		srcCols: []int{0, 1, 2},
+		colTypes: []storage.DataType{
 			storage.TypeVarchar,
 			storage.TypeInt,
+			storage.TypeBoolean,
 		},
-		separator: '\t',
+		separator: ',',
 	}
 
 	goodRows := []string{
-		"Person1\t10",
-		"Person2\t20",
-		"Person3\t\\N",
-		"Person5\t15\tFooBar", // should not cause cause ErrFieldCount
+		strings.Join([]string{"Person1", "10", "true"}, string(cfg.separator)),
+		strings.Join([]string{"Person2", "20", "false"}, string(cfg.separator)),
+		strings.Join([]string{"Person3", "\\N", "true"}, string(cfg.separator)),
+		strings.Join([]string{"Person5", "15", "false", "FooBar"}, string(cfg.separator)),
 	}
-
 	badRows := []string{
-		"Per\"son4\t30", // should cause ErrBareQuote
-		"Person6\tFoo",  // should cause string conversion error on second column
-		"Person7",       // should cause "index not present in row"
+		strings.Join([]string{"Per\"son4", "30", "true"}, string(cfg.separator)), // should cause ErrBareQuote
+		strings.Join([]string{"Person6", "Foo", "true"}, string(cfg.separator)),  // should cause string conversion error on second column
+		strings.Join([]string{"Person7"}, string(cfg.separator)),                 // should cause "index not present in row"
 	}
-
 	csv := strings.Join(append(goodRows, badRows...), "\n")
 
-	chOk, chErr := CSVImport(rm, cfg, bytes.NewBufferString(csv))
+	chOk, chErr := doBatchInsert(rm, cfg, bytes.NewBufferString(csv))
 
 	totalOk := 0
 	totalErr := 0
@@ -151,7 +149,7 @@ func TestCSVImport(t *testing.T) {
 			}
 		case err, ok := <-chErr:
 			if ok {
-				if errors.Is(err, ErrCsvImport) {
+				if errors.Is(err, errMalformedRow) {
 					totalErr++
 				} else {
 					t.Fatalf("unexpected error: %s", err.Error())
@@ -166,10 +164,10 @@ func TestCSVImport(t *testing.T) {
 	}
 
 	expected := [][]interface{}{
-		{"Person1", int32(10)},
-		{"Person2", int32(20)},
-		{"Person3", nil},
-		{"Person5", int32(15)},
+		{"Person1", int32(10), true},
+		{"Person2", int32(20), false},
+		{"Person3", nil, true},
+		{"Person5", int32(15), false},
 	}
 
 	if !reflect.DeepEqual(expected, importedRows) {

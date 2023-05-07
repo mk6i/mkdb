@@ -1,3 +1,37 @@
+/*
+Csvimport bulk loads CSV documents into mkdb.
+
+Usage:
+
+	csvimport [arguments]
+
+The arguments are:
+
+	-db (required)
+		The destination database name where the destination table lives. The
+		database must already exist before starting the import.
+
+	-dest-cols (required)
+		Comma-delimited list of table column names to populate from each CSV
+		record. Each column name correponds to the column index at the same
+		position in src-cols.
+
+	-disable-wal-fsync (optional)
+		If set, perform import with WAL fsync disabled. This can dramatically
+		improve insert performance, with the risk of data loss if the import
+		process crashes mid-operation. If this occurs, drop the database and table
+		and start over.
+
+	-separator (optional)
+		Column separator character. By default use comma (,).
+
+	-src-cols (required)
+		Comma-delimited list of column indexes (0-indexed) to read from the CSV.
+
+	-table (required)
+		The destination table where rows are to be inserted. The table must
+		already exist before starting the import.
+*/
 package main
 
 import (
@@ -13,38 +47,29 @@ import (
 	"github.com/mkaminski/bkdb/engine"
 	"github.com/mkaminski/bkdb/sql"
 	"github.com/mkaminski/bkdb/storage"
-
-	"net/http"
-	_ "net/http/pprof"
 )
 
-var ErrCsvImport = errors.New("error importing CSV")
+var errMalformedRow = errors.New("error parsing row")
 
 type importCfg struct {
-	srcCols   []int
-	dstCols   []string
-	dataTypes []storage.DataType
-	table     string
+	colTypes  []storage.DataType
 	db        string
+	dstCols   []string
 	separator rune
+	srcCols   []int
+	table     string
 }
 
-func init() {
-	go func() {
-		fmt.Println(http.ListenAndServe("localhost:8080", nil))
-	}()
-}
+var (
+	cfgDb           = flag.String("db", "", "Destination DB name")
+	cfgDestCols     = flag.String("dest-cols", "", "Destination table column names")
+	cfgDisableFsync = flag.Bool("disable-wal-fsync", false, "Disable WAL fsync for performance (data loss is possible)")
+	cfgSep          = flag.String("separator", ",", "CSV separator")
+	cfgSrcCols      = flag.String("src-cols", "", "CSV source column indexes")
+	cfgTable        = flag.String("table", "", "Destination table name")
+)
 
-// usage ./copy -src-cols '1,2,3' -dest-cols 'name,birth,death' -table actor -db
 func main() {
-	sess := &engine.Session{}
-
-	srcCols := flag.String("src-cols", "", "CSV source column indexes")
-	dstCols := flag.String("dest-cols", "", "DB destination columns")
-	separator := flag.String("separator", ",", "CSV separator")
-	table := flag.String("table", "", "Destination table name")
-	db := flag.String("db", "", "Destination DB name")
-
 	flag.Parse()
 
 	if flag.NFlag() == 0 {
@@ -52,44 +77,25 @@ func main() {
 		return
 	}
 
-	cfg := importCfg{
-		db:        *db,
-		separator: []rune(*separator)[0],
-		table:     *table,
-		dstCols:   strings.Split(*dstCols, ","),
-	}
-
-	for _, col := range strings.Split(*srcCols, ",") {
-		v, err := strconv.Atoi(col)
-		if err != nil {
-			fmt.Printf("err parsing indexes: %s", err.Error())
-			os.Exit(1)
-			return
-		}
-		cfg.srcCols = append(cfg.srcCols, v)
-	}
-
-	fmt.Printf("srcCols: %v, dstCols: %v, table: %s, db: %s\n", cfg.srcCols, cfg.dstCols, cfg.table, cfg.db)
-
-	defer sess.Close()
-
-	q := fmt.Sprintf("USE %s", cfg.db)
-	if err := sess.ExecQuery(q); err != nil {
-		fmt.Printf("failed to import: %s\n", err.Error())
-		return
-	}
-
-	var err error
-	cfg.dataTypes, err = getDataTypes(sess.RelationService, cfg.table, cfg.dstCols)
+	rm, err := storage.OpenRelation(*cfgDb, !*cfgDisableFsync)
 	if err != nil {
-		fmt.Printf("err parsing indexes: %s", err.Error())
+		fmt.Println(err.Error())
 		os.Exit(1)
-		return
 	}
 
-	chOk, chErr := CSVImport(sess.RelationService, cfg, os.Stdin)
+	// create import configuration from the provided arguments
+	cfg, err := makeConfig(rm)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("Import config: %+v\n", cfg)
+
+	// start a background import job
+	chOk, chErr := doBatchInsert(rm, cfg, os.Stdin)
 	i := 0
 
+	// report batch progress and errors as they arrive
 	for {
 		select {
 		case _, ok := <-chOk:
@@ -114,8 +120,33 @@ func main() {
 	}
 }
 
-func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]storage.DataType, error) {
+func makeConfig(rm engine.RelationManager) (importCfg, error) {
+	cfg := importCfg{
+		db:        *cfgDb,
+		dstCols:   strings.Split(*cfgDestCols, ","),
+		separator: []rune(*cfgSep)[0],
+		table:     *cfgTable,
+	}
 
+	for _, col := range strings.Split(*cfgSrcCols, ",") {
+		v, err := strconv.Atoi(col)
+		if err != nil {
+			return cfg, fmt.Errorf("err parsing indexes: %s", err.Error())
+		}
+		cfg.srcCols = append(cfg.srcCols, v)
+	}
+
+	var err error
+	cfg.colTypes, err = colDataTypes(rm, cfg.table, cfg.dstCols)
+	if err != nil {
+		return cfg, fmt.Errorf("err getting column types: %s", err.Error())
+	}
+
+	return cfg, nil
+}
+
+// colDataTypes builds an array of data types for each destination column.
+func colDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]storage.DataType, error) {
 	qs := fmt.Sprintf(`select field_name, field_type from sys_schema where table_name = '%s'`, table)
 	ts := sql.NewTokenScanner(strings.NewReader(qs))
 	tl := sql.TokenList{}
@@ -155,14 +186,20 @@ func getDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]
 	return tokens, nil
 }
 
-func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) (chan bool, chan error) {
+func newErrMalformedRow(msg string, line int, record []string) error {
+	return fmt.Errorf("[line %d] %w: %s. contents: %v", line, errMalformedRow, msg, record)
+}
+
+// doBatchInsert starts an async routine that consumes the CSV and inserts each
+// row into the destination table. Channel chOk sends each successful INSERT
+// invent. Channel chErr sends each row failure.
+func doBatchInsert(rm engine.RelationManager, cfg importCfg, r io.Reader) (chOk chan bool, chErr chan error) {
 	csvRead := csv.NewReader(r)
-	csvRead.Comma = '\t'
 	csvRead.ReuseRecord = true
 	// allow a variable number of columns. error out row if a column specified
 	// by cfg.srcCols is not present.
 	csvRead.FieldsPerRecord = -1
-	// csvRead.Comma = cfg.separator
+	csvRead.Comma = cfg.separator
 
 	q := sql.InsertStatement{
 		TableName: cfg.table,
@@ -173,6 +210,7 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) (chan bool
 		},
 	}
 
+	// find the largest column index in the source column list
 	var maxCsvIdx int
 	for _, i := range cfg.srcCols {
 		if i > maxCsvIdx {
@@ -180,65 +218,45 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) (chan bool
 		}
 	}
 
-	chErr := make(chan error)
-	chOk := make(chan bool)
+	chOk = make(chan bool)
+	chErr = make(chan error)
 
 	go func() {
 		defer close(chErr)
 		defer close(chOk)
 
-		for {
-			record, err := csvRead.Read()
+		for line := 1; ; line++ {
+			csvRow, err := csvRead.Read()
 			if err == io.EOF {
 				break
 			}
 			if err != nil {
-				chErr <- fmt.Errorf("%w: %s", ErrCsvImport, err.Error())
+				chErr <- newErrMalformedRow(err.Error(), line, csvRow)
 				if _, ok := err.(*csv.ParseError); ok {
 					continue
 				}
-				break
+				break // stop looping if it's an unexpected error
 			}
 
-			if maxCsvIdx >= len(record) {
-				chErr <- fmt.Errorf("%w: index not present in row: %v", ErrCsvImport, record)
+			// make sure the CSV row is not missing any column indexes
+			if maxCsvIdx >= len(csvRow) {
+				chErr <- newErrMalformedRow(fmt.Sprintf("column %d not present", maxCsvIdx), line, csvRow)
 				continue
 			}
 
-			var colErr error
-			row := make([]interface{}, len(cfg.srcCols))
-
-			for i, csvIdx := range cfg.srcCols {
-				if record[csvIdx] == "\\N" {
-					row[i] = nil
-					continue
-				}
-				switch cfg.dataTypes[i] {
-				case storage.TypeInt:
-					var val int
-					val, colErr = strconv.Atoi(record[csvIdx])
-					if err != nil {
-						break
-					}
-					row[i] = int32(val)
-				case storage.TypeBoolean:
-					panic("no bools")
-				case storage.TypeVarchar:
-					row[i] = record[csvIdx]
-				}
-			}
-
-			if colErr != nil {
-				chErr <- fmt.Errorf("%w: %s", ErrCsvImport, colErr.Error())
+			sqlRow, err := csvToSql(cfg, csvRow)
+			if err != nil {
+				chErr <- newErrMalformedRow(err.Error(), line, csvRow)
 				continue
 			}
 
 			q.InsertColumnsAndSource.QueryExpression = sql.TableValueConstructor{
 				TableValueConstructorList: []sql.RowValueConstructor{
-					{RowValueConstructorList: row},
+					{RowValueConstructorList: sqlRow},
 				},
 			}
 
+			// execute the INSERT query
 			if _, err := engine.EvaluateInsert(q, rm); err != nil {
 				chErr <- err
 			} else {
@@ -248,4 +266,37 @@ func CSVImport(rm engine.RelationManager, cfg importCfg, r io.Reader) (chan bool
 	}()
 
 	return chOk, chErr
+}
+
+// csvToSql creates SQL INSERT values from each column in csvRow
+func csvToSql(cfg importCfg, csvRow []string) ([]interface{}, error) {
+	sqlRow := make([]interface{}, len(cfg.srcCols))
+
+	for i, csvIdx := range cfg.srcCols {
+		if csvRow[csvIdx] == "\\N" {
+			sqlRow[i] = nil
+			continue
+		}
+		switch cfg.colTypes[i] {
+		case storage.TypeInt:
+			val, err := strconv.Atoi(csvRow[csvIdx])
+			if err != nil {
+				return sqlRow, err
+			}
+			sqlRow[i] = int32(val)
+		case storage.TypeBoolean:
+			switch strings.ToLower(csvRow[csvIdx]) {
+			case "1", "true", "t":
+				sqlRow[i] = true
+			case "0", "false", "f":
+				sqlRow[i] = false
+			default:
+				return sqlRow, fmt.Errorf("unable to parse bool value `%s`", csvRow[csvIdx])
+			}
+		case storage.TypeVarchar:
+			sqlRow[i] = csvRow[csvIdx]
+		}
+	}
+
+	return sqlRow, nil
 }

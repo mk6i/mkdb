@@ -25,6 +25,7 @@ func TestWal(t *testing.T) {
 		reader: &mockFile{
 			bytes.NewBuffer(make([]byte, 100)),
 		},
+		forceSync: true,
 	}
 
 	expBatch := WALBatch{
