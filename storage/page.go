@@ -603,44 +603,48 @@ func (m *memoryStore) incrLSN() {
 
 }
 
-func newFileStore(path string) (*fileStore, error) {
+func newFileStore(path string, autoFlushCache bool) (*fileStore, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
 	fs := &fileStore{
-		cache:      NewLRU(10000),
-		file:       file,
-		ticker:     time.NewTicker(pageFlushInterval),
-		tickerDone: make(chan bool),
-		mtx:        sync.RWMutex{},
+		autoFlushCache: autoFlushCache,
+		cache:          NewLRU(10000),
+		file:           file,
+		mtx:            sync.RWMutex{},
 	}
-	go func() {
-		for {
-			select {
-			case <-fs.tickerDone:
-				return
-			case <-fs.ticker.C:
-				if err := fs.flushPages(); err != nil {
-					fmt.Printf("error flushing pages: %s", err.Error())
+	if autoFlushCache {
+		fs.tickerDone = make(chan bool)
+		fs.ticker = time.NewTicker(pageFlushInterval)
+		go func() {
+			for {
+				select {
+				case <-fs.tickerDone:
+					return
+				case <-fs.ticker.C:
+					if err := fs.flushPages(); err != nil {
+						fmt.Printf("error flushing pages: %s", err.Error())
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 	return fs, nil
 }
 
 type fileStore struct {
+	_nextLSN       uint64
+	autoFlushCache bool
+	cache          *LRUCache
 	file           *os.File
 	lastKey        uint32
-	rootOffset     uint64
+	mtx            sync.RWMutex
 	nextFreeOffset uint64
 	pageTableRoot  uint64
-	cache          *LRUCache
+	rootOffset     uint64
 	ticker         *time.Ticker
 	tickerDone     chan bool
-	mtx            sync.RWMutex
-	_nextLSN       uint64
 }
 
 func (f *fileStore) lockShared() {
@@ -659,8 +663,10 @@ func (f *fileStore) unlockExclusive() {
 
 func (f *fileStore) close() error {
 	defer f.file.Close()
-	f.ticker.Stop()
-	f.tickerDone <- true
+	if f.autoFlushCache {
+		f.ticker.Stop()
+		f.tickerDone <- true
+	}
 	return f.flushPages()
 }
 

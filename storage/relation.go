@@ -283,7 +283,7 @@ func OpenRelation(dbName string, forceWALSync bool) (*RelationService, error) {
 	if !exists {
 		return nil, ErrDBNotExist
 	}
-	fs, err := newFileStore(path)
+	fs, err := newFileStore(path, true)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func CreateDB(dbName string) error {
 		return ErrDBExists
 	}
 
-	fs, err := newFileStore(path)
+	fs, err := newFileStore(path, true)
 	if err != nil {
 		return err
 	}
