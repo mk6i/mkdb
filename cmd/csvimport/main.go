@@ -284,6 +284,12 @@ func csvToSql(cfg importCfg, csvRow []string) ([]interface{}, error) {
 				return sqlRow, err
 			}
 			sqlRow[i] = int32(val)
+		case storage.TypeBigInt:
+			val, err := strconv.Atoi(csvRow[csvIdx])
+			if err != nil {
+				return sqlRow, err
+			}
+			sqlRow[i] = int64(val)
 		case storage.TypeBoolean:
 			switch strings.ToLower(csvRow[csvIdx]) {
 			case "1", "true", "t":

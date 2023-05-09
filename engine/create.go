@@ -19,6 +19,8 @@ func EvaluateCreateTable(q sql.CreateTable, rm RelationManager) error {
 		switch t := elem.ColumnDefinition.DataType.(type) {
 		case sql.NumericType:
 			fd.DataType = storage.TypeInt
+		case sql.BigIntType:
+			fd.DataType = storage.TypeBigInt
 		case sql.CharacterStringType:
 			fd.DataType = storage.TypeVarchar
 			fd.Len = t.Len

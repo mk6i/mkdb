@@ -15,6 +15,7 @@ const (
 	TypeInt = iota
 	TypeVarchar
 	TypeBoolean
+	TypeBigInt
 )
 
 const (
@@ -48,6 +49,10 @@ func (f *FieldDef) Validate(val interface{}) error {
 		if reflect.TypeOf(val).Kind() != reflect.Int32 {
 			return ErrTypeMismatch
 		}
+	case TypeBigInt:
+		if reflect.TypeOf(val).Kind() != reflect.Int64 {
+			return ErrTypeMismatch
+		}
 	case TypeVarchar:
 		if reflect.TypeOf(val).Kind() != reflect.String {
 			return ErrTypeMismatch
@@ -71,7 +76,7 @@ var pageTableSchema = Relation{
 		},
 		{
 			Name:     "file_offset",
-			DataType: TypeInt,
+			DataType: TypeBigInt,
 		},
 	},
 }
@@ -192,7 +197,7 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 		}
 
 		switch fd.DataType {
-		case TypeInt, TypeBoolean:
+		case TypeInt, TypeBigInt, TypeBoolean:
 			if err := binary.Write(buf, binary.LittleEndian, val); err != nil {
 				return buf, err
 			}
@@ -224,6 +229,12 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 		switch fd.DataType {
 		case TypeInt:
 			var val int32
+			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+				return err
+			}
+			v = val
+		case TypeBigInt:
+			var val int64
 			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
 				return err
 			}
@@ -409,7 +420,7 @@ func (rs *RelationService) insertPageTable(node *btreeNode, tableName string) er
 		Relation: &pageTableSchema,
 		Vals: map[string]interface{}{
 			"table_name":  tableName,
-			"file_offset": int32(node.getFileOffset()), // todo wat?
+			"file_offset": int64(node.getFileOffset()), // todo wat?
 		},
 	}
 
@@ -471,7 +482,7 @@ func (rs *RelationService) updatePageTable(fileOffset uint64, tableName string) 
 		}
 		if tuple.Vals["table_name"] == tableName {
 			oldVal := tuple.Vals["file_offset"]
-			tuple.Vals["file_offset"] = int32(fileOffset)
+			tuple.Vals["file_offset"] = int64(fileOffset)
 			buf, err := tuple.Encode()
 			if err != nil {
 				return StopScanning, err
@@ -587,7 +598,7 @@ func (rs *RelationService) Fetch(tableName string) ([]*Row, []*Field, error) {
 	return rows, fields, err
 }
 
-func (rs *RelationService) getRelationFileOffset(relName string) (int32, error) {
+func (rs *RelationService) getRelationFileOffset(relName string) (int64, error) {
 	bt := BTree{store: rs.fs}
 
 	// retrieve page table
@@ -598,7 +609,7 @@ func (rs *RelationService) getRelationFileOffset(relName string) (int32, error) 
 
 	bt.setRoot(pg)
 
-	fileOffset := int32(0)
+	fileOffset := int64(0)
 	found := false
 	err = bt.scanRight(func(cell *leafCell) (ScanAction, error) {
 		tuple := Tuple{
@@ -610,7 +621,7 @@ func (rs *RelationService) getRelationFileOffset(relName string) (int32, error) 
 		}
 		if tuple.Vals["table_name"] == relName {
 			found = true
-			fileOffset = tuple.Vals["file_offset"].(int32)
+			fileOffset = tuple.Vals["file_offset"].(int64)
 			return StopScanning, nil
 		}
 		return KeepScanning, nil

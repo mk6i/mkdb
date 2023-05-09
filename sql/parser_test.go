@@ -1280,6 +1280,16 @@ func TestParseCreateTable(t *testing.T) {
 		},
 		{
 			Type: IDENT,
+			Text: "Salary",
+		},
+		{
+			Type: T_BIGINT,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
 			Text: "LastName",
 		},
 		{
@@ -1317,6 +1327,12 @@ func TestParseCreateTable(t *testing.T) {
 				ColumnDefinition{
 					DataType: NumericType{},
 					Name:     "PersonID",
+				},
+			},
+			{
+				ColumnDefinition{
+					DataType: BigIntType{},
+					Name:     "Salary",
 				},
 			},
 			{

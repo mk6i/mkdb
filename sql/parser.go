@@ -213,6 +213,9 @@ type CharacterStringType struct {
 type NumericType struct {
 }
 
+type BigIntType struct {
+}
+
 type Parser struct {
 	TokenList
 }
@@ -354,6 +357,8 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 		switch cur.Type {
 		case T_INT:
 			te.ColumnDefinition.DataType = NumericType{}
+		case T_BIGINT:
+			te.ColumnDefinition.DataType = BigIntType{}
 		case T_VARCHAR:
 			cst := CharacterStringType{
 				Type: cur.Type,

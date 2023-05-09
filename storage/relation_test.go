@@ -28,6 +28,10 @@ func TestRelationEncodeDecode(t *testing.T) {
 				DataType: TypeBoolean,
 				Name:     "bool_val",
 			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
 		},
 	}
 
@@ -69,6 +73,10 @@ func TestTupleEncodeDecode(t *testing.T) {
 				DataType: TypeBoolean,
 				Name:     "bool_val",
 			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
 		},
 	}
 
@@ -78,6 +86,7 @@ func TestTupleEncodeDecode(t *testing.T) {
 			"first_name": "John",
 			"last_name":  "Doe",
 			"bool_val":   true,
+			"salary":     int64(10000),
 		},
 		Relation: rel,
 	}
