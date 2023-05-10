@@ -209,7 +209,7 @@ func (t Token) Val() (interface{}, error) {
 	case STR:
 		return t.Text, nil
 	case INT:
-		intVal, err := strconv.ParseInt(t.Text, 10, 64)
+		intVal, err := strconv.Atoi(t.Text)
 		if err != nil {
 			return nil, err
 		}

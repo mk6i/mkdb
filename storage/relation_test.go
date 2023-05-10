@@ -82,11 +82,11 @@ func TestTupleEncodeDecode(t *testing.T) {
 
 	tup1 := &Tuple{
 		Vals: map[string]interface{}{
-			"id":         int32(1234),
+			"id":         1234,
 			"first_name": "John",
 			"last_name":  "Doe",
 			"bool_val":   true,
-			"salary":     int64(10000),
+			"salary":     10000,
 		},
 		Relation: rel,
 	}

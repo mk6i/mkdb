@@ -48,15 +48,16 @@ func (f *FieldDef) Validate(val interface{}) error {
 	kind := reflect.TypeOf(val).Kind()
 	switch f.DataType {
 	case TypeInt:
-		if kind == reflect.Int64 {
-			if val.(int64) > math.MaxInt32 || val.(int64) < math.MinInt32 {
+		if kind == reflect.Int {
+			if val.(int) > math.MaxInt32 || val.(int) < math.MinInt32 {
+				// todo add test case
 				return ErrTypeMismatch
 			}
-		} else if kind != reflect.Int32 {
+		} else {
 			return ErrTypeMismatch
 		}
 	case TypeBigInt:
-		if kind != reflect.Int64 {
+		if kind != reflect.Int {
 			return ErrTypeMismatch
 		}
 	case TypeVarchar:
@@ -203,7 +204,17 @@ func (r *Tuple) Encode() (*bytes.Buffer, error) {
 		}
 
 		switch fd.DataType {
-		case TypeInt, TypeBigInt, TypeBoolean:
+		case TypeInt:
+			v32 := int32(val.(int))
+			if err := binary.Write(buf, binary.LittleEndian, v32); err != nil {
+				return buf, err
+			}
+		case TypeBigInt:
+			v64 := int64(val.(int))
+			if err := binary.Write(buf, binary.LittleEndian, v64); err != nil {
+				return buf, err
+			}
+		case TypeBoolean:
 			if err := binary.Write(buf, binary.LittleEndian, val); err != nil {
 				return buf, err
 			}
@@ -238,13 +249,13 @@ func (r *Tuple) Decode(buf *bytes.Buffer) error {
 			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
 				return err
 			}
-			v = val
+			v = int(val)
 		case TypeBigInt:
 			var val int64
 			if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
 				return err
 			}
-			v = val
+			v = int(val)
 		case TypeVarchar:
 			var strLen uint32
 			if err := binary.Read(buf, binary.LittleEndian, &strLen); err != nil {

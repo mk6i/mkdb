@@ -1092,10 +1092,10 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	return fmt.Errorf("%w %s, expected %s", ErrUnexpectedToken, unex, strings.Join(typeNames, ", "))
 }
 
-func (p *Parser) requireInt() (int64, error) {
+func (p *Parser) requireInt() (int, error) {
 	if err := p.requireMatch(INT); err != nil {
 		return 0, err
 	}
 	val, err := p.Prev().Val()
-	return val.(int64), err
+	return val.(int), err
 }

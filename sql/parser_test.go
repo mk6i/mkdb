@@ -198,7 +198,7 @@ func TestParseSelect(t *testing.T) {
 								ColumnName: "ident2",
 							},
 							CompOp: NEQ,
-							RHS:    int64(1234),
+							RHS:    int(1234),
 						},
 					},
 				},
@@ -1538,9 +1538,9 @@ func TestParseInsert(t *testing.T) {
 			},
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int64(1), "2", "3"}},
-					{RowValueConstructorList: []interface{}{int64(4), "5", "6"}},
-					{RowValueConstructorList: []interface{}{int64(7), "8", "9"}},
+					{RowValueConstructorList: []interface{}{int(1), "2", "3"}},
+					{RowValueConstructorList: []interface{}{int(4), "5", "6"}},
+					{RowValueConstructorList: []interface{}{int(7), "8", "9"}},
 				},
 			},
 		},
@@ -1616,7 +1616,7 @@ func TestParseInsertSansColumnList(t *testing.T) {
 		InsertColumnsAndSource: InsertColumnsAndSource{
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int64(1), "value2", "value3", true}},
+					{RowValueConstructorList: []interface{}{int(1), "value2", "value3", true}},
 				},
 			},
 		},
@@ -1730,7 +1730,7 @@ func TestParseUpdate(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int64(4),
+					RHS:    int(4),
 				},
 			},
 		},
@@ -1824,7 +1824,7 @@ func TestParseDelete(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int64(4),
+					RHS:    int(4),
 				},
 			},
 		},
@@ -1935,7 +1935,7 @@ func TestParseSelectScalar(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			DerivedColumn{
-				ValueExpressionPrimary: int64(123),
+				ValueExpressionPrimary: int(123),
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: "Test",
@@ -2044,9 +2044,9 @@ func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
 			DerivedColumn{
 				ValueExpressionPrimary: Predicate{
 					ComparisonPredicate{
-						LHS:    int64(1),
+						LHS:    int(1),
 						CompOp: EQ,
-						RHS:    int64(2),
+						RHS:    int(2),
 					},
 				},
 			},
