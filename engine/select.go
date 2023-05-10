@@ -61,11 +61,11 @@ func EvaluateSelect(q sql.Select, rm RelationManager) ([]*storage.Row, []*storag
 	}
 
 	if q.LimitOffsetClause.OffsetActive {
-		rows = offset(int(q.LimitOffsetClause.Offset), rows)
+		rows = offset(q.LimitOffsetClause.Offset, rows)
 	}
 
 	if q.LimitOffsetClause.LimitActive {
-		rows = limit(int(q.LimitOffsetClause.Limit), rows)
+		rows = limit(q.LimitOffsetClause.Limit, rows)
 	}
 
 	return rows, fields, nil

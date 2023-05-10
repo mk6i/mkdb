@@ -107,27 +107,27 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"c", int(1), int(8)}},
-					{Vals: []interface{}{"c", int(5), int(4)}},
-					{Vals: []interface{}{"c", int(5), int(5)}},
-					{Vals: []interface{}{"b", int(5), int(5)}},
-					{Vals: []interface{}{"b", int(6), int(6)}},
-					{Vals: []interface{}{"b", int(7), int(7)}},
-					{Vals: []interface{}{"a", int(2), int(2)}},
-					{Vals: []interface{}{"a", int(3), int(3)}},
-					{Vals: []interface{}{"a", int(5), int(5)}},
+					{Vals: []interface{}{"c", 1, 8}},
+					{Vals: []interface{}{"c", 5, 4}},
+					{Vals: []interface{}{"c", 5, 5}},
+					{Vals: []interface{}{"b", 5, 5}},
+					{Vals: []interface{}{"b", 6, 6}},
+					{Vals: []interface{}{"b", 7, 7}},
+					{Vals: []interface{}{"a", 2, 2}},
+					{Vals: []interface{}{"a", 3, 3}},
+					{Vals: []interface{}{"a", 5, 5}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{"c", int(1), int(8)}},
-				{Vals: []interface{}{"c", int(5), int(5)}},
-				{Vals: []interface{}{"c", int(5), int(4)}},
-				{Vals: []interface{}{"b", int(5), int(5)}},
-				{Vals: []interface{}{"b", int(6), int(6)}},
-				{Vals: []interface{}{"b", int(7), int(7)}},
-				{Vals: []interface{}{"a", int(2), int(2)}},
-				{Vals: []interface{}{"a", int(3), int(3)}},
-				{Vals: []interface{}{"a", int(5), int(5)}},
+				{Vals: []interface{}{"c", 1, 8}},
+				{Vals: []interface{}{"c", 5, 5}},
+				{Vals: []interface{}{"c", 5, 4}},
+				{Vals: []interface{}{"b", 5, 5}},
+				{Vals: []interface{}{"b", 6, 6}},
+				{Vals: []interface{}{"b", 7, 7}},
+				{Vals: []interface{}{"a", 2, 2}},
+				{Vals: []interface{}{"a", 3, 3}},
+				{Vals: []interface{}{"a", 5, 5}},
 			},
 		},
 		{
@@ -183,21 +183,21 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"a", int(1), int(4)}},
-					{Vals: []interface{}{"a", int(1), int(5)}},
-					{Vals: []interface{}{"a", int(1), int(6)}},
-					{Vals: []interface{}{"b", int(1), int(1)}},
-					{Vals: []interface{}{"b", int(1), int(2)}},
-					{Vals: []interface{}{"b", int(1), int(3)}},
+					{Vals: []interface{}{"a", 1, 4}},
+					{Vals: []interface{}{"a", 1, 5}},
+					{Vals: []interface{}{"a", 1, 6}},
+					{Vals: []interface{}{"b", 1, 1}},
+					{Vals: []interface{}{"b", 1, 2}},
+					{Vals: []interface{}{"b", 1, 3}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{"b", int(1), int(3)}},
-				{Vals: []interface{}{"b", int(1), int(2)}},
-				{Vals: []interface{}{"b", int(1), int(1)}},
-				{Vals: []interface{}{"a", int(1), int(6)}},
-				{Vals: []interface{}{"a", int(1), int(5)}},
-				{Vals: []interface{}{"a", int(1), int(4)}},
+				{Vals: []interface{}{"b", 1, 3}},
+				{Vals: []interface{}{"b", 1, 2}},
+				{Vals: []interface{}{"b", 1, 1}},
+				{Vals: []interface{}{"a", 1, 6}},
+				{Vals: []interface{}{"a", 1, 5}},
+				{Vals: []interface{}{"a", 1, 4}},
 			},
 		},
 		{
@@ -585,29 +585,29 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"id_+1", int(1), int(2)}},
-					{Vals: []interface{}{"id_+2", int(3), int(4)}},
-					{Vals: []interface{}{"id_+5", int(5), int(6)}},
-					{Vals: []interface{}{"id_+6", int(7), int(8)}},
-					{Vals: []interface{}{"id_+7", int(9), int(10)}},
-					{Vals: []interface{}{"id_+9", int(11), int(12)}},
-					{Vals: []interface{}{"id_+10", int(13), int(14)}},
+					{Vals: []interface{}{"id_+1", 1, 2}},
+					{Vals: []interface{}{"id_+2", 3, 4}},
+					{Vals: []interface{}{"id_+5", 5, 6}},
+					{Vals: []interface{}{"id_+6", 7, 8}},
+					{Vals: []interface{}{"id_+7", 9, 10}},
+					{Vals: []interface{}{"id_+9", 11, 12}},
+					{Vals: []interface{}{"id_+10", 13, 14}},
 				},
 				"tbl2": {
-					{Vals: []interface{}{"id_+1", int(15), int(16)}},
-					{Vals: []interface{}{"id_-2", int(17), int(18)}},
-					{Vals: []interface{}{"id_+5", int(19), int(20)}},
-					{Vals: []interface{}{"id_-6", int(21), int(22)}},
-					{Vals: []interface{}{"id_+7", int(23), int(24)}},
-					{Vals: []interface{}{"id_-9", int(25), int(26)}},
-					{Vals: []interface{}{"id_+10", int(27), int(28)}},
+					{Vals: []interface{}{"id_+1", 15, 16}},
+					{Vals: []interface{}{"id_-2", 17, 18}},
+					{Vals: []interface{}{"id_+5", 19, 20}},
+					{Vals: []interface{}{"id_-6", 21, 22}},
+					{Vals: []interface{}{"id_+7", 23, 24}},
+					{Vals: []interface{}{"id_-9", 25, 26}},
+					{Vals: []interface{}{"id_+10", 27, 28}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(1), int(15)}},
-				{Vals: []interface{}{int(5), int(19)}},
-				{Vals: []interface{}{int(9), int(23)}},
-				{Vals: []interface{}{int(13), int(27)}},
+				{Vals: []interface{}{1, 15}},
+				{Vals: []interface{}{5, 19}},
+				{Vals: []interface{}{9, 23}},
+				{Vals: []interface{}{13, 27}},
 			},
 		},
 		{
@@ -668,26 +668,26 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"id_1", int(1), int(2)}},
-					{Vals: []interface{}{"id_2", int(3), int(4)}},
-					{Vals: []interface{}{"id_3", int(5), int(6)}},
-					{Vals: []interface{}{"id_4", int(7), int(8)}},
-					{Vals: []interface{}{"id_5", int(9), int(10)}},
-					{Vals: []interface{}{"id_6", int(11), int(12)}},
+					{Vals: []interface{}{"id_1", 1, 2}},
+					{Vals: []interface{}{"id_2", 3, 4}},
+					{Vals: []interface{}{"id_3", 5, 6}},
+					{Vals: []interface{}{"id_4", 7, 8}},
+					{Vals: []interface{}{"id_5", 9, 10}},
+					{Vals: []interface{}{"id_6", 11, 12}},
 				},
 				"tbl2": {
-					{Vals: []interface{}{"id_1", int(13), int(14)}},
-					{Vals: []interface{}{"id_3", int(15), int(16)}},
-					{Vals: []interface{}{"id_5", int(17), int(18)}},
+					{Vals: []interface{}{"id_1", 13, 14}},
+					{Vals: []interface{}{"id_3", 15, 16}},
+					{Vals: []interface{}{"id_5", 17, 18}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(1), int(13)}},
-				{Vals: []interface{}{int(3), nil}},
-				{Vals: []interface{}{int(5), int(15)}},
-				{Vals: []interface{}{int(7), nil}},
-				{Vals: []interface{}{int(9), int(17)}},
-				{Vals: []interface{}{int(11), nil}},
+				{Vals: []interface{}{1, 13}},
+				{Vals: []interface{}{3, nil}},
+				{Vals: []interface{}{5, 15}},
+				{Vals: []interface{}{7, nil}},
+				{Vals: []interface{}{9, 17}},
+				{Vals: []interface{}{11, nil}},
 			},
 		},
 		{
@@ -748,26 +748,26 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"id_2", int(1), int(2)}},
-					{Vals: []interface{}{"id_4", int(3), int(4)}},
-					{Vals: []interface{}{"id_6", int(5), int(6)}},
+					{Vals: []interface{}{"id_2", 1, 2}},
+					{Vals: []interface{}{"id_4", 3, 4}},
+					{Vals: []interface{}{"id_6", 5, 6}},
 				},
 				"tbl2": {
-					{Vals: []interface{}{"id_1", int(7), int(8)}},
-					{Vals: []interface{}{"id_2", int(9), int(10)}},
-					{Vals: []interface{}{"id_3", int(11), int(12)}},
-					{Vals: []interface{}{"id_4", int(13), int(14)}},
-					{Vals: []interface{}{"id_5", int(15), int(16)}},
-					{Vals: []interface{}{"id_6", int(17), int(18)}},
+					{Vals: []interface{}{"id_1", 7, 8}},
+					{Vals: []interface{}{"id_2", 9, 10}},
+					{Vals: []interface{}{"id_3", 11, 12}},
+					{Vals: []interface{}{"id_4", 13, 14}},
+					{Vals: []interface{}{"id_5", 15, 16}},
+					{Vals: []interface{}{"id_6", 17, 18}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{nil, int(7)}},
-				{Vals: []interface{}{int(1), int(9)}},
-				{Vals: []interface{}{nil, int(11)}},
-				{Vals: []interface{}{int(3), int(13)}},
-				{Vals: []interface{}{nil, int(15)}},
-				{Vals: []interface{}{int(5), int(17)}},
+				{Vals: []interface{}{nil, 7}},
+				{Vals: []interface{}{1, 9}},
+				{Vals: []interface{}{nil, 11}},
+				{Vals: []interface{}{3, 13}},
+				{Vals: []interface{}{nil, 15}},
+				{Vals: []interface{}{5, 17}},
 			},
 		},
 		{
@@ -826,18 +826,18 @@ func TestSelect(t *testing.T) {
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Predicate{
 							ComparisonPredicate: sql.ComparisonPredicate{
-								LHS:    int(1),
+								LHS:    1,
 								CompOp: sql.EQ,
-								RHS:    int(1),
+								RHS:    1,
 							},
 						},
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Predicate{
 							ComparisonPredicate: sql.ComparisonPredicate{
-								LHS:    int(1),
+								LHS:    1,
 								CompOp: sql.EQ,
-								RHS:    int(2),
+								RHS:    2,
 							},
 						},
 					},
@@ -868,16 +868,16 @@ func TestSelect(t *testing.T) {
 						ValueExpressionPrimary: sql.BooleanTerm{
 							LHS: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
-									LHS:    int(1),
+									LHS:    1,
 									CompOp: sql.EQ,
-									RHS:    int(1),
+									RHS:    1,
 								},
 							},
 							RHS: sql.Predicate{
 								ComparisonPredicate: sql.ComparisonPredicate{
-									LHS:    int(2),
+									LHS:    2,
 									CompOp: sql.EQ,
-									RHS:    int(2),
+									RHS:    2,
 								},
 							},
 						},
@@ -999,10 +999,10 @@ func TestSelect(t *testing.T) {
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{"1", "A", int(2)}},
-				{Vals: []interface{}{"1", "B", int(1)}},
-				{Vals: []interface{}{"2", "B", int(2)}},
-				{Vals: []interface{}{"2", "C", int(1)}},
+				{Vals: []interface{}{"1", "A", 2}},
+				{Vals: []interface{}{"1", "B", 1}},
+				{Vals: []interface{}{"2", "B", 2}},
+				{Vals: []interface{}{"2", "C", 1}},
 			},
 		},
 		{
@@ -1023,17 +1023,17 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{int(1)}},
-					{Vals: []interface{}{int(2)}},
-					{Vals: []interface{}{int(3)}},
-					{Vals: []interface{}{int(4)}},
+					{Vals: []interface{}{1}},
+					{Vals: []interface{}{2}},
+					{Vals: []interface{}{3}},
+					{Vals: []interface{}{4}},
 				},
 			},
 			expectFields: []*storage.Field{
 				{Column: "count(*)"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(4)}},
+				{Vals: []interface{}{4}},
 			},
 		},
 		{
@@ -1041,7 +1041,7 @@ func TestSelect(t *testing.T) {
 			query: sql.Select{
 				SelectList: sql.SelectList{
 					sql.DerivedColumn{
-						ValueExpressionPrimary: int(1),
+						ValueExpressionPrimary: 1,
 					},
 					sql.DerivedColumn{
 						ValueExpressionPrimary: sql.Count{},
@@ -1063,7 +1063,7 @@ func TestSelect(t *testing.T) {
 				{Column: "count(*)"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(1), int(0)}},
+				{Vals: []interface{}{1, 0}},
 			},
 		},
 		{
@@ -1125,34 +1125,34 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"1", int(1990)}},
-					{Vals: []interface{}{"2", int(1991)}},
-					{Vals: []interface{}{"3", int(1991)}},
-					{Vals: []interface{}{"4", int(1992)}},
-					{Vals: []interface{}{"5", int(1992)}},
-					{Vals: []interface{}{"6", int(1992)}},
-					{Vals: []interface{}{"7", int(1993)}},
-					{Vals: []interface{}{"8", int(1993)}},
-					{Vals: []interface{}{"9", int(1994)}},
+					{Vals: []interface{}{"1", 1990}},
+					{Vals: []interface{}{"2", 1991}},
+					{Vals: []interface{}{"3", 1991}},
+					{Vals: []interface{}{"4", 1992}},
+					{Vals: []interface{}{"5", 1992}},
+					{Vals: []interface{}{"6", 1992}},
+					{Vals: []interface{}{"7", 1993}},
+					{Vals: []interface{}{"8", 1993}},
+					{Vals: []interface{}{"9", 1994}},
 				},
 				"tbl2": {
-					{Vals: []interface{}{"1", int(2000)}},
-					{Vals: []interface{}{"2", int(2001)}},
-					{Vals: []interface{}{"3", int(2001)}},
-					{Vals: []interface{}{"4", int(2002)}},
-					{Vals: []interface{}{"5", int(2002)}},
-					{Vals: []interface{}{"6", int(2002)}},
-					{Vals: []interface{}{"7", int(2003)}},
-					{Vals: []interface{}{"8", int(2003)}},
-					{Vals: []interface{}{"9", int(2004)}},
+					{Vals: []interface{}{"1", 2000}},
+					{Vals: []interface{}{"2", 2001}},
+					{Vals: []interface{}{"3", 2001}},
+					{Vals: []interface{}{"4", 2002}},
+					{Vals: []interface{}{"5", 2002}},
+					{Vals: []interface{}{"6", 2002}},
+					{Vals: []interface{}{"7", 2003}},
+					{Vals: []interface{}{"8", 2003}},
+					{Vals: []interface{}{"9", 2004}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(2000), int(1)}},
-				{Vals: []interface{}{int(2001), int(2)}},
-				{Vals: []interface{}{int(2002), int(3)}},
-				{Vals: []interface{}{int(2003), int(2)}},
-				{Vals: []interface{}{int(2004), int(1)}},
+				{Vals: []interface{}{2000, 1}},
+				{Vals: []interface{}{2001, 2}},
+				{Vals: []interface{}{2002, 3}},
+				{Vals: []interface{}{2003, 2}},
+				{Vals: []interface{}{2004, 1}},
 			},
 		},
 		{
@@ -1215,34 +1215,34 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"tbl1": {
-					{Vals: []interface{}{"1", int(1990)}},
-					{Vals: []interface{}{"2", int(1991)}},
-					{Vals: []interface{}{"3", int(1991)}},
-					{Vals: []interface{}{"4", int(1992)}},
-					{Vals: []interface{}{"5", int(1992)}},
-					{Vals: []interface{}{"6", int(1992)}},
-					{Vals: []interface{}{"7", int(1993)}},
-					{Vals: []interface{}{"8", int(1993)}},
-					{Vals: []interface{}{"9", int(1994)}},
+					{Vals: []interface{}{"1", 1990}},
+					{Vals: []interface{}{"2", 1991}},
+					{Vals: []interface{}{"3", 1991}},
+					{Vals: []interface{}{"4", 1992}},
+					{Vals: []interface{}{"5", 1992}},
+					{Vals: []interface{}{"6", 1992}},
+					{Vals: []interface{}{"7", 1993}},
+					{Vals: []interface{}{"8", 1993}},
+					{Vals: []interface{}{"9", 1994}},
 				},
 				"tbl2": {
-					{Vals: []interface{}{"1", int(2000)}},
-					{Vals: []interface{}{"2", int(2001)}},
-					{Vals: []interface{}{"3", int(2001)}},
-					{Vals: []interface{}{"4", int(2002)}},
-					{Vals: []interface{}{"5", int(2002)}},
-					{Vals: []interface{}{"6", int(2002)}},
-					{Vals: []interface{}{"7", int(2003)}},
-					{Vals: []interface{}{"8", int(2003)}},
-					{Vals: []interface{}{"9", int(2004)}},
+					{Vals: []interface{}{"1", 2000}},
+					{Vals: []interface{}{"2", 2001}},
+					{Vals: []interface{}{"3", 2001}},
+					{Vals: []interface{}{"4", 2002}},
+					{Vals: []interface{}{"5", 2002}},
+					{Vals: []interface{}{"6", 2002}},
+					{Vals: []interface{}{"7", 2003}},
+					{Vals: []interface{}{"8", 2003}},
+					{Vals: []interface{}{"9", 2004}},
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(2000), int(1)}},
-				{Vals: []interface{}{int(2001), int(2)}},
-				{Vals: []interface{}{int(2002), int(3)}},
-				{Vals: []interface{}{int(2003), int(2)}},
-				{Vals: []interface{}{int(2004), int(1)}},
+				{Vals: []interface{}{2000, 1}},
+				{Vals: []interface{}{2001, 2}},
+				{Vals: []interface{}{2002, 3}},
+				{Vals: []interface{}{2003, 2}},
+				{Vals: []interface{}{2004, 1}},
 			},
 		},
 		{
@@ -1277,10 +1277,10 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"grades": {
-					{Vals: []interface{}{int(1), int(100), int(23)}},
-					{Vals: []interface{}{int(2), int(74), int(89)}},
-					{Vals: []interface{}{int(3), int(34), int(54)}},
-					{Vals: []interface{}{int(4), int(90), int(32)}},
+					{Vals: []interface{}{1, 100, 23}},
+					{Vals: []interface{}{2, 74, 89}},
+					{Vals: []interface{}{3, 34, 54}},
+					{Vals: []interface{}{4, 90, 32}},
 				},
 			},
 			givenFields: map[string]storage.Fields{
@@ -1295,7 +1295,7 @@ func TestSelect(t *testing.T) {
 				{Column: "sci_avg"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(74), int(49)}},
+				{Vals: []interface{}{74, 49}},
 			},
 		},
 		{
@@ -1327,10 +1327,10 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"grades": {
-					{Vals: []interface{}{int(1), int(100), int(23)}},
-					{Vals: []interface{}{int(2), int(74), int(89)}},
-					{Vals: []interface{}{int(3), int(34), int(54)}},
-					{Vals: []interface{}{int(4), int(90), int(32)}},
+					{Vals: []interface{}{1, 100, 23}},
+					{Vals: []interface{}{2, 74, 89}},
+					{Vals: []interface{}{3, 34, 54}},
+					{Vals: []interface{}{4, 90, 32}},
 				},
 			},
 			givenFields: map[string]storage.Fields{
@@ -1345,7 +1345,7 @@ func TestSelect(t *testing.T) {
 				{Column: "avg(science)"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(74), int(49)}},
+				{Vals: []interface{}{74, 49}},
 			},
 		},
 		{
@@ -1387,7 +1387,7 @@ func TestSelect(t *testing.T) {
 				{Column: "avg(science)"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(0), int(0)}},
+				{Vals: []interface{}{0, 0}},
 			},
 		},
 		{
@@ -1427,14 +1427,14 @@ func TestSelect(t *testing.T) {
 			},
 			givenRows: map[string][]*storage.Row{
 				"grades": {
-					{Vals: []interface{}{int(4), int(100), int(25)}},
-					{Vals: []interface{}{int(1), int(91), int(75)}},
-					{Vals: []interface{}{int(2), int(34), int(87)}},
-					{Vals: []interface{}{int(3), int(85), int(12)}},
-					{Vals: []interface{}{int(1), int(99), int(25)}},
-					{Vals: []interface{}{int(3), int(34), int(63)}},
-					{Vals: []interface{}{int(4), int(23), int(72)}},
-					{Vals: []interface{}{int(2), int(10), int(39)}},
+					{Vals: []interface{}{4, 100, 25}},
+					{Vals: []interface{}{1, 91, 75}},
+					{Vals: []interface{}{2, 34, 87}},
+					{Vals: []interface{}{3, 85, 12}},
+					{Vals: []interface{}{1, 99, 25}},
+					{Vals: []interface{}{3, 34, 63}},
+					{Vals: []interface{}{4, 23, 72}},
+					{Vals: []interface{}{2, 10, 39}},
 				},
 			},
 			givenFields: map[string]storage.Fields{
@@ -1450,10 +1450,10 @@ func TestSelect(t *testing.T) {
 				{Column: "avg(science)"},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(4), int(62), int(49)}},
-				{Vals: []interface{}{int(1), int(95), int(50)}},
-				{Vals: []interface{}{int(2), int(22), int(63)}},
-				{Vals: []interface{}{int(3), int(60), int(38)}},
+				{Vals: []interface{}{4, 62, 49}},
+				{Vals: []interface{}{1, 95, 50}},
+				{Vals: []interface{}{2, 22, 63}},
+				{Vals: []interface{}{3, 60, 38}},
 			},
 		},
 		{
@@ -1507,8 +1507,8 @@ func TestSelect(t *testing.T) {
 				},
 			},
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{"1", int(3)}},
-				{Vals: []interface{}{"2", int(2)}},
+				{Vals: []interface{}{"1", 3}},
+				{Vals: []interface{}{"2", 2}},
 			},
 		},
 	}
@@ -1567,12 +1567,12 @@ func TestSelectComparisonOperators(t *testing.T) {
 
 	intRows := map[string][]*storage.Row{
 		"tbl1": {
-			{Vals: []interface{}{int(4)}},
-			{Vals: []interface{}{int(5)}},
-			{Vals: []interface{}{int(6)}},
-			{Vals: []interface{}{int(1)}},
-			{Vals: []interface{}{int(2)}},
-			{Vals: []interface{}{int(3)}},
+			{Vals: []interface{}{4}},
+			{Vals: []interface{}{5}},
+			{Vals: []interface{}{6}},
+			{Vals: []interface{}{1}},
+			{Vals: []interface{}{2}},
+			{Vals: []interface{}{3}},
 		},
 	}
 	strRows := map[string][]*storage.Row{
@@ -1605,46 +1605,46 @@ func TestSelectComparisonOperators(t *testing.T) {
 	}{
 		{
 			name:         "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 > 4",
-			query:        buildSQL(sql.GT, int(4)),
+			query:        buildSQL(sql.GT, 4),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(5)}},
-				{Vals: []interface{}{int(6)}},
+				{Vals: []interface{}{5}},
+				{Vals: []interface{}{6}},
 			},
 		},
 		{
 			name:         "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 >= 4",
-			query:        buildSQL(sql.GTE, int(4)),
+			query:        buildSQL(sql.GTE, 4),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(4)}},
-				{Vals: []interface{}{int(5)}},
-				{Vals: []interface{}{int(6)}},
+				{Vals: []interface{}{4}},
+				{Vals: []interface{}{5}},
+				{Vals: []interface{}{6}},
 			},
 		},
 		{
 			name:         "SELECT with > operator: SELECT * FROM tbl1 WHERE col1 < 4",
-			query:        buildSQL(sql.LT, int(4)),
+			query:        buildSQL(sql.LT, 4),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(1)}},
-				{Vals: []interface{}{int(2)}},
-				{Vals: []interface{}{int(3)}},
+				{Vals: []interface{}{1}},
+				{Vals: []interface{}{2}},
+				{Vals: []interface{}{3}},
 			},
 		},
 		{
 			name:         "SELECT with >= operator: SELECT * FROM tbl1 WHERE col1 <= 4",
-			query:        buildSQL(sql.LTE, int(4)),
+			query:        buildSQL(sql.LTE, 4),
 			givenRows:    intRows,
 			expectFields: expectFields,
 			expectRows: []*storage.Row{
-				{Vals: []interface{}{int(4)}},
-				{Vals: []interface{}{int(1)}},
-				{Vals: []interface{}{int(2)}},
-				{Vals: []interface{}{int(3)}},
+				{Vals: []interface{}{4}},
+				{Vals: []interface{}{1}},
+				{Vals: []interface{}{2}},
+				{Vals: []interface{}{3}},
 			},
 		},
 		{
@@ -1694,28 +1694,28 @@ func TestSelectComparisonOperators(t *testing.T) {
 
 		{
 			name:         "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 > 4",
-			query:        buildSQL(sql.GT, int(4)),
+			query:        buildSQL(sql.GT, 4),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
 			name:         "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 >= 4",
-			query:        buildSQL(sql.GTE, int(4)),
+			query:        buildSQL(sql.GTE, 4),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
 			name:         "SELECT with > operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 < 4",
-			query:        buildSQL(sql.LT, int(4)),
+			query:        buildSQL(sql.LT, 4),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
 		},
 		{
 			name:         "SELECT with >= operator and mismatched data types: SELECT * FROM tbl1 WHERE col1 <= 4",
-			query:        buildSQL(sql.LTE, int(4)),
+			query:        buildSQL(sql.LTE, 4),
 			givenRows:    strRows,
 			expectFields: nil,
 			expectErr:    ErrIncompatTypeCompare,
@@ -1782,7 +1782,7 @@ func TestSelectScalar(t *testing.T) {
 	query := sql.Select{
 		SelectList: sql.SelectList{
 			sql.DerivedColumn{
-				ValueExpressionPrimary: int(123),
+				ValueExpressionPrimary: 123,
 			},
 			sql.DerivedColumn{
 				ValueExpressionPrimary: sql.ColumnReference{
@@ -1803,10 +1803,10 @@ func TestSelectScalar(t *testing.T) {
 	}
 	givenRows := map[string][]*storage.Row{
 		"tbl1": {
-			{Vals: []interface{}{int(1)}},
-			{Vals: []interface{}{int(2)}},
-			{Vals: []interface{}{int(3)}},
-			{Vals: []interface{}{int(4)}},
+			{Vals: []interface{}{1}},
+			{Vals: []interface{}{2}},
+			{Vals: []interface{}{3}},
+			{Vals: []interface{}{4}},
 		},
 	}
 	expectFields := []*storage.Field{
@@ -1815,10 +1815,10 @@ func TestSelectScalar(t *testing.T) {
 		{Column: "?"},
 	}
 	expectRows := []*storage.Row{
-		{Vals: []interface{}{int(123), int(1), "Test"}},
-		{Vals: []interface{}{int(123), int(2), "Test"}},
-		{Vals: []interface{}{int(123), int(3), "Test"}},
-		{Vals: []interface{}{int(123), int(4), "Test"}},
+		{Vals: []interface{}{123, 1, "Test"}},
+		{Vals: []interface{}{123, 2, "Test"}},
+		{Vals: []interface{}{123, 3, "Test"}},
+		{Vals: []interface{}{123, 4, "Test"}},
 	}
 	actualRows, actualFields, _ := EvaluateSelect(query, &mockRelationManager{
 		fetch: func(tableName string) ([]*storage.Row, []*storage.Field, error) {

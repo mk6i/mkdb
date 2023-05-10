@@ -198,7 +198,7 @@ func TestParseSelect(t *testing.T) {
 								ColumnName: "ident2",
 							},
 							CompOp: NEQ,
-							RHS:    int(1234),
+							RHS:    1234,
 						},
 					},
 				},
@@ -1538,9 +1538,9 @@ func TestParseInsert(t *testing.T) {
 			},
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int(1), "2", "3"}},
-					{RowValueConstructorList: []interface{}{int(4), "5", "6"}},
-					{RowValueConstructorList: []interface{}{int(7), "8", "9"}},
+					{RowValueConstructorList: []interface{}{1, "2", "3"}},
+					{RowValueConstructorList: []interface{}{4, "5", "6"}},
+					{RowValueConstructorList: []interface{}{7, "8", "9"}},
 				},
 			},
 		},
@@ -1616,7 +1616,7 @@ func TestParseInsertSansColumnList(t *testing.T) {
 		InsertColumnsAndSource: InsertColumnsAndSource{
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int(1), "value2", "value3", true}},
+					{RowValueConstructorList: []interface{}{1, "value2", "value3", true}},
 				},
 			},
 		},
@@ -1730,7 +1730,7 @@ func TestParseUpdate(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int(4),
+					RHS:    4,
 				},
 			},
 		},
@@ -1824,7 +1824,7 @@ func TestParseDelete(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int(4),
+					RHS:    4,
 				},
 			},
 		},
@@ -1935,7 +1935,7 @@ func TestParseSelectScalar(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			DerivedColumn{
-				ValueExpressionPrimary: int(123),
+				ValueExpressionPrimary: 123,
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: "Test",
@@ -2044,9 +2044,9 @@ func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
 			DerivedColumn{
 				ValueExpressionPrimary: Predicate{
 					ComparisonPredicate{
-						LHS:    int(1),
+						LHS:    1,
 						CompOp: EQ,
-						RHS:    int(2),
+						RHS:    2,
 					},
 				},
 			},
