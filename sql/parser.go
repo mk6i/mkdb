@@ -369,7 +369,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			if intVal, err := p.requireInt(); err != nil {
 				return ret, err
 			} else {
-				cst.Len = intVal
+				cst.Len = int32(intVal)
 			}
 			if err := p.requireMatch(RPAREN); err != nil {
 				return ret, err
@@ -536,14 +536,18 @@ func (p *Parser) LimitOffsetClause() (LimitOffsetClause, error) {
 		switch {
 		case p.Prev().Type == LIMIT && !lc.LimitActive:
 			lc.LimitActive = true
-			if lc.Limit, err = p.requireInt(); err != nil {
+			limit, err := p.requireInt()
+			if err != nil {
 				return lc, err
 			}
+			lc.Limit = int32(limit)
 		case p.Prev().Type == OFFSET && !lc.OffsetActive:
 			lc.OffsetActive = true
-			if lc.Offset, err = p.requireInt(); err != nil {
+			offset, err := p.requireInt()
+			if err != nil {
 				return lc, err
 			}
+			lc.Offset = int32(offset)
 		}
 	}
 
@@ -1088,10 +1092,10 @@ func (p *Parser) unexpectedTypeErr(types ...TokenType) error {
 	return fmt.Errorf("%w %s, expected %s", ErrUnexpectedToken, unex, strings.Join(typeNames, ", "))
 }
 
-func (p *Parser) requireInt() (int32, error) {
+func (p *Parser) requireInt() (int64, error) {
 	if err := p.requireMatch(INT); err != nil {
 		return 0, err
 	}
 	val, err := p.Prev().Val()
-	return val.(int32), err
+	return val.(int64), err
 }

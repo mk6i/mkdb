@@ -8,14 +8,13 @@ import (
 	"syscall"
 
 	"github.com/mkaminski/bkdb/engine"
-	"github.com/mkaminski/bkdb/storage"
 	"golang.org/x/term"
 )
 
 func init() {
-	if err := storage.InitStorage(); err != nil {
-		panic(fmt.Sprintf("storage init error: %s", err.Error()))
-	}
+	// if err := storage.InitStorage(); err != nil {
+	// 	panic(fmt.Sprintf("storage init error: %s", err.Error()))
+	// }
 }
 
 func main() {
