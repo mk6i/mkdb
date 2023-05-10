@@ -294,8 +294,8 @@ func TestParseSelectLimitOffset(t *testing.T) {
 		LimitOffsetClause: LimitOffsetClause{
 			LimitActive:  true,
 			OffsetActive: true,
-			Limit:        int32(10),
-			Offset:       int32(20),
+			Limit:        10,
+			Offset:       20,
 		},
 	}
 

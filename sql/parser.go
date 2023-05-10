@@ -54,8 +54,8 @@ type SortSpecification struct {
 type LimitOffsetClause struct {
 	LimitActive  bool
 	OffsetActive bool
-	Limit        int32
-	Offset       int32
+	Limit        int
+	Offset       int
 }
 
 type ColumnReference struct {
@@ -536,18 +536,16 @@ func (p *Parser) LimitOffsetClause() (LimitOffsetClause, error) {
 		switch {
 		case p.Prev().Type == LIMIT && !lc.LimitActive:
 			lc.LimitActive = true
-			limit, err := p.requireInt()
+			lc.Limit, err = p.requireInt()
 			if err != nil {
 				return lc, err
 			}
-			lc.Limit = int32(limit)
 		case p.Prev().Type == OFFSET && !lc.OffsetActive:
 			lc.OffsetActive = true
-			offset, err := p.requireInt()
+			lc.Offset, err = p.requireInt()
 			if err != nil {
 				return lc, err
 			}
-			lc.Offset = int32(offset)
 		}
 	}
 

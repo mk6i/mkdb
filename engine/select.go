@@ -486,7 +486,7 @@ func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (any, err
 		return evalAnd(v, qfields, row)
 	case sql.Predicate:
 		return evalComparisonPredicate(v.ComparisonPredicate, qfields, row)
-	case int, int64, string, bool:
+	case int, string, bool:
 		return q, nil
 	}
 	return false, fmt.Errorf("nothing to evaluate here")
