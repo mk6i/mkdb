@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 )
@@ -44,21 +45,26 @@ type FieldDef struct {
 }
 
 func (f *FieldDef) Validate(val interface{}) error {
+	kind := reflect.TypeOf(val).Kind()
 	switch f.DataType {
 	case TypeInt:
-		if reflect.TypeOf(val).Kind() != reflect.Int32 {
+		if kind == reflect.Int64 {
+			if val.(int64) > math.MaxInt32 || val.(int64) < math.MinInt32 {
+				return ErrTypeMismatch
+			}
+		} else if kind != reflect.Int32 {
 			return ErrTypeMismatch
 		}
 	case TypeBigInt:
-		if reflect.TypeOf(val).Kind() != reflect.Int64 {
+		if kind != reflect.Int64 {
 			return ErrTypeMismatch
 		}
 	case TypeVarchar:
-		if reflect.TypeOf(val).Kind() != reflect.String {
+		if kind != reflect.String {
 			return ErrTypeMismatch
 		}
 	case TypeBoolean:
-		if reflect.TypeOf(val).Kind() != reflect.Bool {
+		if kind != reflect.Bool {
 			return ErrTypeMismatch
 		}
 	default:
