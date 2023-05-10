@@ -1338,7 +1338,7 @@ func TestParseCreateTable(t *testing.T) {
 			{
 				ColumnDefinition{
 					DataType: CharacterStringType{
-						Len:  int32(255),
+						Len:  255,
 						Type: T_VARCHAR,
 					},
 					Name: "LastName",

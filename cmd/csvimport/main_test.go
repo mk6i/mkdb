@@ -90,9 +90,9 @@ func TestCSVImport(t *testing.T) {
 				return nil, nil, errors.New("expected fetch for `sys_schema`")
 			}
 			return []*storage.Row{
-					{Vals: []interface{}{"author", "name", int32(storage.TypeVarchar)}},
-					{Vals: []interface{}{"author", "age", int32(storage.TypeInt)}},
-					{Vals: []interface{}{"author", "active", int32(storage.TypeBoolean)}},
+					{Vals: []interface{}{"author", "name", int(storage.TypeVarchar)}},
+					{Vals: []interface{}{"author", "age", int(storage.TypeInt)}},
+					{Vals: []interface{}{"author", "active", int(storage.TypeBoolean)}},
 				},
 				[]*storage.Field{
 					{Column: "table_name"},
@@ -164,10 +164,10 @@ func TestCSVImport(t *testing.T) {
 	}
 
 	expected := [][]interface{}{
-		{"Person1", int32(10), true},
-		{"Person2", int32(20), false},
+		{"Person1", 10, true},
+		{"Person2", 20, false},
 		{"Person3", nil, true},
-		{"Person5", int32(15), false},
+		{"Person5", 15, false},
 	}
 
 	if !reflect.DeepEqual(expected, importedRows) {
