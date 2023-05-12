@@ -218,10 +218,10 @@ func projectColumns(selectList sql.SelectList, qfields storage.Fields, rows []*s
 			case sql.Average:
 				// set initial value used for subsequent aggregation step
 				idx := lookup[elem.ValueExpression.(sql.ColumnReference)]
-				newVals = append(newVals, row.Vals[idx].(int32))
+				newVals = append(newVals, row.Vals[idx].(int64))
 			case sql.Count:
 				// set initial value used for subsequent aggregation step
-				count := int32(0)
+				count := int64(0)
 				if colRef, hasColRef := elem.ValueExpression.(sql.ColumnReference); hasColRef {
 					idx := lookup[colRef]
 					if row.Vals[idx] != nil {
@@ -331,7 +331,7 @@ func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, row
 
 	// this auxiliary data structure stores the counts per aggregated value
 	// used in the cumulative average calculation
-	counts := map[string]int32{}
+	counts := map[string]int64{}
 
 	// calculate the aggregate values. de-dupe the rows by group key
 	rowIdx := 0
@@ -357,7 +357,7 @@ func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, row
 					// this is the first row, don't increment
 					break
 				}
-				rows[groupKeyIdx].Vals[colIdx] = rows[groupKeyIdx].Vals[colIdx].(int32) + row.Vals[colIdx].(int32)
+				rows[groupKeyIdx].Vals[colIdx] = rows[groupKeyIdx].Vals[colIdx].(int64) + row.Vals[colIdx].(int64)
 			case sql.Average:
 				avgCol, ok := selectCol.ValueExpression.(sql.ColumnReference)
 				if !ok {
@@ -374,9 +374,9 @@ func aggregateRows(selectList sql.SelectList, groupBy []sql.ColumnReference, row
 				counts[countKey]++
 
 				// calculate the cumulative average average
-				avg := rows[groupKeyIdx].Vals[colIdx].(int32) * (counts[countKey] - 1)
-				avg += row.Vals[colIdx].(int32)
-				avg = int32(math.Round(float64(avg) / float64(counts[countKey])))
+				avg := rows[groupKeyIdx].Vals[colIdx].(int64) * (counts[countKey] - 1)
+				avg += row.Vals[colIdx].(int64)
+				avg = int64(math.Round(float64(avg) / float64(counts[countKey])))
 
 				// update the de-duped row with the recalculated average
 				rows[groupKeyIdx].Vals[colIdx] = avg
@@ -400,7 +400,7 @@ func emptyAggregateRow(selectList sql.SelectList, rows []*storage.Row) ([]*stora
 	for _, elem := range selectList {
 		switch elem := elem.ValueExpressionPrimary.(type) {
 		case sql.Count, sql.Average:
-			row.Vals = append(row.Vals, int32(0))
+			row.Vals = append(row.Vals, int64(0))
 		default:
 			// handle any expressions in the select list
 			result, err := evaluate(elem, storage.Fields{}, row)
@@ -439,8 +439,8 @@ func sortColumns(ssl []sql.SortSpecification, qfields storage.Fields, rows []*st
 
 			sortAsc := false
 			switch lhs.(type) {
-			case int32:
-				sortAsc = lhs.(int32) < rhs.(int32)
+			case int64:
+				sortAsc = lhs.(int64) < rhs.(int64)
 			case string:
 				sortAsc = strings.Compare(lhs.(string), rhs.(string)) < 0
 			case bool:
@@ -486,7 +486,7 @@ func evaluate(q interface{}, qfields storage.Fields, row *storage.Row) (any, err
 		return evalAnd(v, qfields, row)
 	case sql.Predicate:
 		return evalComparisonPredicate(v.ComparisonPredicate, qfields, row)
-	case int32, string, bool:
+	case int64, string, bool:
 		return q, nil
 	}
 	return false, fmt.Errorf("nothing to evaluate here")
@@ -549,8 +549,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 		return lhs != rhs, nil
 	case sql.GT:
 		switch lhs := lhs.(type) {
-		case int32:
-			if _rhs, ok := rhs.(int32); ok {
+		case int64:
+			if _rhs, ok := rhs.(int64); ok {
 				return lhs > _rhs, nil
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
@@ -564,8 +564,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 		}
 	case sql.GTE:
 		switch lhs := lhs.(type) {
-		case int32:
-			if rhs, ok := rhs.(int32); ok {
+		case int64:
+			if rhs, ok := rhs.(int64); ok {
 				return lhs >= rhs, nil
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
@@ -581,8 +581,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 		}
 	case sql.LT:
 		switch lhs := lhs.(type) {
-		case int32:
-			if rhs, ok := rhs.(int32); ok {
+		case int64:
+			if rhs, ok := rhs.(int64); ok {
 				return lhs < rhs, nil
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)
@@ -596,8 +596,8 @@ func evalComparisonPredicate(q sql.ComparisonPredicate, qfields storage.Fields, 
 		}
 	case sql.LTE:
 		switch lhs := lhs.(type) {
-		case int32:
-			if rhs, ok := rhs.(int32); ok {
+		case int64:
+			if rhs, ok := rhs.(int64); ok {
 				return lhs <= rhs, nil
 			} else {
 				return false, newErrIncompatTypeCompare(q.LHS, q.RHS)

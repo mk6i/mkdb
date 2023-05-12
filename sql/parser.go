@@ -206,7 +206,7 @@ type BooleanType struct {
 }
 
 type CharacterStringType struct {
-	Len  int32
+	Len  int64
 	Type TokenType
 }
 
@@ -369,7 +369,7 @@ func (p *Parser) TableElements() ([]TableElement, error) {
 			if intVal, err := p.requireInt(); err != nil {
 				return ret, err
 			} else {
-				cst.Len = int32(intVal)
+				cst.Len = intVal
 			}
 			if err := p.requireMatch(RPAREN); err != nil {
 				return ret, err

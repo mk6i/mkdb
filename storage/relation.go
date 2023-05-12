@@ -42,7 +42,7 @@ var (
 type FieldDef struct {
 	DataType
 	Name string
-	Len  int32
+	Len  int64
 }
 
 func (f *FieldDef) Validate(val interface{}) error {
@@ -551,7 +551,7 @@ func (rs *RelationService) insertSchemaTable(r *Relation, tableName string) erro
 			Vals: map[string]interface{}{
 				"table_name":   tableName,
 				"field_name":   fd.Name,
-				"field_type":   int32(fd.DataType),
+				"field_type":   int64(fd.DataType),
 				"field_length": fd.Len,
 			},
 		}
@@ -680,8 +680,8 @@ func (rs *RelationService) getRelationSchema(relName string) (*Relation, error) 
 		if tuple.Vals["table_name"] == relName {
 			r.Fields = append(r.Fields, FieldDef{
 				Name:     tuple.Vals["field_name"].(string),
-				Len:      tuple.Vals["field_length"].(int32),
-				DataType: DataType(tuple.Vals["field_type"].(int32)),
+				Len:      tuple.Vals["field_length"].(int64),
+				DataType: DataType(tuple.Vals["field_type"].(int64)),
 			})
 		}
 		return KeepScanning, nil
