@@ -198,7 +198,7 @@ func TestParseSelect(t *testing.T) {
 								ColumnName: "ident2",
 							},
 							CompOp: NEQ,
-							RHS:    int32(1234),
+							RHS:    int64(1234),
 						},
 					},
 				},
@@ -294,8 +294,8 @@ func TestParseSelectLimitOffset(t *testing.T) {
 		LimitOffsetClause: LimitOffsetClause{
 			LimitActive:  true,
 			OffsetActive: true,
-			Limit:        int32(10),
-			Offset:       int32(20),
+			Limit:        10,
+			Offset:       20,
 		},
 	}
 
@@ -1280,6 +1280,16 @@ func TestParseCreateTable(t *testing.T) {
 		},
 		{
 			Type: IDENT,
+			Text: "Salary",
+		},
+		{
+			Type: T_BIGINT,
+		},
+		{
+			Type: COMMA,
+		},
+		{
+			Type: IDENT,
 			Text: "LastName",
 		},
 		{
@@ -1317,6 +1327,12 @@ func TestParseCreateTable(t *testing.T) {
 				ColumnDefinition{
 					DataType: NumericType{},
 					Name:     "PersonID",
+				},
+			},
+			{
+				ColumnDefinition{
+					DataType: BigIntType{},
+					Name:     "Salary",
 				},
 			},
 			{
@@ -1522,9 +1538,9 @@ func TestParseInsert(t *testing.T) {
 			},
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int32(1), "2", "3"}},
-					{RowValueConstructorList: []interface{}{int32(4), "5", "6"}},
-					{RowValueConstructorList: []interface{}{int32(7), "8", "9"}},
+					{RowValueConstructorList: []interface{}{int64(1), "2", "3"}},
+					{RowValueConstructorList: []interface{}{int64(4), "5", "6"}},
+					{RowValueConstructorList: []interface{}{int64(7), "8", "9"}},
 				},
 			},
 		},
@@ -1600,7 +1616,7 @@ func TestParseInsertSansColumnList(t *testing.T) {
 		InsertColumnsAndSource: InsertColumnsAndSource{
 			QueryExpression: TableValueConstructor{
 				TableValueConstructorList: []RowValueConstructor{
-					{RowValueConstructorList: []interface{}{int32(1), "value2", "value3", true}},
+					{RowValueConstructorList: []interface{}{int64(1), "value2", "value3", true}},
 				},
 			},
 		},
@@ -1714,7 +1730,7 @@ func TestParseUpdate(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int32(4),
+					RHS:    int64(4),
 				},
 			},
 		},
@@ -1808,7 +1824,7 @@ func TestParseDelete(t *testing.T) {
 						ColumnName: "id",
 					},
 					CompOp: EQ,
-					RHS:    int32(4),
+					RHS:    int64(4),
 				},
 			},
 		},
@@ -1919,7 +1935,7 @@ func TestParseSelectScalar(t *testing.T) {
 	expected := Select{
 		SelectList: SelectList{
 			DerivedColumn{
-				ValueExpressionPrimary: int32(123),
+				ValueExpressionPrimary: int64(123),
 			},
 			DerivedColumn{
 				ValueExpressionPrimary: "Test",
@@ -2028,9 +2044,9 @@ func TestParseSelectBooleanExpressionWithoutFrom(t *testing.T) {
 			DerivedColumn{
 				ValueExpressionPrimary: Predicate{
 					ComparisonPredicate{
-						LHS:    int32(1),
+						LHS:    int64(1),
 						CompOp: EQ,
-						RHS:    int32(2),
+						RHS:    int64(2),
 					},
 				},
 			},

@@ -28,6 +28,10 @@ func TestRelationEncodeDecode(t *testing.T) {
 				DataType: TypeBoolean,
 				Name:     "bool_val",
 			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
 		},
 	}
 
@@ -69,15 +73,20 @@ func TestTupleEncodeDecode(t *testing.T) {
 				DataType: TypeBoolean,
 				Name:     "bool_val",
 			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
 		},
 	}
 
 	tup1 := &Tuple{
 		Vals: map[string]interface{}{
-			"id":         int32(1234),
+			"id":         int64(1234),
 			"first_name": "John",
 			"last_name":  "Doe",
 			"bool_val":   true,
+			"salary":     int64(33000000000),
 		},
 		Relation: rel,
 	}
