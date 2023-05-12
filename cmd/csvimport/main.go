@@ -167,10 +167,10 @@ func colDataTypes(rm engine.RelationManager, table string, dstCols []string) ([]
 		return nil, err
 	}
 
-	m := make(map[string]int32, len(rows))
+	m := make(map[string]int64, len(rows))
 
 	for _, row := range rows {
-		m[row.Vals[0].(string)] = row.Vals[1].(int32)
+		m[row.Vals[0].(string)] = row.Vals[1].(int64)
 	}
 
 	tokens := make([]storage.DataType, len(dstCols))
@@ -283,7 +283,7 @@ func csvToSql(cfg importCfg, csvRow []string) ([]interface{}, error) {
 			if err != nil {
 				return sqlRow, err
 			}
-			sqlRow[i] = int32(val)
+			sqlRow[i] = int64(val)
 		case storage.TypeBoolean:
 			switch strings.ToLower(csvRow[csvIdx]) {
 			case "1", "true", "t":
