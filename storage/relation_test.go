@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"testing"
 )
@@ -27,6 +28,14 @@ func TestRelationEncodeDecode(t *testing.T) {
 			{
 				DataType: TypeBoolean,
 				Name:     "bool_val",
+			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
+			{
+				DataType: TypeInt,
+				Name:     "age",
 			},
 		},
 	}
@@ -69,15 +78,25 @@ func TestTupleEncodeDecode(t *testing.T) {
 				DataType: TypeBoolean,
 				Name:     "bool_val",
 			},
+			{
+				DataType: TypeBigInt,
+				Name:     "salary",
+			},
+			{
+				DataType: TypeInt,
+				Name:     "age",
+			},
 		},
 	}
 
 	tup1 := &Tuple{
 		Vals: map[string]interface{}{
-			"id":         int32(1234),
+			"id":         int64(1234),
 			"first_name": "John",
 			"last_name":  "Doe",
 			"bool_val":   true,
+			"salary":     int64(33000000000),
+			"age":        int64(35),
 		},
 		Relation: rel,
 	}
@@ -98,6 +117,47 @@ func TestTupleEncodeDecode(t *testing.T) {
 
 	if !reflect.DeepEqual(tup1, tup2) {
 		t.Error("encoded and decoded tuple structs are not the same")
+	}
+}
+
+func TestTupleEncodeDecodeErrIntRange(t *testing.T) {
+
+	tupOverflow := &Tuple{
+		Vals: map[string]interface{}{
+			"age": int64(math.MaxInt32 + 1),
+		},
+		Relation: &Relation{
+			Fields: []FieldDef{
+				{
+					DataType: TypeInt,
+					Name:     "age",
+				},
+			},
+		},
+	}
+
+	_, err := tupOverflow.Encode()
+	if !errors.Is(err, ErrIntOutOfRange) {
+		t.Errorf("expected error `%v`, got `%v`", ErrIntOutOfRange, err)
+	}
+
+	tupUnderflow := &Tuple{
+		Vals: map[string]interface{}{
+			"age": int64(math.MinInt32 - 1),
+		},
+		Relation: &Relation{
+			Fields: []FieldDef{
+				{
+					DataType: TypeInt,
+					Name:     "age",
+				},
+			},
+		},
+	}
+
+	_, err = tupUnderflow.Encode()
+	if !errors.Is(err, ErrIntOutOfRange) {
+		t.Errorf("expected error `%v`, got `%v`", ErrIntOutOfRange, err)
 	}
 }
 

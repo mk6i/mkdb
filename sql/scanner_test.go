@@ -602,7 +602,8 @@ func TestScanCreateTable(t *testing.T) {
 		CREATE TABLE Persons (
 			PersonID int,
 			LastName varchar(255),
-			BoolValue boolean
+			BoolValue boolean,
+			Salary bigint
 		);
 	`
 
@@ -668,6 +669,18 @@ func TestScanCreateTable(t *testing.T) {
 		{
 			Type: T_BOOL,
 			Text: "boolean",
+		},
+		{
+			Type: COMMA,
+			Text: ",",
+		},
+		{
+			Type: IDENT,
+			Text: "Salary",
+		},
+		{
+			Type: T_BIGINT,
+			Text: "bigint",
 		},
 		{
 			Type: RPAREN,

@@ -75,6 +75,7 @@ const (
 	SUM
 	T_BOOL
 	T_INT
+	T_BIGINT
 	T_VARCHAR
 	TABLE
 	THEN
@@ -165,6 +166,7 @@ var Tokens = map[TokenType]string{
 	SUM:       "SUM",
 	T_BOOL:    "BOOLEAN",
 	T_INT:     "INT",
+	T_BIGINT:  "BIGINT",
 	T_VARCHAR: "VARCHAR",
 	TABLE:     "TABLE",
 	THEN:      "THEN",
@@ -211,7 +213,7 @@ func (t Token) Val() (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return int32(intVal), nil
+		return int64(intVal), nil
 	case TRUE:
 		return true, nil
 	case FALSE:
