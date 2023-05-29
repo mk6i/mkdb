@@ -36,7 +36,7 @@ var (
 	ErrTableAlreadyExist = errors.New("table already exists")
 	ErrTableNotExist     = errors.New("table does not exist")
 	ErrTypeMismatch      = errors.New("types do not match")
-	ErrIntOverflow       = errors.New("integer value out of range")
+	ErrIntOutOfRange     = errors.New("integer value out of range")
 )
 
 type FieldDef struct {
@@ -52,8 +52,7 @@ func (f *FieldDef) Validate(val interface{}) error {
 			return ErrTypeMismatch
 		}
 		if val.(int64) > math.MaxInt32 || val.(int64) < math.MinInt32 {
-			// todo add test case
-			return ErrIntOverflow
+			return ErrIntOutOfRange
 		}
 	case TypeBigInt:
 		if reflect.TypeOf(val).Kind() != reflect.Int64 {
