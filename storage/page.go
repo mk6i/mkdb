@@ -580,7 +580,7 @@ func (m *memoryStore) append(node *btreeNode) error {
 	return nil
 }
 
-func (m *memoryStore) update(p *btreeNode) error {
+func (m *memoryStore) update(*btreeNode) error {
 	return nil
 }
 
@@ -697,7 +697,9 @@ func (f *fileStore) update(node *btreeNode) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.file.WriteAt(buf.Bytes(), int64(node.getFileOffset()))
+	if _, err := f.file.WriteAt(buf.Bytes(), int64(node.getFileOffset())); err != nil {
+		return err
+	}
 
 	if err := f.setCache(node.getFileOffset(), node); err != nil {
 		return err
@@ -724,8 +726,8 @@ func (f *fileStore) fetch(offset uint64) (*btreeNode, error) {
 	}
 
 	buf := make([]byte, pageSize)
-	_, err := f.file.ReadAt(buf, int64(offset))
-	if err != nil && err != io.EOF {
+
+	if _, err := f.file.ReadAt(buf, int64(offset)); err != nil && err != io.EOF {
 		return nil, err
 	}
 
@@ -753,46 +755,38 @@ func (f *fileStore) fetch(offset uint64) (*btreeNode, error) {
 func (f *fileStore) save() error {
 	writer := bytes.NewBuffer(make([]byte, 0, 20))
 
-	err := binary.Write(writer, binary.LittleEndian, f.lastKey)
-	if err != nil {
+	if err := binary.Write(writer, binary.LittleEndian, f.lastKey); err != nil {
 		return err
 	}
-	err = binary.Write(writer, binary.LittleEndian, f.pageTableRoot)
-	if err != nil {
+	if err := binary.Write(writer, binary.LittleEndian, f.pageTableRoot); err != nil {
 		return err
 	}
-	err = binary.Write(writer, binary.LittleEndian, f.nextFreeOffset)
-	if err != nil {
+	if err := binary.Write(writer, binary.LittleEndian, f.nextFreeOffset); err != nil {
 		return err
 	}
-	err = binary.Write(writer, binary.LittleEndian, f._nextLSN)
-	if err != nil {
+	if err := binary.Write(writer, binary.LittleEndian, f._nextLSN); err != nil {
+		return err
+	}
+	if _, err := f.file.WriteAt(writer.Bytes(), 0); err != nil {
 		return err
 	}
 
-	_, err = f.file.WriteAt(writer.Bytes(), 0)
-
-	return err
+	return nil
 }
 
 func (f *fileStore) open() error {
-	err := binary.Read(f.file, binary.LittleEndian, &f.lastKey)
-	if err != nil {
+	if err := binary.Read(f.file, binary.LittleEndian, &f.lastKey); err != nil {
 		return err
 	}
-	err = binary.Read(f.file, binary.LittleEndian, &f.pageTableRoot)
-	if err != nil {
+	if err := binary.Read(f.file, binary.LittleEndian, &f.pageTableRoot); err != nil {
 		return err
 	}
-	err = binary.Read(f.file, binary.LittleEndian, &f.nextFreeOffset)
-	if err != nil {
+	if err := binary.Read(f.file, binary.LittleEndian, &f.nextFreeOffset); err != nil {
 		return err
 	}
-	err = binary.Read(f.file, binary.LittleEndian, &f._nextLSN)
-	if err != nil {
+	if err := binary.Read(f.file, binary.LittleEndian, &f._nextLSN); err != nil {
 		return err
 	}
-
 	return nil
 }
 
