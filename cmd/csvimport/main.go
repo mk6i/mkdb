@@ -44,9 +44,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mkaminski/bkdb/engine"
-	"github.com/mkaminski/bkdb/sql"
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/engine"
+	"github.com/mk6i/mkdb/sql"
+	"github.com/mk6i/mkdb/storage"
 )
 
 var errMalformedRow = errors.New("error parsing row")

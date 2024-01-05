@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"github.com/mkaminski/bkdb/sql"
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/sql"
+	"github.com/mk6i/mkdb/storage"
 )
 
 func EvaluateInsert(q sql.InsertStatement, rm RelationManager) (int, error) {

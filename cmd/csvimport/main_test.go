@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/storage"
 )
 
 type mockRelationManager struct {

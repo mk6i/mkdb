@@ -31,7 +31,7 @@ The goal of this project is largely inspired by [SerenityOS](https://serenityos.
 **1. Clone the repo**
 
 ```shell
-git clone https://github.com/mkaminski1988/mkdb.git && cd mkdb/
+git clone https://github.com/mk6i/mkdb.git && cd mkdb/
 ```
 
 **2. Start a console session**

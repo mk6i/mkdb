@@ -1,4 +1,4 @@
-module github.com/mkaminski/bkdb
+module github.com/mk6i/mkdb
 
 go 1.18
 

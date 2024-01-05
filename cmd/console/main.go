@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mkaminski/bkdb/engine"
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/engine"
+	"github.com/mk6i/mkdb/storage"
 	"golang.org/x/term"
 )
 

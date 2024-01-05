@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/storage"
 )
 
 func TestIntegration(t *testing.T) {

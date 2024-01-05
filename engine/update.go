@@ -3,8 +3,8 @@ package engine
 import (
 	"fmt"
 
-	"github.com/mkaminski/bkdb/sql"
-	"github.com/mkaminski/bkdb/storage"
+	"github.com/mk6i/mkdb/sql"
+	"github.com/mk6i/mkdb/storage"
 )
 
 func EvaluateUpdate(q sql.UpdateStatementSearched, rm RelationManager) error {
