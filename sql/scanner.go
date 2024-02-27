@@ -72,6 +72,7 @@ const (
 	SELECT
 	SEMICOLON
 	SET
+	SHOW
 	SUM
 	T_BOOL
 	T_INT
@@ -163,6 +164,7 @@ var Tokens = map[TokenType]string{
 	SELECT:    "SELECT",
 	SEMICOLON: ";",
 	SET:       "SET",
+	SHOW:      "SHOW",
 	SUM:       "SUM",
 	T_BOOL:    "BOOLEAN",
 	T_INT:     "INT",

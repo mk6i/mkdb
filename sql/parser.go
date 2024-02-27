@@ -220,6 +220,8 @@ type Parser struct {
 	TokenList
 }
 
+type ShowDatabase struct{}
+
 type CreateDatabase struct {
 	Name string
 }
@@ -292,9 +294,29 @@ func (p *Parser) Parse() (interface{}, error) {
 		return p.Use()
 	case DELETE:
 		return p.Delete()
+	case SHOW:
+		return p.Show()
 	default:
 		return nil, syntaxErr(cur)
 	}
+}
+
+func (p *Parser) Show() (interface{}, error) {
+	cur := p.Cur()
+	p.Advance()
+	switch cur.Type {
+	case DATABASE:
+		return p.ShowDatabase()
+	case IDENT:
+		if strings.ToLower(cur.Text) == "databases" {
+			return p.ShowDatabase()
+		}
+	}
+	return nil, syntaxErr(cur)
+}
+
+func (p *Parser) ShowDatabase() (ShowDatabase, error) {
+	return ShowDatabase{}, nil
 }
 
 func (p *Parser) Create() (interface{}, error) {
