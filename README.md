@@ -12,7 +12,7 @@ The goal of this project is largely inspired by [SerenityOS](https://serenityos.
   the [SQL-92 grammar](https://ronsavage.github.io/SQL/sql-92.bnf.html).
 - Typical SQL operations:
     - DQL & DML: `SELECT`, `DELETE`, `INSERT`, `UPDATE`
-    - DDL: `CREATE DATABASE`, `CREATE TABLE`
+    - DDL: `CREATE DATABASE`, `CREATE TABLE`, `SHOW DATABASE`
     - Joining: `LEFT JOIN`, `RIGHT JOIN`, `INNER JOIN`
     - Aggregation: `GROUP BY`, `COUNT(...)`, `AVG(...)`
     - Ordering & Limiting: `ORDER BY`, `LIMIT`

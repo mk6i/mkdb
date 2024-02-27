@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -322,6 +324,31 @@ func OpenRelation(dbName string, forceWALSync bool) (*RelationService, error) {
 		fs:  fs,
 		wal: wal,
 	}, nil
+}
+
+func ShowDB() ([]*Row, []*Field, error) {
+	fields := []*Field{
+		{"", "Name"},
+	}
+
+	_, err := os.Stat(dataPath)
+	if os.IsNotExist(err) {
+		return nil, fields, nil
+	}
+
+	dbs, err := listDBs()
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Strings(dbs)
+	rows := make([]*Row, len(dbs))
+	for i, db := range dbs {
+		rows[i] = &Row{
+			RowID: uint32(i),
+			Vals:  []interface{}{db},
+		}
+	}
+	return rows, fields, nil
 }
 
 func CreateDB(dbName string) error {

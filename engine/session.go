@@ -54,6 +54,13 @@ func (s *Session) ExecQuery(q string) error {
 		}
 		fmt.Printf("selected database %s\n\r", stmt.DBName)
 		return nil
+	case sql.ShowDatabase:
+		rows, fields, err := EvaluateShowDatabase(stmt)
+		if err != nil {
+			return err
+		}
+		printTable(rows, fields)
+		return nil
 	}
 
 	if s.CurDB == "" {
